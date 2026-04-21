@@ -1,0 +1,488 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1B2C3D4E5F6000000000101 /* NeoRemoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000001 /* NeoRemoteApp.swift */; };
+		A1B2C3D4E5F6000000000102 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000002 /* AppRootView.swift */; };
+		A1B2C3D4E5F6000000000103 /* ConnectedShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000003 /* ConnectedShellView.swift */; };
+		A1B2C3D4E5F6000000000104 /* Domain.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000004 /* Domain.swift */; };
+		A1B2C3D4E5F6000000000105 /* ProtocolCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000005 /* ProtocolCodec.swift */; };
+		A1B2C3D4E5F6000000000106 /* DeviceRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000006 /* DeviceRegistry.swift */; };
+		A1B2C3D4E5F6000000000107 /* DiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000007 /* DiscoveryService.swift */; };
+		A1B2C3D4E5F6000000000108 /* RemoteTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000008 /* RemoteTransport.swift */; };
+		A1B2C3D4E5F6000000000109 /* HapticsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000009 /* HapticsController.swift */; };
+		A1B2C3D4E5F6000000000110 /* TouchSurfaceInputAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000010 /* TouchSurfaceInputAdapter.swift */; };
+		A1B2C3D4E5F6000000000111 /* SessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000011 /* SessionCoordinator.swift */; };
+		A1B2C3D4E5F6000000000112 /* OnboardingShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000012 /* OnboardingShellView.swift */; };
+		A1B2C3D4E5F6000000000113 /* RemoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000013 /* RemoteView.swift */; };
+		A1B2C3D4E5F6000000000114 /* DevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000014 /* DevicesView.swift */; };
+		A1B2C3D4E5F6000000000115 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000015 /* SettingsView.swift */; };
+		A1B2C3D4E5F6000000000116 /* ProtocolCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000017 /* ProtocolCodecTests.swift */; };
+		A1B2C3D4E5F6000000000117 /* DeviceRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000018 /* DeviceRegistryTests.swift */; };
+		A1B2C3D4E5F6000000000118 /* TouchSurfaceInputAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000019 /* TouchSurfaceInputAdapterTests.swift */; };
+		A1B2C3D4E5F6000000000119 /* SessionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000020 /* SessionCoordinatorTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A1B2C3D4E5F6000000000401 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1B2C3D4E5F6000000000301 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1B2C3D4E5F6000000000305;
+			remoteInfo = NeoRemote;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A1B2C3D4E5F6000000000001 /* NeoRemoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NeoRemoteApp.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000002 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000003 /* ConnectedShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectedShellView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000004 /* Domain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Domain.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000005 /* ProtocolCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtocolCodec.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000006 /* DeviceRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRegistry.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000007 /* DiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000008 /* RemoteTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteTransport.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000009 /* HapticsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000010 /* TouchSurfaceInputAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchSurfaceInputAdapter.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000011 /* SessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCoordinator.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000012 /* OnboardingShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingShellView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000013 /* RemoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000014 /* DevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000015 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000017 /* ProtocolCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtocolCodecTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000018 /* DeviceRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceRegistryTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000019 /* TouchSurfaceInputAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchSurfaceInputAdapterTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000020 /* SessionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCoordinatorTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000021 /* NeoRemote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NeoRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B2C3D4E5F6000000000022 /* NeoRemoteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NeoRemoteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1B2C3D4E5F6000000000201 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B2C3D4E5F6000000000202 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A1B2C3D4E5F6000000000302 = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000303 /* NeoRemote */,
+				A1B2C3D4E5F6000000000310 /* NeoRemoteTests */,
+				A1B2C3D4E5F6000000000311 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000000000303 /* NeoRemote */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000304 /* App */,
+				A1B2C3D4E5F6000000000306 /* Core */,
+				A1B2C3D4E5F6000000000307 /* Features */,
+				A1B2C3D4E5F6000000000308 /* Resources */,
+			);
+			path = NeoRemote;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000000000304 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000001 /* NeoRemoteApp.swift */,
+				A1B2C3D4E5F6000000000002 /* AppRootView.swift */,
+				A1B2C3D4E5F6000000000003 /* ConnectedShellView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000000000306 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000004 /* Domain.swift */,
+				A1B2C3D4E5F6000000000005 /* ProtocolCodec.swift */,
+				A1B2C3D4E5F6000000000006 /* DeviceRegistry.swift */,
+				A1B2C3D4E5F6000000000007 /* DiscoveryService.swift */,
+				A1B2C3D4E5F6000000000008 /* RemoteTransport.swift */,
+				A1B2C3D4E5F6000000000009 /* HapticsController.swift */,
+				A1B2C3D4E5F6000000000010 /* TouchSurfaceInputAdapter.swift */,
+				A1B2C3D4E5F6000000000011 /* SessionCoordinator.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000000000307 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000312 /* Onboarding */,
+				A1B2C3D4E5F6000000000313 /* Remote */,
+				A1B2C3D4E5F6000000000314 /* Devices */,
+				A1B2C3D4E5F6000000000315 /* Settings */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000000000308 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000016 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000000000310 /* NeoRemoteTests */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000017 /* ProtocolCodecTests.swift */,
+				A1B2C3D4E5F6000000000018 /* DeviceRegistryTests.swift */,
+				A1B2C3D4E5F6000000000019 /* TouchSurfaceInputAdapterTests.swift */,
+				A1B2C3D4E5F6000000000020 /* SessionCoordinatorTests.swift */,
+			);
+			path = NeoRemoteTests;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000000000311 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000021 /* NeoRemote.app */,
+				A1B2C3D4E5F6000000000022 /* NeoRemoteTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000000000312 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000012 /* OnboardingShellView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000000000313 /* Remote */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000013 /* RemoteView.swift */,
+			);
+			path = Remote;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000000000314 /* Devices */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000014 /* DevicesView.swift */,
+			);
+			path = Devices;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6000000000315 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6000000000015 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A1B2C3D4E5F6000000000305 /* NeoRemote */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1B2C3D4E5F6000000000505 /* Build configuration list for PBXNativeTarget "NeoRemote" */;
+			buildPhases = (
+				A1B2C3D4E5F6000000000203 /* Sources */,
+				A1B2C3D4E5F6000000000201 /* Frameworks */,
+				A1B2C3D4E5F6000000000204 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NeoRemote;
+			productName = NeoRemote;
+			productReference = A1B2C3D4E5F6000000000021 /* NeoRemote.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A1B2C3D4E5F6000000000309 /* NeoRemoteTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1B2C3D4E5F6000000000508 /* Build configuration list for PBXNativeTarget "NeoRemoteTests" */;
+			buildPhases = (
+				A1B2C3D4E5F6000000000205 /* Sources */,
+				A1B2C3D4E5F6000000000202 /* Frameworks */,
+				A1B2C3D4E5F6000000000206 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A1B2C3D4E5F6000000000402 /* PBXTargetDependency */,
+			);
+			name = NeoRemoteTests;
+			productName = NeoRemoteTests;
+			productReference = A1B2C3D4E5F6000000000022 /* NeoRemoteTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1B2C3D4E5F6000000000301 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					A1B2C3D4E5F6000000000305 = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
+					A1B2C3D4E5F6000000000309 = {
+						CreatedOnToolsVersion = 26.4.1;
+						TestTargetID = A1B2C3D4E5F6000000000305;
+					};
+				};
+			};
+			buildConfigurationList = A1B2C3D4E5F6000000000501 /* Build configuration list for PBXProject "NeoRemote" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A1B2C3D4E5F6000000000302;
+			productRefGroup = A1B2C3D4E5F6000000000311 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A1B2C3D4E5F6000000000305 /* NeoRemote */,
+				A1B2C3D4E5F6000000000309 /* NeoRemoteTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A1B2C3D4E5F6000000000204 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B2C3D4E5F6000000000206 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1B2C3D4E5F6000000000203 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B2C3D4E5F6000000000101 /* NeoRemoteApp.swift in Sources */,
+				A1B2C3D4E5F6000000000102 /* AppRootView.swift in Sources */,
+				A1B2C3D4E5F6000000000103 /* ConnectedShellView.swift in Sources */,
+				A1B2C3D4E5F6000000000104 /* Domain.swift in Sources */,
+				A1B2C3D4E5F6000000000105 /* ProtocolCodec.swift in Sources */,
+				A1B2C3D4E5F6000000000106 /* DeviceRegistry.swift in Sources */,
+				A1B2C3D4E5F6000000000107 /* DiscoveryService.swift in Sources */,
+				A1B2C3D4E5F6000000000108 /* RemoteTransport.swift in Sources */,
+				A1B2C3D4E5F6000000000109 /* HapticsController.swift in Sources */,
+				A1B2C3D4E5F6000000000110 /* TouchSurfaceInputAdapter.swift in Sources */,
+				A1B2C3D4E5F6000000000111 /* SessionCoordinator.swift in Sources */,
+				A1B2C3D4E5F6000000000112 /* OnboardingShellView.swift in Sources */,
+				A1B2C3D4E5F6000000000113 /* RemoteView.swift in Sources */,
+				A1B2C3D4E5F6000000000114 /* DevicesView.swift in Sources */,
+				A1B2C3D4E5F6000000000115 /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1B2C3D4E5F6000000000205 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B2C3D4E5F6000000000116 /* ProtocolCodecTests.swift in Sources */,
+				A1B2C3D4E5F6000000000117 /* DeviceRegistryTests.swift in Sources */,
+				A1B2C3D4E5F6000000000118 /* TouchSurfaceInputAdapterTests.swift in Sources */,
+				A1B2C3D4E5F6000000000119 /* SessionCoordinatorTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A1B2C3D4E5F6000000000402 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1B2C3D4E5F6000000000305 /* NeoRemote */;
+			targetProxy = A1B2C3D4E5F6000000000401 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A1B2C3D4E5F6000000000502 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A1B2C3D4E5F6000000000503 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A1B2C3D4E5F6000000000506 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NeoRemote/Resources/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neoremote.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1B2C3D4E5F6000000000507 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NeoRemote/Resources/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neoremote.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1B2C3D4E5F6000000000509 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.neoremote.iosTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NeoRemote.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/NeoRemote";
+			};
+			name = Debug;
+		};
+		A1B2C3D4E5F6000000000510 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.neoremote.iosTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NeoRemote.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/NeoRemote";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1B2C3D4E5F6000000000501 /* Build configuration list for PBXProject "NeoRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D4E5F6000000000502 /* Debug */,
+				A1B2C3D4E5F6000000000503 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1B2C3D4E5F6000000000505 /* Build configuration list for PBXNativeTarget "NeoRemote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D4E5F6000000000506 /* Debug */,
+				A1B2C3D4E5F6000000000507 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1B2C3D4E5F6000000000508 /* Build configuration list for PBXNativeTarget "NeoRemoteTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D4E5F6000000000509 /* Debug */,
+				A1B2C3D4E5F6000000000510 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A1B2C3D4E5F6000000000301 /* Project object */;
+}

@@ -1,0 +1,14 @@
+.DS_Store
+.superpowers/
+
+# Xcode
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+
+# SwiftPM
+.build/
+
+# Misc
+*.log

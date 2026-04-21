@@ -1,0 +1,83 @@
+import SwiftUI
+
+struct DevicesView: View {
+    @ObservedObject var coordinator: SessionCoordinator
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let activeEndpoint = coordinator.activeEndpoint {
+                    Section("当前连接") {
+                        DeviceRow(endpoint: activeEndpoint, detail: "实时控制中")
+                    }
+                }
+
+                Section("最近连接") {
+                    if coordinator.recentDevices.isEmpty {
+                        Text("还没有已保存的桌面端。")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(coordinator.recentDevices) { endpoint in
+                            Button {
+                                coordinator.connect(to: endpoint)
+                            } label: {
+                                DeviceRow(endpoint: endpoint, detail: "点击重新连接")
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                Section("自动发现") {
+                    if coordinator.discoveredDevices.isEmpty {
+                        Text("当前未发现新的桌面端。")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(coordinator.discoveredDevices) { endpoint in
+                            Button {
+                                coordinator.connect(to: endpoint)
+                            } label: {
+                                DeviceRow(endpoint: endpoint, detail: "来自局域网扫描")
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Devices")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("刷新") {
+                        coordinator.refreshDiscovery()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct DeviceRow: View {
+    let endpoint: DesktopEndpoint
+    let detail: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: endpoint.platform == .windows ? "desktopcomputer" : "laptopcomputer")
+                .font(.title3)
+                .frame(width: 30)
+                .foregroundStyle(Color.accentColor)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(endpoint.displayName)
+                    .font(.body.weight(.semibold))
+                Text("\(endpoint.host):\(endpoint.port)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+}

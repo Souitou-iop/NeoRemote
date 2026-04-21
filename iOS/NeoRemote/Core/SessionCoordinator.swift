@@ -1,0 +1,275 @@
+import Foundation
+import Combine
+
+@MainActor
+final class SessionCoordinator: ObservableObject {
+    private let registry: DeviceRegistry
+    private let discoveryService: DiscoveryServing
+    private let transportFactory: () -> any RemoteTransporting
+    private let codec: ProtocolCodec
+    private let haptics: HapticsController
+
+    private var transport: (any RemoteTransporting)?
+    private var hudClearTask: Task<Void, Never>?
+    private var heartbeatTask: Task<Void, Never>?
+    private var hasStarted = false
+
+    @Published var status: SessionStatus = .disconnected
+    @Published var route: SessionRoute = .onboarding
+    @Published var discoveredDevices: [DesktopEndpoint] = []
+    @Published var recentDevices: [DesktopEndpoint] = []
+    @Published var activeEndpoint: DesktopEndpoint?
+    @Published var lastConnectedEndpoint: DesktopEndpoint?
+    @Published var lastHUDMessage: String?
+    @Published var errorMessage: String?
+    @Published var statusMessage: String = "等待连接桌面端"
+    @Published var manualConnectDraft = ManualConnectDraft()
+
+    init(
+        registry: DeviceRegistry = DeviceRegistry(),
+        discoveryService: DiscoveryServing = BonjourDiscoveryService(),
+        transportFactory: @escaping () -> any RemoteTransporting = { TCPRemoteTransport() },
+        codec: ProtocolCodec = ProtocolCodec(),
+        haptics: HapticsController = HapticsController()
+    ) {
+        self.registry = registry
+        self.discoveryService = discoveryService
+        self.transportFactory = transportFactory
+        self.codec = codec
+        self.haptics = haptics
+
+        self.recentDevices = registry.loadRecentDevices()
+        self.lastConnectedEndpoint = registry.loadLastConnectedDevice()
+    }
+
+    func start() {
+        guard !hasStarted else { return }
+        hasStarted = true
+
+        haptics.prepare()
+        bindDiscovery()
+        discoveryService.start()
+
+        if let lastConnectedEndpoint {
+            connect(to: lastConnectedEndpoint, isRecovery: true)
+        } else {
+            status = .discovering
+            statusMessage = "正在扫描局域网桌面端"
+            route = .onboarding
+        }
+    }
+
+    func refreshDiscovery() {
+        status = activeEndpoint == nil ? .discovering : status
+        statusMessage = "重新扫描桌面端"
+        discoveryService.refresh()
+    }
+
+    func connectUsingManualDraft() {
+        do {
+            let endpoint = try registry.validate(host: manualConnectDraft.host, portText: manualConnectDraft.port)
+            connect(to: endpoint, isRecovery: false)
+        } catch {
+            errorMessage = error.localizedDescription
+            status = .failed
+            route = .onboarding
+        }
+    }
+
+    func connect(to endpoint: DesktopEndpoint, isRecovery: Bool = false) {
+        errorMessage = nil
+        activeEndpoint = endpoint
+        status = isRecovery ? .reconnecting : .connecting
+        route = isRecovery ? route : .onboarding
+        statusMessage = isRecovery ? "正在恢复与 \(endpoint.displayName) 的连接" : "正在连接 \(endpoint.displayName)"
+
+        let transport = transportFactory()
+        self.transport = transport
+
+        bindTransport(transport)
+        transport.connect(to: endpoint)
+    }
+
+    func disconnect() {
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+        transport?.disconnect()
+        transport = nil
+        activeEndpoint = nil
+        status = .disconnected
+        route = .onboarding
+        statusMessage = "已断开连接"
+    }
+
+    func clearRecentDevices() {
+        registry.clearRecentDevices()
+        recentDevices = []
+        lastConnectedEndpoint = nil
+    }
+
+    func send(_ command: RemoteCommand) {
+        guard status == .connected else { return }
+        guard let transport else { return }
+
+        do {
+            let payload = try codec.encode(command)
+            transport.send(payload)
+            handleSemanticUpdate(for: command)
+        } catch {
+            errorMessage = "命令编码失败：\(error.localizedDescription)"
+        }
+    }
+
+    func handleTouchOutput(_ output: TouchSurfaceOutput) {
+        output.commands.forEach(send)
+
+        guard let event = output.semanticEvent else { return }
+        switch event {
+        case .tap:
+            haptics.playTap()
+            showHUD("已点击")
+        case .scrolling:
+            showHUD("双指滚动")
+        case .dragStarted:
+            haptics.playDragStart()
+            showHUD("开始拖拽")
+        case .dragChanged:
+            haptics.playDragTick()
+            showHUD("拖拽中")
+        case .dragEnded:
+            showHUD("结束拖拽")
+        }
+    }
+
+    private func bindDiscovery() {
+        discoveryService.onUpdate = { [weak self] devices in
+            guard let self else { return }
+            Task { @MainActor in
+                self.discoveredDevices = devices
+                if self.activeEndpoint == nil, devices.isEmpty {
+                    self.status = .discovering
+                    self.statusMessage = "暂未发现桌面端，可手动输入地址"
+                } else if self.activeEndpoint == nil {
+                    self.status = .disconnected
+                    self.statusMessage = "发现 \(devices.count) 台桌面端"
+                }
+            }
+        }
+    }
+
+    private func bindTransport(_ transport: any RemoteTransporting) {
+        transport.onStateChange = { [weak self] state in
+            guard let self else { return }
+            Task { @MainActor in
+                self.handleTransportStateChange(state)
+            }
+        }
+
+        transport.onMessage = { [weak self] message in
+            guard let self else { return }
+            Task { @MainActor in
+                self.handleProtocolMessage(message)
+            }
+        }
+    }
+
+    private func handleTransportStateChange(_ state: TransportConnectionState) {
+        switch state {
+        case .idle:
+            break
+        case .connecting:
+            status = activeEndpoint == nil ? .connecting : status
+        case .connected:
+            guard let activeEndpoint else { return }
+            status = .connected
+            route = .connected
+            statusMessage = "已连接 \(activeEndpoint.displayName)"
+            registry.upsertRecent(activeEndpoint)
+            registry.saveLastConnected(activeEndpoint)
+            recentDevices = registry.loadRecentDevices()
+            lastConnectedEndpoint = activeEndpoint
+            haptics.playConnectionStateChange(success: true)
+            showHUD("连接成功")
+            startHeartbeat()
+        case let .disconnected(errorDescription):
+            heartbeatTask?.cancel()
+            heartbeatTask = nil
+            if let errorDescription, !errorDescription.isEmpty {
+                errorMessage = errorDescription
+            }
+            status = .disconnected
+            route = .onboarding
+            statusMessage = "连接已断开"
+        case let .failed(errorDescription):
+            heartbeatTask?.cancel()
+            heartbeatTask = nil
+            errorMessage = errorDescription
+            status = .failed
+            route = .onboarding
+            statusMessage = "连接失败"
+            haptics.playConnectionStateChange(success: false)
+        }
+    }
+
+    private func handleProtocolMessage(_ message: ProtocolMessage) {
+        switch message {
+        case .ack:
+            statusMessage = "桌面端已确认连接"
+        case let .status(message):
+            statusMessage = message
+        case .heartbeat:
+            statusMessage = "桌面端在线"
+        case let .unknown(type):
+            statusMessage = "收到未识别消息：\(type)"
+        }
+    }
+
+    private func handleSemanticUpdate(for command: RemoteCommand) {
+        switch command {
+        case .tap:
+            break
+        case .scroll:
+            statusMessage = "正在滚动桌面内容"
+        case .move:
+            statusMessage = "远程控制中"
+        case let .drag(state, _, _):
+            switch state {
+            case .started:
+                statusMessage = "桌面拖拽已开始"
+            case .changed:
+                statusMessage = "拖拽进行中"
+            case .ended:
+                statusMessage = "拖拽已结束"
+            }
+        case .heartbeat:
+            break
+        }
+    }
+
+    private func showHUD(_ message: String) {
+        lastHUDMessage = message
+        hudClearTask?.cancel()
+        hudClearTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.2))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                if self?.lastHUDMessage == message {
+                    self?.lastHUDMessage = nil
+                }
+            }
+        }
+    }
+
+    private func startHeartbeat() {
+        heartbeatTask?.cancel()
+        heartbeatTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard let self else { return }
+                await MainActor.run {
+                    self.send(.heartbeat)
+                }
+            }
+        }
+    }
+}
