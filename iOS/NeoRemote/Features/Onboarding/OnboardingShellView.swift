@@ -32,7 +32,7 @@ struct OnboardingShellView: View {
                 .padding(20)
             }
             .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("Desktop")
+            .navigationTitle("NeoRemote")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("刷新") {
@@ -49,13 +49,9 @@ struct OnboardingShellView: View {
 
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("把 iPhone 变成你的 Desktop 触控板")
+            Text("把iPhone变成你的鼠标/触控板")
                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
-
-            Text("先连接桌面端，再进入纯手势 Remote 控制页。首次支持自动发现与手动输入地址双链路。")
-                .font(.body)
-                .foregroundStyle(.secondary)
 
             HStack(spacing: 12) {
                 Label("自动发现", systemImage: "dot.radiowaves.left.and.right")

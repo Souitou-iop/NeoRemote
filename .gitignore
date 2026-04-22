@@ -6,9 +6,23 @@ DerivedData/
 build/
 *.xcuserstate
 xcuserdata/
+iOS/NeoRemoteTests/*.swift.plist
 
 # SwiftPM
 .build/
+.build-cache/
+MacOS/dist/
+
+# Android
+.gradle/
+Android/.gradle/
+Android/.gradle-home/
+Android/.idea/
+Android/local.properties
+Android/**/build/
+
+# Local tooling
+.codex/
 
 # Misc
 *.log

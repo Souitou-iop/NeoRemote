@@ -3,12 +3,13 @@ import UIKit
 
 struct RemoteView: View {
     @ObservedObject var coordinator: SessionCoordinator
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationStack {
             ZStack {
                 LinearGradient(
-                    colors: [Color.black.opacity(0.95), Color.blue.opacity(0.36)],
+                    colors: theme.backgroundGradient,
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -21,20 +22,8 @@ struct RemoteView: View {
                         coordinator.handleTouchOutput(output)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(.white.opacity(0.07))
+                    .background(theme.surfaceBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                    .overlay(alignment: .bottomLeading) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Gesture Surface")
-                                .font(.headline)
-                            Text("单指移动 · 单击 · 双指滚动 · 双击拖拽")
-                                .font(.footnote)
-                                .foregroundStyle(.white.opacity(0.72))
-                        }
-                        .padding(18)
-                    }
-
-                    footerHint
                 }
                 .padding(20)
 
@@ -48,45 +37,32 @@ struct RemoteView: View {
                     Button("断开") {
                         coordinator.disconnect()
                     }
-                    .foregroundStyle(.white)
                 }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarColorScheme(colorScheme == .dark ? .dark : .light, for: .navigationBar)
         }
     }
 
     private var statusHeader: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(coordinator.activeEndpoint?.displayName ?? "Desktop")
-                    .font(.title2.weight(.bold))
-                Spacer()
-                Text(coordinator.status.rawValue.capitalized)
-                    .font(.caption.weight(.semibold))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.white.opacity(0.12))
-                    .clipShape(Capsule())
-            }
-
-            Text(coordinator.statusMessage)
-                .font(.footnote)
-                .foregroundStyle(.white.opacity(0.72))
+        HStack {
+            Text(coordinator.activeEndpoint?.displayName ?? "Desktop")
+                .font(.title2.weight(.bold))
+            Spacer()
+            Text(coordinator.status.rawValue.capitalized)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .foregroundStyle(theme.statusChipForeground)
+                .background(theme.statusChipBackground)
+                .clipShape(Capsule())
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(theme.primaryForeground)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var footerHint: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("纯手势模式")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white)
-            Text("首次使用建议先轻点体验点击，再尝试双指滚动和双击拖拽。")
-                .font(.footnote)
-                .foregroundStyle(.white.opacity(0.72))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    private var theme: RemoteTheme {
+        colorScheme == .dark ? .dark : .light
     }
 }
 
@@ -107,6 +83,39 @@ private struct HUDView: View {
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
+}
+
+private struct RemoteTheme {
+    let backgroundGradient: [Color]
+    let surfaceBackground: Color
+    let primaryForeground: Color
+    let secondaryForeground: Color
+    let statusChipBackground: Color
+    let statusChipForeground: Color
+
+    static let dark = RemoteTheme(
+        backgroundGradient: [
+            Color.black.opacity(0.95),
+            Color.blue.opacity(0.36),
+        ],
+        surfaceBackground: .white.opacity(0.07),
+        primaryForeground: .white,
+        secondaryForeground: .white.opacity(0.72),
+        statusChipBackground: Color.white.opacity(0.16),
+        statusChipForeground: .white
+    )
+
+    static let light = RemoteTheme(
+        backgroundGradient: [
+            Color(red: 0.83, green: 0.87, blue: 0.92),
+            Color(red: 0.63, green: 0.74, blue: 0.88),
+        ],
+        surfaceBackground: Color(red: 0.88, green: 0.92, blue: 0.97).opacity(0.46),
+        primaryForeground: Color(red: 0.10, green: 0.16, blue: 0.24),
+        secondaryForeground: Color(red: 0.28, green: 0.36, blue: 0.46),
+        statusChipBackground: Color(red: 0.56, green: 0.66, blue: 0.78).opacity(0.82),
+        statusChipForeground: Color(red: 0.06, green: 0.11, blue: 0.18)
+    )
 }
 
 struct TouchSurfaceRepresentable: UIViewRepresentable {

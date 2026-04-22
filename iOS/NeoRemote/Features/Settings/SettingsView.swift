@@ -37,12 +37,6 @@ struct SettingsView: View {
                         coordinator.disconnect()
                     }
                 }
-
-                Section("说明") {
-                    Text("Remote 页坚持纯手势控制，不放显式左右键按钮。后续接入 macOS / Windows Helper 时，只需要扩展 Desktop 平台适配层。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
             }
             .navigationTitle("Settings")
         }

@@ -42,11 +42,16 @@ final class SessionCoordinator: ObservableObject {
         self.lastConnectedEndpoint = registry.loadLastConnectedDevice()
     }
 
-    func start() {
+    func start(startInDemo: Bool = false) {
         guard !hasStarted else { return }
         hasStarted = true
 
         haptics.prepare()
+        if startInDemo {
+            enterDemoMode()
+            return
+        }
+
         bindDiscovery()
         discoveryService.start()
 
@@ -105,6 +110,30 @@ final class SessionCoordinator: ObservableObject {
         registry.clearRecentDevices()
         recentDevices = []
         lastConnectedEndpoint = nil
+    }
+
+    func enterDemoMode() {
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+        discoveryService.stop()
+
+        let demoEndpoint = DesktopEndpoint(
+            id: "demo-endpoint",
+            displayName: "NeoRemote Demo",
+            host: "demo.local",
+            port: 50505,
+            platform: .macOS,
+            lastSeenAt: Date(),
+            source: .manual
+        )
+
+        activeEndpoint = demoEndpoint
+        transport = MockRemoteTransport()
+        status = .connected
+        route = .connected
+        errorMessage = nil
+        statusMessage = "功能演示"
+        showHUD("演示模式")
     }
 
     func send(_ command: RemoteCommand) {

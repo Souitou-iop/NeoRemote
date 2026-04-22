@@ -1,0 +1,140 @@
+package com.neoremote.android.core.model
+
+import java.util.UUID
+
+enum class SessionStatus {
+    DISCONNECTED,
+    DISCOVERING,
+    CONNECTING,
+    CONNECTED,
+    RECONNECTING,
+    FAILED,
+}
+
+enum class SessionRoute {
+    ONBOARDING,
+    CONNECTED,
+}
+
+enum class DesktopPlatform {
+    MAC_OS,
+    WINDOWS,
+    ;
+
+    val displayName: String
+        get() = when (this) {
+            MAC_OS -> "macOS"
+            WINDOWS -> "Windows"
+        }
+}
+
+enum class EndpointSource {
+    DISCOVERED,
+    RECENT,
+    MANUAL,
+}
+
+data class DesktopEndpoint(
+    val id: String = UUID.randomUUID().toString(),
+    val displayName: String,
+    val host: String,
+    val port: Int,
+    val platform: DesktopPlatform? = null,
+    val lastSeenAt: Long? = null,
+    val source: EndpointSource,
+) {
+    val addressText: String
+        get() = "$host:$port"
+}
+
+enum class MouseButtonKind {
+    PRIMARY,
+    SECONDARY,
+}
+
+enum class DragState {
+    STARTED,
+    CHANGED,
+    ENDED,
+}
+
+sealed interface RemoteCommand {
+    data class Move(val dx: Double, val dy: Double) : RemoteCommand
+    data class Tap(val kind: MouseButtonKind) : RemoteCommand
+    data class Scroll(val deltaY: Double) : RemoteCommand
+    data class Drag(val state: DragState, val dx: Double, val dy: Double) : RemoteCommand
+    data object Heartbeat : RemoteCommand
+}
+
+sealed interface ProtocolMessage {
+    data object Ack : ProtocolMessage
+    data class Status(val message: String) : ProtocolMessage
+    data object Heartbeat : ProtocolMessage
+    data class Unknown(val type: String) : ProtocolMessage
+}
+
+sealed interface TransportConnectionState {
+    data object Idle : TransportConnectionState
+    data object Connecting : TransportConnectionState
+    data object Connected : TransportConnectionState
+    data class Disconnected(val errorDescription: String?) : TransportConnectionState
+    data class Failed(val errorDescription: String) : TransportConnectionState
+}
+
+data class ManualConnectDraft(
+    val host: String = "",
+    val port: String = "50505",
+)
+
+data class TouchPoint(
+    val x: Float,
+    val y: Float,
+)
+
+enum class TouchSurfaceSemanticEvent {
+    TAP,
+    SCROLLING,
+    DRAG_STARTED,
+    DRAG_CHANGED,
+    DRAG_ENDED,
+}
+
+data class TouchSurfaceOutput(
+    val commands: List<RemoteCommand> = emptyList(),
+    val semanticEvent: TouchSurfaceSemanticEvent? = null,
+)
+
+sealed class ConnectionFailure(message: String) : IllegalArgumentException(message) {
+    data object InvalidHost : ConnectionFailure("请输入有效的桌面端地址。")
+    data object InvalidPort : ConnectionFailure("请输入有效的端口。")
+    data object ConnectionUnavailable : ConnectionFailure("当前桌面连接不可用，请稍后重试。")
+}
+
+data class SessionUiState(
+    val status: SessionStatus = SessionStatus.DISCONNECTED,
+    val route: SessionRoute = SessionRoute.ONBOARDING,
+    val discoveredDevices: List<DesktopEndpoint> = emptyList(),
+    val recentDevices: List<DesktopEndpoint> = emptyList(),
+    val activeEndpoint: DesktopEndpoint? = null,
+    val lastConnectedEndpoint: DesktopEndpoint? = null,
+    val lastHudMessage: String? = null,
+    val errorMessage: String? = null,
+    val statusMessage: String = "等待连接桌面端",
+    val manualConnectDraft: ManualConnectDraft = ManualConnectDraft(),
+) {
+    val isBusy: Boolean
+        get() = status == SessionStatus.DISCOVERING ||
+            status == SessionStatus.CONNECTING ||
+            status == SessionStatus.RECONNECTING
+}
+
+val SessionStatus.displayText: String
+    get() = when (this) {
+        SessionStatus.DISCONNECTED -> "未连接"
+        SessionStatus.DISCOVERING -> "发现中"
+        SessionStatus.CONNECTING -> "连接中"
+        SessionStatus.CONNECTED -> "已连接"
+        SessionStatus.RECONNECTING -> "重连中"
+        SessionStatus.FAILED -> "失败"
+    }
+
