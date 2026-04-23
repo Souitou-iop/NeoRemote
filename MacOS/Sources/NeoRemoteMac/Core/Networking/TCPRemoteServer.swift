@@ -24,14 +24,19 @@ final class TCPRemoteServer: RemoteServering, @unchecked Sendable {
 
     private let queue = DispatchQueue(label: "com.neoremote.mac.server")
     private let codec: ProtocolCodec
+    private let discoveryResponder: UDPDiscoveryResponder
     private var listener: NWListener?
     private var activeClientID: UUID?
     private var pendingClientID: UUID?
     private var clients: [UUID: ClientConnection] = [:]
     private var currentPort: UInt16 = 50505
 
-    init(codec: ProtocolCodec = ProtocolCodec()) {
+    init(
+        codec: ProtocolCodec = ProtocolCodec(),
+        discoveryResponder: UDPDiscoveryResponder = UDPDiscoveryResponder()
+    ) {
         self.codec = codec
+        self.discoveryResponder = discoveryResponder
     }
 
     func start(port: UInt16) throws {
@@ -63,9 +68,11 @@ final class TCPRemoteServer: RemoteServering, @unchecked Sendable {
 
         self.listener = listener
         listener.start(queue: queue)
+        try? discoveryResponder.start(servicePort: port)
     }
 
     func stop() {
+        discoveryResponder.stop()
         listener?.cancel()
         listener = nil
 
