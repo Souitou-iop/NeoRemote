@@ -81,10 +81,7 @@ struct TouchSurfaceInputAdapter {
             return .none
         }
 
-        return TouchSurfaceOutput(
-            commands: [.move(dx: dx, dy: dy)],
-            semanticEvent: .moving
-        )
+        return TouchSurfaceOutput(commands: [.move(dx: dx, dy: dy)], semanticEvent: nil)
     }
 
     mutating func touchEnded(id: Int, point: CGPoint, timestamp: TimeInterval) -> TouchSurfaceOutput {

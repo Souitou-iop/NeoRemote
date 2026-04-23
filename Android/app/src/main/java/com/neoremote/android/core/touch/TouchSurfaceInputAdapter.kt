@@ -105,10 +105,7 @@ class TouchSurfaceInputAdapter(
             return TouchSurfaceOutput()
         }
 
-        return TouchSurfaceOutput(
-            commands = listOf(RemoteCommand.Move(dx, dy)),
-            semanticEvent = TouchSurfaceSemanticEvent.MOVING,
-        )
+        return TouchSurfaceOutput(commands = listOf(RemoteCommand.Move(dx, dy)))
     }
 
     fun touchEnded(id: Int, point: TouchPoint, timestamp: Double): TouchSurfaceOutput {

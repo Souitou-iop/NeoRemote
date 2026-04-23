@@ -10,7 +10,7 @@ final class TouchSurfaceInputAdapterTests: XCTestCase {
         let output = adapter.touchMoved(id: 1, point: CGPoint(x: 20, y: 10), timestamp: 0.02)
 
         XCTAssertEqual(output.commands, [.move(dx: 20, dy: 10)])
-        XCTAssertEqual(output.semanticEvent, .moving)
+        XCTAssertNil(output.semanticEvent)
     }
 
     func testTwoFingerGestureEmitsScrollCommand() {

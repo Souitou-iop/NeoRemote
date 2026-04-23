@@ -93,7 +93,6 @@ data class TouchPoint(
 )
 
 enum class TouchSurfaceSemanticEvent {
-    MOVING,
     TAP,
     SCROLLING,
     DRAG_STARTED,

@@ -157,8 +157,6 @@ final class SessionCoordinator: ObservableObject {
         route = .connected
         errorMessage = nil
         statusMessage = "功能演示"
-        haptics.prepare()
-        haptics.playConnectionStateChange(success: true)
         showHUD("演示模式")
     }
 
@@ -180,8 +178,6 @@ final class SessionCoordinator: ObservableObject {
 
         guard let event = output.semanticEvent else { return }
         switch event {
-        case .moving:
-            haptics.playMoveTick()
         case .tap:
             haptics.playTap()
             showHUD("已点击")
