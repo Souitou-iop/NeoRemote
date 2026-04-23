@@ -15,11 +15,15 @@ MacOS/dist/
 
 # Android
 .gradle/
+.gradle-user-home/
 Android/.gradle/
 Android/.gradle-home/
 Android/.idea/
 Android/local.properties
 Android/**/build/
+*.jks
+*.keystore
+*.idsig
 
 # Windows / MSVC
 Windows/**/x64/
@@ -35,3 +39,4 @@ Windows/build/
 
 # Misc
 *.log
+release/
