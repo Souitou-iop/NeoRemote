@@ -20,6 +20,7 @@ fun NeoRemoteApp(
     onClearRecent: () -> Unit,
     onManualDraftChange: (String, String) -> Unit,
     onManualConnect: () -> Unit,
+    onHapticsEnabledChange: (Boolean) -> Unit,
     onTouchOutput: (TouchSurfaceOutput) -> Unit,
 ) {
     val context = LocalContext.current
@@ -40,8 +41,11 @@ fun NeoRemoteApp(
             onConnect = onConnect,
             onDisconnect = onDisconnect,
             onClearRecent = onClearRecent,
+            onHapticsEnabledChange = onHapticsEnabledChange,
             onTouchOutput = { output ->
-                haptics.perform(output.semanticEvent)
+                if (state.hapticsEnabled) {
+                    haptics.perform(output.semanticEvent)
+                }
                 onTouchOutput(output)
             },
         )

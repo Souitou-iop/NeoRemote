@@ -9,11 +9,13 @@ import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.model.SessionRoute
 import com.neoremote.android.core.model.SessionStatus
+import com.neoremote.android.core.model.TransportConnectionState
 import com.neoremote.android.core.persistence.DeviceRegistry
 import com.neoremote.android.core.persistence.MemoryKeyValueStore
 import com.neoremote.android.core.protocol.ProtocolCodec
 import com.neoremote.android.core.session.SessionCoordinatorViewModel
 import com.neoremote.android.core.transport.MockRemoteTransport
+import com.neoremote.android.core.transport.RemoteTransport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -130,5 +132,69 @@ class SessionCoordinatorViewModelTest {
 
         assertThat(viewModel.uiState.value.statusMessage).isEqualTo("已连接 Desktop")
         viewModel.disconnect()
+    }
+
+    @Test
+    fun `stale transport callbacks do not override the active connection`() = runTest(dispatcher) {
+        val controlledTransports = mutableListOf<ControlledRemoteTransport>()
+        val localViewModel = SessionCoordinatorViewModel(
+            registry = registry,
+            discoveryService = discoveryService,
+            transportFactory = {
+                ControlledRemoteTransport().also(controlledTransports::add)
+            },
+            codec = ProtocolCodec(),
+            mainDispatcher = dispatcher,
+        )
+        val firstEndpoint = DesktopEndpoint(
+            displayName = "Old Desktop",
+            host = "10.0.0.8",
+            port = 50505,
+            source = EndpointSource.MANUAL,
+        )
+        val secondEndpoint = DesktopEndpoint(
+            displayName = "Current Desktop",
+            host = "10.0.0.9",
+            port = 50505,
+            source = EndpointSource.MANUAL,
+        )
+
+        localViewModel.connect(firstEndpoint)
+        val firstTransport = controlledTransports.single()
+        firstTransport.emitState(TransportConnectionState.Connected)
+        runCurrent()
+
+        localViewModel.connect(secondEndpoint)
+        val secondTransport = controlledTransports.last()
+        secondTransport.emitState(TransportConnectionState.Connected)
+        runCurrent()
+        firstTransport.emitState(TransportConnectionState.Disconnected("旧连接关闭"))
+        firstTransport.emitMessage(ProtocolMessage.Status("旧连接消息"))
+        runCurrent()
+
+        assertThat(localViewModel.uiState.value.route).isEqualTo(SessionRoute.CONNECTED)
+        assertThat(localViewModel.uiState.value.status).isEqualTo(SessionStatus.CONNECTED)
+        assertThat(localViewModel.uiState.value.activeEndpoint).isEqualTo(secondEndpoint)
+
+        localViewModel.shutdown()
+    }
+
+    private class ControlledRemoteTransport : RemoteTransport {
+        override var onStateChange: ((TransportConnectionState) -> Unit)? = null
+        override var onMessage: ((ProtocolMessage) -> Unit)? = null
+
+        override fun connect(endpoint: DesktopEndpoint) = Unit
+
+        override fun disconnect() = Unit
+
+        override fun send(data: ByteArray) = Unit
+
+        fun emitState(state: TransportConnectionState) {
+            onStateChange?.invoke(state)
+        }
+
+        fun emitMessage(message: ProtocolMessage) {
+            onMessage?.invoke(message)
+        }
     }
 }

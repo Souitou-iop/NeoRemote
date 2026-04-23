@@ -37,11 +37,25 @@ class DeviceRegistryTest {
 
     @Test
     fun `save manual draft persists current host and port`() {
-        registry.saveManualDraft(ManualConnectDraft(host = "10.0.0.8", port = "50505"))
+        registry.saveManualDraft(ManualConnectDraft(host = "10.0.0.8", port = "51101"))
 
         assertThat(registry.loadManualDraft()).isEqualTo(
-            ManualConnectDraft(host = "10.0.0.8", port = "50505"),
+            ManualConnectDraft(host = "10.0.0.8", port = "51101"),
         )
+    }
+
+    @Test
+    fun `manual draft defaults to adb reverse receiver port`() {
+        assertThat(registry.loadManualDraft()).isEqualTo(ManualConnectDraft(port = "51101"))
+    }
+
+    @Test
+    fun `haptics setting defaults to disabled and persists changes`() {
+        assertThat(registry.loadHapticsEnabled()).isFalse()
+
+        registry.saveHapticsEnabled(true)
+
+        assertThat(registry.loadHapticsEnabled()).isTrue()
     }
 }
 

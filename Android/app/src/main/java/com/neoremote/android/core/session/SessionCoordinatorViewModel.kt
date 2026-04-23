@@ -45,6 +45,7 @@ class SessionCoordinatorViewModel(
             recentDevices = registry.loadRecentDevices(),
             lastConnectedEndpoint = registry.loadLastConnectedDevice(),
             manualConnectDraft = registry.loadManualDraft(),
+            hapticsEnabled = registry.loadHapticsEnabled(),
         ),
     )
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
@@ -54,6 +55,7 @@ class SessionCoordinatorViewModel(
     private var hudClearJob: Job? = null
     private var heartbeatJob: Job? = null
     private var hasStarted = false
+    private var connectionGeneration = 0L
 
     init {
         bindDiscovery()
@@ -115,10 +117,17 @@ class SessionCoordinatorViewModel(
     }
 
     fun connect(endpoint: DesktopEndpoint, isRecovery: Boolean = false) {
-        transport?.disconnect()
+        val generation = ++connectionGeneration
+        heartbeatJob?.cancel()
+        heartbeatJob = null
+        transport?.let { previousTransport ->
+            previousTransport.onStateChange = null
+            previousTransport.onMessage = null
+            previousTransport.disconnect()
+        }
         val nextTransport = transportFactory()
         transport = nextTransport
-        bindTransport(nextTransport)
+        bindTransport(nextTransport, generation)
         _uiState.update {
             it.copy(
                 activeEndpoint = endpoint,
@@ -136,9 +145,14 @@ class SessionCoordinatorViewModel(
     }
 
     fun disconnect() {
+        ++connectionGeneration
         heartbeatJob?.cancel()
         heartbeatJob = null
-        transport?.disconnect()
+        transport?.let { activeTransport ->
+            activeTransport.onStateChange = null
+            activeTransport.onMessage = null
+            activeTransport.disconnect()
+        }
         transport = null
         _uiState.update {
             it.copy(
@@ -158,6 +172,11 @@ class SessionCoordinatorViewModel(
                 lastConnectedEndpoint = null,
             )
         }
+    }
+
+    fun setHapticsEnabled(enabled: Boolean) {
+        registry.saveHapticsEnabled(enabled)
+        _uiState.update { it.copy(hapticsEnabled = enabled) }
     }
 
     fun handleTouchOutput(output: TouchSurfaceOutput) {
@@ -213,15 +232,19 @@ class SessionCoordinatorViewModel(
         }
     }
 
-    private fun bindTransport(activeTransport: RemoteTransport) {
+    private fun bindTransport(activeTransport: RemoteTransport, generation: Long) {
         activeTransport.onStateChange = { state ->
             scope.launch {
-                handleTransportStateChange(state)
+                if (generation == connectionGeneration && transport === activeTransport) {
+                    handleTransportStateChange(state)
+                }
             }
         }
         activeTransport.onMessage = { message ->
             scope.launch {
-                handleProtocolMessage(message)
+                if (generation == connectionGeneration && transport === activeTransport) {
+                    handleProtocolMessage(message)
+                }
             }
         }
     }
@@ -341,9 +364,15 @@ class SessionCoordinatorViewModel(
     }
 
     fun shutdown() {
+        ++connectionGeneration
         heartbeatJob?.cancel()
         hudClearJob?.cancel()
-        transport?.disconnect()
+        transport?.let { activeTransport ->
+            activeTransport.onStateChange = null
+            activeTransport.onMessage = null
+            activeTransport.disconnect()
+        }
+        transport = null
         discoveryService.stop()
         scope.cancel()
     }

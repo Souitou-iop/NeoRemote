@@ -41,7 +41,7 @@ class SocketRemoteTransport(
     private var manualDisconnect = false
 
     override fun connect(endpoint: DesktopEndpoint) {
-        disconnect()
+        closeActiveSocket()
         manualDisconnect = false
         scope.launch {
             runCatching {
@@ -61,10 +61,7 @@ class SocketRemoteTransport(
 
     override fun disconnect() {
         manualDisconnect = true
-        readJob?.cancel()
-        readJob = null
-        runCatching { socket?.close() }
-        socket = null
+        closeActiveSocket()
         onStateChange?.invoke(TransportConnectionState.Disconnected(null))
     }
 
@@ -122,6 +119,13 @@ class SocketRemoteTransport(
 
     fun closeScope() {
         scope.cancel()
+    }
+
+    private fun closeActiveSocket() {
+        readJob?.cancel()
+        readJob = null
+        runCatching { socket?.close() }
+        socket = null
     }
 
     private companion object {

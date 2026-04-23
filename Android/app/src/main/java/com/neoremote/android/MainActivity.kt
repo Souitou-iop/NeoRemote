@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
                     onClearRecent = viewModel::clearRecentDevices,
                     onManualDraftChange = viewModel::updateManualDraft,
                     onManualConnect = viewModel::connectUsingManualDraft,
+                    onHapticsEnabledChange = viewModel::setHapticsEnabled,
                     onTouchOutput = viewModel::handleTouchOutput,
                 )
             }

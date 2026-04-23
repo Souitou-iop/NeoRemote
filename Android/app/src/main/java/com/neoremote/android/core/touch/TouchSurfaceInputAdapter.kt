@@ -44,6 +44,15 @@ class TouchSurfaceInputAdapter(
 
         if (activeTouches.size >= 2) {
             multiTouchSession = true
+            val button = when (activeTouches.size) {
+                2 -> MouseButtonKind.SECONDARY
+                3 -> MouseButtonKind.MIDDLE
+                else -> null
+            } ?: return TouchSurfaceOutput()
+            return TouchSurfaceOutput(
+                commands = listOf(RemoteCommand.Tap(button)),
+                semanticEvent = TouchSurfaceSemanticEvent.TAP,
+            )
         }
         return TouchSurfaceOutput()
     }

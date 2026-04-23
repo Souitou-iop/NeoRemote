@@ -50,6 +50,7 @@ data class DesktopEndpoint(
 enum class MouseButtonKind {
     PRIMARY,
     SECONDARY,
+    MIDDLE,
 }
 
 enum class DragState {
@@ -83,7 +84,7 @@ sealed interface TransportConnectionState {
 
 data class ManualConnectDraft(
     val host: String = "",
-    val port: String = "50505",
+    val port: String = "51101",
 )
 
 data class TouchPoint(
@@ -118,6 +119,7 @@ data class SessionUiState(
     val activeEndpoint: DesktopEndpoint? = null,
     val lastConnectedEndpoint: DesktopEndpoint? = null,
     val lastHudMessage: String? = null,
+    val hapticsEnabled: Boolean = false,
     val errorMessage: String? = null,
     val statusMessage: String = "等待连接桌面端",
     val manualConnectDraft: ManualConnectDraft = ManualConnectDraft(),

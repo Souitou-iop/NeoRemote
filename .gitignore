@@ -21,6 +21,15 @@ Android/.idea/
 Android/local.properties
 Android/**/build/
 
+# Windows / MSVC
+Windows/**/x64/
+Windows/**/Debug/
+Windows/**/Release/
+Windows/build/
+*.obj
+*.pdb
+*.ilk
+
 # Local tooling
 .codex/
 

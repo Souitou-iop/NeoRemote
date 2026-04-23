@@ -32,6 +32,41 @@ class TouchSurfaceInputAdapterTest {
     }
 
     @Test
+    fun `second pointer down emits secondary tap command`() {
+        val adapter = TouchSurfaceInputAdapter()
+        adapter.touchBegan(1, TouchPoint(0f, 0f), 0.0)
+
+        val output = adapter.touchBegan(2, TouchPoint(20f, 0f), 0.02)
+
+        assertThat(output.commands).containsExactly(RemoteCommand.Tap(MouseButtonKind.SECONDARY))
+        assertThat(output.semanticEvent).isEqualTo(TouchSurfaceSemanticEvent.TAP)
+    }
+
+    @Test
+    fun `third pointer down emits middle tap command`() {
+        val adapter = TouchSurfaceInputAdapter()
+        adapter.touchBegan(1, TouchPoint(0f, 0f), 0.0)
+        adapter.touchBegan(2, TouchPoint(20f, 0f), 0.02)
+
+        val output = adapter.touchBegan(3, TouchPoint(40f, 0f), 0.04)
+
+        assertThat(output.commands).containsExactly(RemoteCommand.Tap(MouseButtonKind.MIDDLE))
+        assertThat(output.semanticEvent).isEqualTo(TouchSurfaceSemanticEvent.TAP)
+    }
+
+    @Test
+    fun `multi pointer move emits scroll command`() {
+        val adapter = TouchSurfaceInputAdapter()
+        adapter.touchBegan(1, TouchPoint(0f, 100f), 0.0)
+        adapter.touchBegan(2, TouchPoint(20f, 100f), 0.02)
+
+        val output = adapter.touchMoved(1, TouchPoint(0f, 90f), 0.06)
+
+        assertThat(output.commands.single()).isInstanceOf(RemoteCommand.Scroll::class.java)
+        assertThat(output.semanticEvent).isEqualTo(TouchSurfaceSemanticEvent.SCROLLING)
+    }
+
+    @Test
     fun `double tap drag emits drag started and ended`() {
         val adapter = TouchSurfaceInputAdapter()
         adapter.touchBegan(1, TouchPoint(0f, 0f), 0.0)

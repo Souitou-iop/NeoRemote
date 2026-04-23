@@ -106,6 +106,9 @@ class TouchSurfaceView @JvmOverloads constructor(
             MotionEvent.ACTION_POINTER_UP,
             -> {
                 val index = event.actionIndex
+                if (event.actionMasked == MotionEvent.ACTION_UP) {
+                    performClick()
+                }
                 emit(
                     adapter.touchEnded(
                         id = event.getPointerId(index),
@@ -117,6 +120,11 @@ class TouchSurfaceView @JvmOverloads constructor(
 
             MotionEvent.ACTION_CANCEL -> emit(adapter.cancelAllTouches())
         }
+        return true
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
         return true
     }
 

@@ -84,6 +84,7 @@ class ProtocolCodec {
 private fun String.toMouseButtonKind(): MouseButtonKind? = when (lowercase()) {
     "primary" -> MouseButtonKind.PRIMARY
     "secondary" -> MouseButtonKind.SECONDARY
+    "middle" -> MouseButtonKind.MIDDLE
     else -> null
 }
 

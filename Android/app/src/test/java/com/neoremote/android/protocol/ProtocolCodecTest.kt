@@ -42,5 +42,14 @@ class ProtocolCodecTest {
 
         assertThat(command).isEqualTo(RemoteCommand.Tap(MouseButtonKind.PRIMARY))
     }
+
+    @Test
+    fun `encode and decode middle tap command`() {
+        val encoded = codec.encode(RemoteCommand.Tap(MouseButtonKind.MIDDLE))
+        val command = codec.decodeCommand(encoded)
+
+        assertThat(encoded.decodeToString()).contains("\"button\":\"middle\"")
+        assertThat(command).isEqualTo(RemoteCommand.Tap(MouseButtonKind.MIDDLE))
+    }
 }
 

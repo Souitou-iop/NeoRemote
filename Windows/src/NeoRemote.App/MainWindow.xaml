@@ -1,0 +1,26 @@
+<Window
+    x:Class="NeoRemote.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="NeoRemote">
+    <Grid Padding="24" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+            <TextBlock Text="NeoRemote Windows" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock x:Name="StateBadge" Text="正在监听" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+            <Button x:Name="ListeningButton" Content="停止监听" Click="OnToggleListening" />
+            <Button Content="断开连接" Click="OnDisconnect" />
+            <Button Content="隐藏到托盘" Click="OnHideToTray" />
+        </StackPanel>
+
+        <ListView x:Name="EventsList" Grid.Row="2" />
+    </Grid>
+</Window>

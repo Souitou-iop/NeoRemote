@@ -4,11 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,9 +26,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -39,11 +40,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.neoremote.android.core.model.DesktopEndpoint
 import com.neoremote.android.core.model.SessionUiState
 import com.neoremote.android.core.model.TouchSurfaceOutput
 import com.neoremote.android.core.model.displayText
 import com.neoremote.android.ui.components.DeviceCard
+import com.neoremote.android.ui.components.LiquidGlassBottomBar
+import com.neoremote.android.ui.components.LiquidGlassTabItem
 import com.neoremote.android.ui.components.SectionCard
 import com.neoremote.android.ui.components.StatusChip
 import com.neoremote.android.ui.components.TouchSurfaceHost
@@ -64,9 +69,17 @@ fun ConnectedShell(
     onConnect: (DesktopEndpoint) -> Unit,
     onDisconnect: () -> Unit,
     onClearRecent: () -> Unit,
+    onHapticsEnabledChange: (Boolean) -> Unit,
     onTouchOutput: (TouchSurfaceOutput) -> Unit,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(ConnectedTab.REMOTE) }
+    val contentBackdrop = rememberLayerBackdrop()
+    val bottomInsetPadding = PaddingValues(bottom = 120.dp)
+    val tabs = listOf(
+        LiquidGlassTabItem(label = "Remote", icon = Icons.Outlined.Handyman),
+        LiquidGlassTabItem(label = "Devices", icon = Icons.Filled.Devices),
+        LiquidGlassTabItem(label = "Settings", icon = Icons.Filled.Settings),
+    )
 
     Scaffold(
         topBar = {
@@ -81,28 +94,6 @@ fun ConnectedShell(
                 },
             )
         },
-        bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    selected = selectedTab == ConnectedTab.REMOTE,
-                    onClick = { selectedTab = ConnectedTab.REMOTE },
-                    icon = { Icon(Icons.Outlined.Handyman, contentDescription = null) },
-                    label = { Text("Remote") },
-                )
-                NavigationBarItem(
-                    selected = selectedTab == ConnectedTab.DEVICES,
-                    onClick = { selectedTab = ConnectedTab.DEVICES },
-                    icon = { Icon(Icons.Filled.Devices, contentDescription = null) },
-                    label = { Text("Devices") },
-                )
-                NavigationBarItem(
-                    selected = selectedTab == ConnectedTab.SETTINGS,
-                    onClick = { selectedTab = ConnectedTab.SETTINGS },
-                    icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
-                    label = { Text("Settings") },
-                )
-            }
-        },
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -110,30 +101,40 @@ fun ConnectedShell(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding),
         ) {
-            when (selectedTab) {
-                ConnectedTab.REMOTE -> RemoteScreen(
-                    state = state,
-                    onDisconnect = onDisconnect,
-                    onTouchOutput = onTouchOutput,
-                )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .layerBackdrop(contentBackdrop),
+            ) {
+                when (selectedTab) {
+                    ConnectedTab.REMOTE -> RemoteScreen(
+                        state = state,
+                        onDisconnect = onDisconnect,
+                        onTouchOutput = onTouchOutput,
+                        bottomPadding = bottomInsetPadding,
+                    )
 
-                ConnectedTab.DEVICES -> DevicesScreen(
-                    state = state,
-                    onConnect = onConnect,
-                )
+                    ConnectedTab.DEVICES -> DevicesScreen(
+                        state = state,
+                        onConnect = onConnect,
+                        bottomPadding = bottomInsetPadding,
+                    )
 
-                ConnectedTab.SETTINGS -> SettingsScreen(
-                    state = state,
-                    onDisconnect = onDisconnect,
-                    onClearRecent = onClearRecent,
-                )
+                    ConnectedTab.SETTINGS -> SettingsScreen(
+                        state = state,
+                        onDisconnect = onDisconnect,
+                        onClearRecent = onClearRecent,
+                        onHapticsEnabledChange = onHapticsEnabledChange,
+                        bottomPadding = bottomInsetPadding,
+                    )
+                }
             }
 
             state.lastHudMessage?.let { hud ->
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 28.dp),
+                        .padding(bottom = 118.dp),
                 ) {
                     Text(
                         text = hud,
@@ -147,6 +148,16 @@ fun ConnectedShell(
                     )
                 }
             }
+
+            LiquidGlassBottomBar(
+                items = tabs,
+                selectedIndex = selectedTab.ordinal,
+                onSelectedIndexChange = { selectedTab = ConnectedTab.entries[it] },
+                backdrop = contentBackdrop,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 12.dp),
+            )
         }
     }
 }
@@ -156,11 +167,13 @@ private fun RemoteScreen(
     state: SessionUiState,
     onDisconnect: () -> Unit,
     onTouchOutput: (TouchSurfaceOutput) -> Unit,
+    bottomPadding: PaddingValues,
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(20.dp),
+            .padding(start = 20.dp, top = 20.dp, end = 20.dp)
+            .padding(bottomPadding),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Row(
@@ -205,17 +218,23 @@ private fun RemoteScreen(
 private fun DevicesScreen(
     state: SessionUiState,
     onConnect: (DesktopEndpoint) -> Unit,
+    bottomPadding: PaddingValues,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+        contentPadding = PaddingValues(
+            start = 20.dp,
+            top = 20.dp,
+            end = 20.dp,
+            bottom = 20.dp + bottomPadding.calculateBottomPadding(),
+        ),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         if (state.discoveredDevices.isNotEmpty()) {
             item {
                 Text("附近的 Desktop", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
-            items(state.discoveredDevices, key = { it.id }) { device ->
+            items(state.discoveredDevices, key = { "discovered-${it.id}" }) { device ->
                 DeviceCard(endpoint = device, actionLabel = "连接") { onConnect(device) }
             }
         }
@@ -225,7 +244,7 @@ private fun DevicesScreen(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text("最近连接", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
-            items(state.recentDevices, key = { it.id }) { device ->
+            items(state.recentDevices, key = { "recent-${it.id}" }) { device ->
                 DeviceCard(endpoint = device, actionLabel = "恢复") { onConnect(device) }
             }
         }
@@ -246,10 +265,17 @@ private fun SettingsScreen(
     state: SessionUiState,
     onDisconnect: () -> Unit,
     onClearRecent: () -> Unit,
+    onHapticsEnabledChange: (Boolean) -> Unit,
+    bottomPadding: PaddingValues,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+        contentPadding = PaddingValues(
+            start = 20.dp,
+            top = 20.dp,
+            end = 20.dp,
+            bottom = 20.dp + bottomPadding.calculateBottomPadding(),
+        ),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         item {
@@ -257,6 +283,15 @@ private fun SettingsScreen(
                 SettingRow(label = "自动发现", value = "Bonjour / LAN")
                 SettingRow(label = "协议编码", value = "JSON v1")
                 SettingRow(label = "恢复策略", value = "启动自动恢复最近桌面端")
+            }
+        }
+        item {
+            SectionCard(title = "触控反馈") {
+                SwitchSettingRow(
+                    label = "震动反馈",
+                    checked = state.hapticsEnabled,
+                    onCheckedChange = onHapticsEnabledChange,
+                )
             }
         }
         item {
@@ -278,6 +313,21 @@ private fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SwitchSettingRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

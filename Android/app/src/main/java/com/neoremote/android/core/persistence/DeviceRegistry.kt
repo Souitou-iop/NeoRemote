@@ -65,6 +65,7 @@ class DeviceRegistry(
         const val KEY_RECENT_DEVICES = "recent_devices"
         const val KEY_LAST_CONNECTED = "last_connected"
         const val KEY_MANUAL_CONNECT_DRAFT = "manual_connect_draft"
+        const val KEY_HAPTICS_ENABLED = "haptics_enabled"
         const val MAX_RECENT_COUNT = 6
     }
 
@@ -84,7 +85,7 @@ class DeviceRegistry(
                 Json.parseToJsonElement(encoded).jsonObject.let { json ->
                     ManualConnectDraft(
                         host = json.string("host"),
-                        port = json.string("port").ifBlank { "50505" },
+                        port = json.string("port").ifBlank { "51101" },
                     )
                 }
             }
@@ -98,6 +99,13 @@ class DeviceRegistry(
                 put("port", draft.port)
             }.toString(),
         )
+    }
+
+    fun loadHapticsEnabled(): Boolean =
+        store.getString(KEY_HAPTICS_ENABLED)?.toBooleanStrictOrNull() ?: false
+
+    fun saveHapticsEnabled(enabled: Boolean) {
+        store.putString(KEY_HAPTICS_ENABLED, enabled.toString())
     }
 
     fun upsertRecent(endpoint: DesktopEndpoint) {
