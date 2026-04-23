@@ -34,6 +34,7 @@ class ProtocolCodec {
             is RemoteCommand.Drag -> {
                     put("type", "drag")
                     put("state", command.state.name.lowercase())
+                    put("button", command.button.name.lowercase())
                     put("dx", command.dx)
                     put("dy", command.dy)
             }
@@ -73,6 +74,7 @@ class ProtocolCodec {
                 state = payload.string("state").toDragState() ?: DragState.CHANGED,
                 dx = payload.double("dx"),
                 dy = payload.double("dy"),
+                button = payload.string("button").toMouseButtonKind() ?: MouseButtonKind.PRIMARY,
             )
 
             "heartbeat" -> RemoteCommand.Heartbeat

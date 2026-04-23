@@ -102,7 +102,13 @@ class SocketRemoteTransport(
                     if (bytesRead == 0) continue
 
                     decoder.append(buffer.copyOf(bytesRead)).forEach { payload ->
-                        onMessage?.invoke(codec.decodeMessage(payload))
+                        runCatching { codec.decodeMessage(payload) }
+                            .onSuccess { message -> onMessage?.invoke(message) }
+                            .onFailure { error ->
+                                onStateChange?.invoke(
+                                    TransportConnectionState.Failed(error.message ?: "协议解析失败"),
+                                )
+                            }
                     }
                 }
             } catch (error: IOException) {
@@ -156,4 +162,3 @@ class MockRemoteTransport : RemoteTransport {
         sentPayloads += data
     }
 }
-

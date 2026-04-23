@@ -81,6 +81,7 @@ class TouchSurfaceView @JvmOverloads constructor(
             MotionEvent.ACTION_POINTER_DOWN,
             -> {
                 val index = event.actionIndex
+                if (!event.hasPointerAt(index)) return true
                 emit(
                     adapter.touchBegan(
                         id = event.getPointerId(index),
@@ -106,6 +107,7 @@ class TouchSurfaceView @JvmOverloads constructor(
             MotionEvent.ACTION_POINTER_UP,
             -> {
                 val index = event.actionIndex
+                if (!event.hasPointerAt(index)) return true
                 if (event.actionMasked == MotionEvent.ACTION_UP) {
                     performClick()
                 }
@@ -134,3 +136,5 @@ class TouchSurfaceView @JvmOverloads constructor(
     }
 }
 
+private fun MotionEvent.hasPointerAt(index: Int): Boolean =
+    index >= 0 && index < pointerCount

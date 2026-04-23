@@ -8,134 +8,281 @@ struct TouchSurfaceInputAdapter {
         var startTime: TimeInterval
     }
 
+    private enum Phase: Equatable {
+        case idle
+        case singleTapCandidate
+        case leftDragCandidate
+        case leftDragActive
+        case multiTouchCandidate
+        case scrollActive
+        case rightDragActive
+        case middleTapCandidate
+    }
+
     var moveMultiplier: Double = 1
     var scrollMultiplier: Double = 1
     var tapDistanceThreshold: CGFloat = 12
     var tapDurationThreshold: TimeInterval = 0.22
     var doubleTapWindow: TimeInterval = 0.32
+    var dragDistanceThreshold: CGFloat = 14
+    var rightDragHoldDelay: TimeInterval = 0.18
+    var scrollDominanceThreshold: CGFloat = 1.15
 
     private var activeTouches: [Int: ActiveTouch] = [:]
+    private var phase: Phase = .idle
     private var lastTapTime: TimeInterval?
-    private var dragCandidateId: Int?
-    private var dragActiveId: Int?
-    private var multiTouchSession = false
+    private var sessionStartTime: TimeInterval?
+    private var sessionStartCentroid: CGPoint?
+    private var previousCentroid: CGPoint?
+    private var maxTouchCount = 0
+    private var singleTouchID: Int?
 
     mutating func touchBegan(id: Int, point: CGPoint, timestamp: TimeInterval) -> TouchSurfaceOutput {
-        if activeTouches.isEmpty, let lastTapTime, timestamp - lastTapTime <= doubleTapWindow {
-            dragCandidateId = id
-        }
+        if activeTouches.isEmpty {
+            beginSession(id: id, point: point, timestamp: timestamp)
+        } else {
+            activeTouches[id] = ActiveTouch(startPoint: point, point: point, startTime: timestamp)
+            maxTouchCount = max(maxTouchCount, activeTouches.count)
+            sessionStartCentroid = centroid()
+            previousCentroid = sessionStartCentroid
+            singleTouchID = nil
 
-        activeTouches[id] = ActiveTouch(startPoint: point, point: point, startTime: timestamp)
-
-        if activeTouches.count >= 2 {
-            multiTouchSession = true
+            switch activeTouches.count {
+            case 2:
+                phase = .multiTouchCandidate
+            case 3:
+                phase = .middleTapCandidate
+            default:
+                phase = .idle
+            }
         }
 
         return .none
     }
 
-    mutating func touchMoved(id: Int, point: CGPoint, timestamp _: TimeInterval) -> TouchSurfaceOutput {
+    mutating func touchMoved(id: Int, point: CGPoint, timestamp: TimeInterval) -> TouchSurfaceOutput {
         guard let existing = activeTouches[id] else { return .none }
-
-        let previousAverageY = activeTouches.isEmpty ? 0 : activeTouches.values.map(\.point.y).reduce(0, +) / CGFloat(activeTouches.count)
         let previousPoint = existing.point
+        let previousCentroid = self.previousCentroid ?? centroid()
 
         activeTouches[id]?.point = point
 
-        if activeTouches.count >= 2 {
-            multiTouchSession = true
-            let newAverageY = activeTouches.values.map(\.point.y).reduce(0, +) / CGFloat(activeTouches.count)
-            let deltaY = Double(previousAverageY - newAverageY) * scrollMultiplier
+        switch phase {
+        case .singleTapCandidate:
+            return handleSingleMove(from: previousPoint, to: point)
 
-            guard abs(deltaY) > 0.1 else { return .none }
+        case .leftDragCandidate:
+            return handleLeftDragCandidateMove(id: id, point: point)
+
+        case .leftDragActive:
+            let dx = Double(point.x - previousPoint.x) * moveMultiplier
+            let dy = Double(point.y - previousPoint.y) * moveMultiplier
             return TouchSurfaceOutput(
-                commands: [.scroll(deltaY: deltaY)],
-                semanticEvent: .scrolling
+                commands: [.drag(state: .changed, button: .primary, dx: dx, dy: dy)],
+                semanticEvent: .dragChanged(.primary)
             )
-        }
 
-        let dx = Double(point.x - previousPoint.x) * moveMultiplier
-        let dy = Double(point.y - previousPoint.y) * moveMultiplier
-        let totalDistance = existing.startPoint.distance(to: point)
+        case .multiTouchCandidate, .scrollActive, .rightDragActive:
+            return handleTwoFingerMove(timestamp: timestamp, previousCentroid: previousCentroid)
 
-        if dragActiveId == id {
-            return TouchSurfaceOutput(
-                commands: [.drag(state: .changed, dx: dx, dy: dy)],
-                semanticEvent: .dragChanged
-            )
-        }
-
-        if dragCandidateId == id, totalDistance > tapDistanceThreshold {
-            dragCandidateId = nil
-            dragActiveId = id
-
-            var commands: [RemoteCommand] = [.drag(state: .started, dx: 0, dy: 0)]
-            if abs(dx) > 0.1 || abs(dy) > 0.1 {
-                commands.append(.drag(state: .changed, dx: dx, dy: dy))
+        case .middleTapCandidate:
+            if let start = sessionStartCentroid, start.distance(to: centroid()) > tapDistanceThreshold {
+                phase = .idle
             }
+            return .none
 
-            return TouchSurfaceOutput(commands: commands, semanticEvent: .dragStarted)
-        }
-
-        guard abs(dx) > 0.05 || abs(dy) > 0.05 else {
+        case .idle:
             return .none
         }
-
-        return TouchSurfaceOutput(commands: [.move(dx: dx, dy: dy)], semanticEvent: nil)
     }
 
-    mutating func touchEnded(id: Int, point: CGPoint, timestamp: TimeInterval) -> TouchSurfaceOutput {
-        guard let touch = activeTouches[id] else { return .none }
+    mutating func touchEnded(id: Int, point _: CGPoint, timestamp: TimeInterval) -> TouchSurfaceOutput {
+        guard activeTouches[id] != nil else { return .none }
 
+        let dragEnd = dragEndOutputIfNeeded(endingTouchID: id)
         activeTouches.removeValue(forKey: id)
 
-        if activeTouches.isEmpty {
-            multiTouchSession = false
+        if let dragEnd {
+            resetIfSessionEnded()
+            return dragEnd
         }
 
-        if dragActiveId == id {
-            dragActiveId = nil
-            dragCandidateId = nil
-            return TouchSurfaceOutput(
-                commands: [.drag(state: .ended, dx: 0, dy: 0)],
-                semanticEvent: .dragEnded
-            )
-        }
+        guard activeTouches.isEmpty else { return .none }
+        defer { resetSession() }
 
-        let duration = timestamp - touch.startTime
-        let distance = touch.startPoint.distance(to: point)
+        let duration = timestamp - (sessionStartTime ?? timestamp)
+        let movement = sessionStartCentroid.map { $0.distance(to: previousCentroid ?? $0) } ?? 0
 
-        if dragCandidateId == id {
-            dragCandidateId = nil
-        }
+        switch phase {
+        case .singleTapCandidate, .leftDragCandidate:
+            guard duration <= tapDurationThreshold, movement <= tapDistanceThreshold else { return .none }
+            lastTapTime = timestamp
+            return TouchSurfaceOutput(commands: [.tap(kind: .primary)], semanticEvent: .tap(.primary))
 
-        guard !multiTouchSession else {
+        case .multiTouchCandidate:
+            guard maxTouchCount == 2, duration <= tapDurationThreshold, movement <= tapDistanceThreshold else { return .none }
+            return TouchSurfaceOutput(commands: [.tap(kind: .secondary)], semanticEvent: .tap(.secondary))
+
+        case .middleTapCandidate:
+            guard maxTouchCount == 3, duration <= tapDurationThreshold, movement <= tapDistanceThreshold else { return .none }
+            return TouchSurfaceOutput(commands: [.tap(kind: .middle)], semanticEvent: .tap(.middle))
+
+        default:
             return .none
         }
-
-        guard duration <= tapDurationThreshold, distance <= tapDistanceThreshold else {
-            return .none
-        }
-
-        lastTapTime = timestamp
-        return TouchSurfaceOutput(
-            commands: [.tap(kind: .primary)],
-            semanticEvent: .tap
-        )
     }
 
     mutating func cancelAllTouches() -> TouchSurfaceOutput {
-        defer {
-            activeTouches.removeAll()
-            dragCandidateId = nil
-            dragActiveId = nil
-            multiTouchSession = false
+        defer { resetSession() }
+
+        switch phase {
+        case .leftDragActive:
+            return TouchSurfaceOutput(
+                commands: [.drag(state: .ended, button: .primary, dx: 0, dy: 0)],
+                semanticEvent: .dragEnded(.primary)
+            )
+        case .rightDragActive:
+            return TouchSurfaceOutput(
+                commands: [.drag(state: .ended, button: .secondary, dx: 0, dy: 0)],
+                semanticEvent: .dragEnded(.secondary)
+            )
+        default:
+            return .none
+        }
+    }
+
+    private mutating func beginSession(id: Int, point: CGPoint, timestamp: TimeInterval) {
+        activeTouches[id] = ActiveTouch(startPoint: point, point: point, startTime: timestamp)
+        singleTouchID = id
+        sessionStartTime = timestamp
+        sessionStartCentroid = point
+        previousCentroid = point
+        maxTouchCount = 1
+
+        if let lastTapTime, timestamp - lastTapTime <= doubleTapWindow {
+            phase = .leftDragCandidate
+        } else {
+            phase = .singleTapCandidate
+        }
+    }
+
+    private mutating func handleSingleMove(from previousPoint: CGPoint, to point: CGPoint) -> TouchSurfaceOutput {
+        let dx = Double(point.x - previousPoint.x) * moveMultiplier
+        let dy = Double(point.y - previousPoint.y) * moveMultiplier
+        previousCentroid = point
+
+        guard abs(dx) > 0.05 || abs(dy) > 0.05 else { return .none }
+        return TouchSurfaceOutput(commands: [.move(dx: dx, dy: dy)], semanticEvent: nil)
+    }
+
+    private mutating func handleLeftDragCandidateMove(id: Int, point: CGPoint) -> TouchSurfaceOutput {
+        guard id == singleTouchID, let touch = activeTouches[id] else { return .none }
+        previousCentroid = point
+        let distance = touch.startPoint.distance(to: point)
+
+        guard distance > dragDistanceThreshold else { return .none }
+
+        phase = .leftDragActive
+        let dx = Double(point.x - touch.startPoint.x) * moveMultiplier
+        let dy = Double(point.y - touch.startPoint.y) * moveMultiplier
+        var commands: [RemoteCommand] = [.drag(state: .started, button: .primary, dx: 0, dy: 0)]
+        if abs(dx) > 0.1 || abs(dy) > 0.1 {
+            commands.append(.drag(state: .changed, button: .primary, dx: dx, dy: dy))
+        }
+        return TouchSurfaceOutput(commands: commands, semanticEvent: .dragStarted(.primary))
+    }
+
+    private mutating func handleTwoFingerMove(
+        timestamp: TimeInterval,
+        previousCentroid: CGPoint
+    ) -> TouchSurfaceOutput {
+        guard activeTouches.count == 2 else {
+            phase = .idle
+            return .none
         }
 
-        guard dragActiveId != nil else { return .none }
-        return TouchSurfaceOutput(
-            commands: [.drag(state: .ended, dx: 0, dy: 0)],
-            semanticEvent: .dragEnded
-        )
+        let newCentroid = centroid()
+        self.previousCentroid = newCentroid
+        let dx = newCentroid.x - previousCentroid.x
+        let dy = newCentroid.y - previousCentroid.y
+        let sessionDistance = sessionStartCentroid.map { $0.distance(to: newCentroid) } ?? 0
+        let sessionDuration = timestamp - (sessionStartTime ?? timestamp)
+
+        if phase == .rightDragActive {
+            return TouchSurfaceOutput(
+                commands: [.drag(state: .changed, button: .secondary, dx: Double(dx) * moveMultiplier, dy: Double(dy) * moveMultiplier)],
+                semanticEvent: .dragChanged(.secondary)
+            )
+        }
+
+        if phase == .scrollActive {
+            let deltaY = Double(-dy) * scrollMultiplier
+            guard abs(deltaY) > 0.1 else { return .none }
+            return TouchSurfaceOutput(commands: [.scroll(deltaY: deltaY)], semanticEvent: .scrolling)
+        }
+
+        guard sessionDistance > dragDistanceThreshold else { return .none }
+
+        if sessionDuration >= rightDragHoldDelay {
+            phase = .rightDragActive
+            var commands: [RemoteCommand] = [.drag(state: .started, button: .secondary, dx: 0, dy: 0)]
+            if abs(dx) > 0.1 || abs(dy) > 0.1 {
+                commands.append(.drag(state: .changed, button: .secondary, dx: Double(dx) * moveMultiplier, dy: Double(dy) * moveMultiplier))
+            }
+            return TouchSurfaceOutput(commands: commands, semanticEvent: .dragStarted(.secondary))
+        }
+
+        if abs(dy) >= abs(dx) * scrollDominanceThreshold {
+            phase = .scrollActive
+            let deltaY = Double(-dy) * scrollMultiplier
+            guard abs(deltaY) > 0.1 else { return .none }
+            return TouchSurfaceOutput(commands: [.scroll(deltaY: deltaY)], semanticEvent: .scrolling)
+        }
+
+        return .none
+    }
+
+    private func centroid() -> CGPoint {
+        guard !activeTouches.isEmpty else { return .zero }
+        let x = activeTouches.values.map(\.point.x).reduce(0, +) / CGFloat(activeTouches.count)
+        let y = activeTouches.values.map(\.point.y).reduce(0, +) / CGFloat(activeTouches.count)
+        return CGPoint(x: x, y: y)
+    }
+
+    private mutating func dragEndOutputIfNeeded(endingTouchID id: Int) -> TouchSurfaceOutput? {
+        switch phase {
+        case .leftDragActive where id == singleTouchID:
+            phase = .idle
+            return TouchSurfaceOutput(
+                commands: [.drag(state: .ended, button: .primary, dx: 0, dy: 0)],
+                semanticEvent: .dragEnded(.primary)
+            )
+
+        case .rightDragActive:
+            phase = .idle
+            return TouchSurfaceOutput(
+                commands: [.drag(state: .ended, button: .secondary, dx: 0, dy: 0)],
+                semanticEvent: .dragEnded(.secondary)
+            )
+
+        default:
+            return nil
+        }
+    }
+
+    private mutating func resetIfSessionEnded() {
+        if activeTouches.isEmpty {
+            resetSession()
+        }
+    }
+
+    private mutating func resetSession() {
+        activeTouches.removeAll()
+        phase = .idle
+        sessionStartTime = nil
+        sessionStartCentroid = nil
+        previousCentroid = nil
+        maxTouchCount = 0
+        singleTouchID = nil
     }
 }

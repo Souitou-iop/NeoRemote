@@ -20,14 +20,25 @@ class HapticsController(
     fun perform(event: TouchSurfaceSemanticEvent?) {
         val activeVibrator = vibrator ?: return
         val effect = when (event) {
-            TouchSurfaceSemanticEvent.TAP -> tickEffect()
-            TouchSurfaceSemanticEvent.DRAG_STARTED -> clickEffect()
-            TouchSurfaceSemanticEvent.DRAG_CHANGED -> tickEffect()
-            TouchSurfaceSemanticEvent.DRAG_ENDED -> tickEffect()
+            TouchSurfaceSemanticEvent.PRIMARY_TAP,
+            TouchSurfaceSemanticEvent.SECONDARY_TAP,
+            TouchSurfaceSemanticEvent.MIDDLE_TAP,
+            -> tickEffect()
+            TouchSurfaceSemanticEvent.PRIMARY_DRAG_STARTED,
+            TouchSurfaceSemanticEvent.SECONDARY_DRAG_STARTED,
+            -> clickEffect()
+            TouchSurfaceSemanticEvent.PRIMARY_DRAG_CHANGED,
+            TouchSurfaceSemanticEvent.SECONDARY_DRAG_CHANGED,
+            -> tickEffect()
+            TouchSurfaceSemanticEvent.PRIMARY_DRAG_ENDED,
+            TouchSurfaceSemanticEvent.SECONDARY_DRAG_ENDED,
+            -> tickEffect()
             TouchSurfaceSemanticEvent.SCROLLING -> null
             null -> null
         } ?: return
-        activeVibrator.vibrate(effect)
+        runCatching {
+            activeVibrator.vibrate(effect)
+        }
     }
 
     private fun tickEffect(): VibrationEffect =

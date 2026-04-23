@@ -33,7 +33,7 @@ class AndroidNsdDiscoveryService(
     context: Context,
 ) : DiscoveryService {
     private val appContext = context.applicationContext
-    private val manager = appContext.getSystemService(NsdManager::class.java)
+    private val manager: NsdManager? = appContext.getSystemService(NsdManager::class.java)
     private val multicastLock = (appContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager)
         ?.createMulticastLock("NeoRemoteNsdDiscovery")
         ?.apply { setReferenceCounted(false) }
@@ -53,7 +53,7 @@ class AndroidNsdDiscoveryService(
         udpDiscoveryJob?.cancel()
         udpDiscoveryJob = null
         discoveryListener?.let { listener ->
-            runCatching { manager.stopServiceDiscovery(listener) }
+            runCatching { manager?.stopServiceDiscovery(listener) }
                 .onFailure { Log.w(TAG, "stopServiceDiscovery failed", it) }
         }
         discoveryListener = null
@@ -71,6 +71,12 @@ class AndroidNsdDiscoveryService(
 
     override fun refresh() {
         stop()
+        val nsdManager = manager
+        if (nsdManager == null) {
+            Log.w(TAG, "NSD manager is unavailable; using UDP fallback only")
+            startUdpFallbackDiscovery()
+            return
+        }
         runCatching {
             multicastLock?.acquire()
             Log.d(TAG, "Acquired Wi-Fi multicast lock: ${multicastLock?.isHeld == true}")
@@ -112,13 +118,18 @@ class AndroidNsdDiscoveryService(
         }
         discoveryListener = listener
         Log.d(TAG, "Starting NSD discovery for $SERVICE_TYPE")
-        manager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
+        runCatching {
+            nsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
+        }.onFailure {
+            Log.w(TAG, "discoverServices failed; continuing with UDP fallback", it)
+        }
         startUdpFallbackDiscovery()
     }
 
     @SuppressLint("DeprecatedMethod")
     private fun resolve(serviceInfo: NsdServiceInfo) {
-        manager.resolveService(serviceInfo, object : NsdManager.ResolveListener {
+        val nsdManager = manager ?: return
+        nsdManager.resolveService(serviceInfo, object : NsdManager.ResolveListener {
             override fun onResolveFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
                 Log.w(TAG, "NSD resolve failed: name=${serviceInfo?.serviceName} error=$errorCode")
             }
@@ -305,4 +316,3 @@ private fun Int.toInetAddress(): InetAddress =
             (this shr 24 and 0xff).toByte(),
         ),
     )
-

@@ -63,7 +63,12 @@ sealed interface RemoteCommand {
     data class Move(val dx: Double, val dy: Double) : RemoteCommand
     data class Tap(val kind: MouseButtonKind) : RemoteCommand
     data class Scroll(val deltaY: Double) : RemoteCommand
-    data class Drag(val state: DragState, val dx: Double, val dy: Double) : RemoteCommand
+    data class Drag(
+        val state: DragState,
+        val dx: Double,
+        val dy: Double,
+        val button: MouseButtonKind = MouseButtonKind.PRIMARY,
+    ) : RemoteCommand
     data object Heartbeat : RemoteCommand
 }
 
@@ -93,11 +98,16 @@ data class TouchPoint(
 )
 
 enum class TouchSurfaceSemanticEvent {
-    TAP,
+    PRIMARY_TAP,
+    SECONDARY_TAP,
+    MIDDLE_TAP,
     SCROLLING,
-    DRAG_STARTED,
-    DRAG_CHANGED,
-    DRAG_ENDED,
+    PRIMARY_DRAG_STARTED,
+    PRIMARY_DRAG_CHANGED,
+    PRIMARY_DRAG_ENDED,
+    SECONDARY_DRAG_STARTED,
+    SECONDARY_DRAG_CHANGED,
+    SECONDARY_DRAG_ENDED,
 }
 
 data class TouchSurfaceOutput(

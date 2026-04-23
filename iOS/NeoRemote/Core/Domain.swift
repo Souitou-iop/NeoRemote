@@ -63,6 +63,18 @@ struct DesktopEndpoint: Identifiable, Codable, Hashable {
 enum MouseButtonKind: String, Codable {
     case primary
     case secondary
+    case middle
+
+    var displayName: String {
+        switch self {
+        case .primary:
+            return "左键"
+        case .secondary:
+            return "右键"
+        case .middle:
+            return "中键"
+        }
+    }
 }
 
 enum DragState: String, Codable {
@@ -75,7 +87,7 @@ enum RemoteCommand: Equatable {
     case move(dx: Double, dy: Double)
     case tap(kind: MouseButtonKind)
     case scroll(deltaY: Double)
-    case drag(state: DragState, dx: Double, dy: Double)
+    case drag(state: DragState, button: MouseButtonKind, dx: Double, dy: Double)
     case heartbeat
 }
 
@@ -95,11 +107,11 @@ enum TransportConnectionState: Equatable {
 }
 
 enum TouchSurfaceSemanticEvent: Equatable {
-    case tap
+    case tap(MouseButtonKind)
     case scrolling
-    case dragStarted
-    case dragChanged
-    case dragEnded
+    case dragStarted(MouseButtonKind)
+    case dragChanged(MouseButtonKind)
+    case dragEnded(MouseButtonKind)
 }
 
 struct TouchSurfaceOutput: Equatable {

@@ -15,6 +15,9 @@ class TouchSurfaceInputAdapter(
     private val tapDistanceThreshold: Float = 12f,
     private val tapDurationThreshold: Double = 0.22,
     private val doubleTapWindow: Double = 0.32,
+    private val dragDistanceThreshold: Float = 14f,
+    private val rightDragHoldDelay: Double = 0.18,
+    private val scrollDominanceThreshold: Float = 1.15f,
 ) {
     private data class ActiveTouch(
         val startPoint: TouchPoint,
@@ -22,51 +25,239 @@ class TouchSurfaceInputAdapter(
         val startTime: Double,
     )
 
+    private enum class Phase {
+        IDLE,
+        SINGLE_TAP_CANDIDATE,
+        LEFT_DRAG_CANDIDATE,
+        LEFT_DRAG_ACTIVE,
+        MULTI_TOUCH_CANDIDATE,
+        SCROLL_ACTIVE,
+        RIGHT_DRAG_ACTIVE,
+        MIDDLE_TAP_CANDIDATE,
+    }
+
     private val activeTouches = linkedMapOf<Int, ActiveTouch>()
+    private var phase = Phase.IDLE
     private var lastTapTime: Double? = null
-    private var dragCandidateId: Int? = null
-    private var dragActiveId: Int? = null
-    private var multiTouchSession = false
+    private var sessionStartTime: Double? = null
+    private var sessionStartCentroid: TouchPoint? = null
+    private var previousCentroid: TouchPoint? = null
+    private var maxTouchCount = 0
+    private var singleTouchId: Int? = null
 
     fun touchBegan(id: Int, point: TouchPoint, timestamp: Double): TouchSurfaceOutput {
         if (activeTouches.isEmpty()) {
-            val previousTap = lastTapTime
-            if (previousTap != null && timestamp - previousTap <= doubleTapWindow) {
-                dragCandidateId = id
+            beginSession(id = id, point = point, timestamp = timestamp)
+        } else {
+            activeTouches[id] = ActiveTouch(startPoint = point, point = point, startTime = timestamp)
+            maxTouchCount = maxOf(maxTouchCount, activeTouches.size)
+            sessionStartCentroid = centroid()
+            previousCentroid = sessionStartCentroid
+            singleTouchId = null
+
+            phase = when (activeTouches.size) {
+                2 -> Phase.MULTI_TOUCH_CANDIDATE
+                3 -> Phase.MIDDLE_TAP_CANDIDATE
+                else -> Phase.IDLE
             }
         }
 
-        activeTouches[id] = ActiveTouch(
-            startPoint = point,
-            point = point,
-            startTime = timestamp,
-        )
-
-        if (activeTouches.size >= 2) {
-            multiTouchSession = true
-            val button = when (activeTouches.size) {
-                2 -> MouseButtonKind.SECONDARY
-                3 -> MouseButtonKind.MIDDLE
-                else -> null
-            } ?: return TouchSurfaceOutput()
-            return TouchSurfaceOutput(
-                commands = listOf(RemoteCommand.Tap(button)),
-                semanticEvent = TouchSurfaceSemanticEvent.TAP,
-            )
-        }
         return TouchSurfaceOutput()
     }
 
-    fun touchMoved(id: Int, point: TouchPoint, @Suppress("UNUSED_PARAMETER") timestamp: Double): TouchSurfaceOutput {
+    fun touchMoved(id: Int, point: TouchPoint, timestamp: Double): TouchSurfaceOutput {
         val existing = activeTouches[id] ?: return TouchSurfaceOutput()
-        val previousAverageY = activeTouches.values.map { it.point.y }.average().toFloat()
         val previousPoint = existing.point
+        val oldCentroid = previousCentroid ?: centroid()
+
         activeTouches[id] = existing.copy(point = point)
 
-        if (activeTouches.size >= 2) {
-            multiTouchSession = true
-            val newAverageY = activeTouches.values.map { it.point.y }.average().toFloat()
-            val deltaY = (previousAverageY - newAverageY) * scrollMultiplier
+        return when (phase) {
+            Phase.SINGLE_TAP_CANDIDATE -> handleSingleMove(from = previousPoint, to = point)
+            Phase.LEFT_DRAG_CANDIDATE -> handleLeftDragCandidateMove(id = id, point = point)
+            Phase.LEFT_DRAG_ACTIVE -> {
+                val dx = (point.x - previousPoint.x) * moveMultiplier
+                val dy = (point.y - previousPoint.y) * moveMultiplier
+                TouchSurfaceOutput(
+                    commands = listOf(RemoteCommand.Drag(DragState.CHANGED, dx, dy, MouseButtonKind.PRIMARY)),
+                    semanticEvent = TouchSurfaceSemanticEvent.PRIMARY_DRAG_CHANGED,
+                )
+            }
+
+            Phase.MULTI_TOUCH_CANDIDATE,
+            Phase.SCROLL_ACTIVE,
+            Phase.RIGHT_DRAG_ACTIVE,
+            -> handleTwoFingerMove(timestamp = timestamp, oldCentroid = oldCentroid)
+
+            Phase.MIDDLE_TAP_CANDIDATE -> {
+                val start = sessionStartCentroid
+                if (start != null && start.distanceTo(centroid()) > tapDistanceThreshold) {
+                    phase = Phase.IDLE
+                }
+                TouchSurfaceOutput()
+            }
+
+            Phase.IDLE -> TouchSurfaceOutput()
+        }
+    }
+
+    fun touchEnded(id: Int, point: TouchPoint, timestamp: Double): TouchSurfaceOutput {
+        if (!activeTouches.containsKey(id)) return TouchSurfaceOutput()
+        activeTouches[id] = activeTouches.getValue(id).copy(point = point)
+
+        val dragEnd = dragEndOutputIfNeeded(endingTouchId = id)
+        activeTouches.remove(id)
+
+        if (dragEnd != null) {
+            resetIfSessionEnded()
+            return dragEnd
+        }
+
+        if (activeTouches.isNotEmpty()) return TouchSurfaceOutput()
+
+        val duration = timestamp - (sessionStartTime ?: timestamp)
+        val movement = sessionStartCentroid?.let { start ->
+            start.distanceTo(previousCentroid ?: start)
+        } ?: 0f
+        val output = when (phase) {
+            Phase.SINGLE_TAP_CANDIDATE,
+            Phase.LEFT_DRAG_CANDIDATE,
+            -> {
+                if (duration <= tapDurationThreshold && movement <= tapDistanceThreshold) {
+                    lastTapTime = timestamp
+                    TouchSurfaceOutput(
+                        commands = listOf(RemoteCommand.Tap(MouseButtonKind.PRIMARY)),
+                        semanticEvent = TouchSurfaceSemanticEvent.PRIMARY_TAP,
+                    )
+                } else {
+                    TouchSurfaceOutput()
+                }
+            }
+
+            Phase.MULTI_TOUCH_CANDIDATE -> {
+                if (maxTouchCount == 2 && duration <= tapDurationThreshold && movement <= tapDistanceThreshold) {
+                    TouchSurfaceOutput(
+                        commands = listOf(RemoteCommand.Tap(MouseButtonKind.SECONDARY)),
+                        semanticEvent = TouchSurfaceSemanticEvent.SECONDARY_TAP,
+                    )
+                } else {
+                    TouchSurfaceOutput()
+                }
+            }
+
+            Phase.MIDDLE_TAP_CANDIDATE -> {
+                if (maxTouchCount == 3 && duration <= tapDurationThreshold && movement <= tapDistanceThreshold) {
+                    TouchSurfaceOutput(
+                        commands = listOf(RemoteCommand.Tap(MouseButtonKind.MIDDLE)),
+                        semanticEvent = TouchSurfaceSemanticEvent.MIDDLE_TAP,
+                    )
+                } else {
+                    TouchSurfaceOutput()
+                }
+            }
+
+            else -> TouchSurfaceOutput()
+        }
+
+        resetSession()
+        return output
+    }
+
+    fun cancelAllTouches(): TouchSurfaceOutput {
+        val output = when (phase) {
+            Phase.LEFT_DRAG_ACTIVE -> TouchSurfaceOutput(
+                commands = listOf(RemoteCommand.Drag(DragState.ENDED, 0.0, 0.0, MouseButtonKind.PRIMARY)),
+                semanticEvent = TouchSurfaceSemanticEvent.PRIMARY_DRAG_ENDED,
+            )
+
+            Phase.RIGHT_DRAG_ACTIVE -> TouchSurfaceOutput(
+                commands = listOf(RemoteCommand.Drag(DragState.ENDED, 0.0, 0.0, MouseButtonKind.SECONDARY)),
+                semanticEvent = TouchSurfaceSemanticEvent.SECONDARY_DRAG_ENDED,
+            )
+
+            else -> TouchSurfaceOutput()
+        }
+
+        resetSession()
+        return output
+    }
+
+    private fun beginSession(id: Int, point: TouchPoint, timestamp: Double) {
+        activeTouches[id] = ActiveTouch(startPoint = point, point = point, startTime = timestamp)
+        singleTouchId = id
+        sessionStartTime = timestamp
+        sessionStartCentroid = point
+        previousCentroid = point
+        maxTouchCount = 1
+
+        phase = if (lastTapTime?.let { timestamp - it <= doubleTapWindow } == true) {
+            Phase.LEFT_DRAG_CANDIDATE
+        } else {
+            Phase.SINGLE_TAP_CANDIDATE
+        }
+    }
+
+    private fun handleSingleMove(from: TouchPoint, to: TouchPoint): TouchSurfaceOutput {
+        val dx = (to.x - from.x) * moveMultiplier
+        val dy = (to.y - from.y) * moveMultiplier
+        previousCentroid = to
+
+        if (abs(dx) <= 0.05 && abs(dy) <= 0.05) return TouchSurfaceOutput()
+        return TouchSurfaceOutput(commands = listOf(RemoteCommand.Move(dx, dy)))
+    }
+
+    private fun handleLeftDragCandidateMove(id: Int, point: TouchPoint): TouchSurfaceOutput {
+        if (id != singleTouchId) return TouchSurfaceOutput()
+        val touch = activeTouches[id] ?: return TouchSurfaceOutput()
+        previousCentroid = point
+
+        if (touch.startPoint.distanceTo(point) <= dragDistanceThreshold) return TouchSurfaceOutput()
+
+        phase = Phase.LEFT_DRAG_ACTIVE
+        val dx = (point.x - touch.startPoint.x) * moveMultiplier
+        val dy = (point.y - touch.startPoint.y) * moveMultiplier
+        val commands = buildList {
+            add(RemoteCommand.Drag(DragState.STARTED, 0.0, 0.0, MouseButtonKind.PRIMARY))
+            if (abs(dx) > 0.1 || abs(dy) > 0.1) {
+                add(RemoteCommand.Drag(DragState.CHANGED, dx, dy, MouseButtonKind.PRIMARY))
+            }
+        }
+
+        return TouchSurfaceOutput(
+            commands = commands,
+            semanticEvent = TouchSurfaceSemanticEvent.PRIMARY_DRAG_STARTED,
+        )
+    }
+
+    private fun handleTwoFingerMove(timestamp: Double, oldCentroid: TouchPoint): TouchSurfaceOutput {
+        if (activeTouches.size != 2) {
+            phase = Phase.IDLE
+            return TouchSurfaceOutput()
+        }
+
+        val newCentroid = centroid()
+        previousCentroid = newCentroid
+        val dx = newCentroid.x - oldCentroid.x
+        val dy = newCentroid.y - oldCentroid.y
+        val sessionDistance = sessionStartCentroid?.distanceTo(newCentroid) ?: 0f
+        val sessionDuration = timestamp - (sessionStartTime ?: timestamp)
+
+        if (phase == Phase.RIGHT_DRAG_ACTIVE) {
+            return TouchSurfaceOutput(
+                commands = listOf(
+                    RemoteCommand.Drag(
+                        state = DragState.CHANGED,
+                        dx = dx * moveMultiplier,
+                        dy = dy * moveMultiplier,
+                        button = MouseButtonKind.SECONDARY,
+                    ),
+                ),
+                semanticEvent = TouchSurfaceSemanticEvent.SECONDARY_DRAG_CHANGED,
+            )
+        }
+
+        if (phase == Phase.SCROLL_ACTIVE) {
+            val deltaY = -dy * scrollMultiplier
             if (abs(deltaY) <= 0.1) return TouchSurfaceOutput()
             return TouchSurfaceOutput(
                 commands = listOf(RemoteCommand.Scroll(deltaY)),
@@ -74,89 +265,85 @@ class TouchSurfaceInputAdapter(
             )
         }
 
-        val dx = (point.x - previousPoint.x) * moveMultiplier
-        val dy = (point.y - previousPoint.y) * moveMultiplier
-        val totalDistance = existing.startPoint.distanceTo(point)
+        if (sessionDistance <= dragDistanceThreshold) return TouchSurfaceOutput()
 
-        if (dragActiveId == id) {
-            return TouchSurfaceOutput(
-                commands = listOf(RemoteCommand.Drag(DragState.CHANGED, dx, dy)),
-                semanticEvent = TouchSurfaceSemanticEvent.DRAG_CHANGED,
-            )
-        }
-
-        if (dragCandidateId == id && totalDistance > tapDistanceThreshold) {
-            dragCandidateId = null
-            dragActiveId = id
-
+        if (sessionDuration >= rightDragHoldDelay) {
+            phase = Phase.RIGHT_DRAG_ACTIVE
             val commands = buildList {
-                add(RemoteCommand.Drag(DragState.STARTED, 0.0, 0.0))
+                add(RemoteCommand.Drag(DragState.STARTED, 0.0, 0.0, MouseButtonKind.SECONDARY))
                 if (abs(dx) > 0.1 || abs(dy) > 0.1) {
-                    add(RemoteCommand.Drag(DragState.CHANGED, dx, dy))
+                    add(
+                        RemoteCommand.Drag(
+                            state = DragState.CHANGED,
+                            dx = dx * moveMultiplier,
+                            dy = dy * moveMultiplier,
+                            button = MouseButtonKind.SECONDARY,
+                        ),
+                    )
                 }
             }
             return TouchSurfaceOutput(
                 commands = commands,
-                semanticEvent = TouchSurfaceSemanticEvent.DRAG_STARTED,
+                semanticEvent = TouchSurfaceSemanticEvent.SECONDARY_DRAG_STARTED,
             )
         }
 
-        if (abs(dx) <= 0.05 && abs(dy) <= 0.05) {
-            return TouchSurfaceOutput()
+        if (abs(dy) >= abs(dx) * scrollDominanceThreshold) {
+            phase = Phase.SCROLL_ACTIVE
+            val deltaY = -dy * scrollMultiplier
+            if (abs(deltaY) <= 0.1) return TouchSurfaceOutput()
+            return TouchSurfaceOutput(
+                commands = listOf(RemoteCommand.Scroll(deltaY)),
+                semanticEvent = TouchSurfaceSemanticEvent.SCROLLING,
+            )
         }
 
-        return TouchSurfaceOutput(commands = listOf(RemoteCommand.Move(dx, dy)))
+        return TouchSurfaceOutput()
     }
 
-    fun touchEnded(id: Int, point: TouchPoint, timestamp: Double): TouchSurfaceOutput {
-        val touch = activeTouches.remove(id) ?: return TouchSurfaceOutput()
-
-        if (activeTouches.isEmpty()) {
-            multiTouchSession = false
-        }
-
-        if (dragActiveId == id) {
-            dragActiveId = null
-            dragCandidateId = null
-            return TouchSurfaceOutput(
-                commands = listOf(RemoteCommand.Drag(DragState.ENDED, 0.0, 0.0)),
-                semanticEvent = TouchSurfaceSemanticEvent.DRAG_ENDED,
-            )
-        }
-
-        val duration = timestamp - touch.startTime
-        val distance = touch.startPoint.distanceTo(point)
-
-        if (dragCandidateId == id) {
-            dragCandidateId = null
-        }
-
-        if (multiTouchSession) return TouchSurfaceOutput()
-        if (duration > tapDurationThreshold || distance > tapDistanceThreshold) {
-            return TouchSurfaceOutput()
-        }
-
-        lastTapTime = timestamp
-        return TouchSurfaceOutput(
-            commands = listOf(RemoteCommand.Tap(MouseButtonKind.PRIMARY)),
-            semanticEvent = TouchSurfaceSemanticEvent.TAP,
+    private fun centroid(): TouchPoint {
+        if (activeTouches.isEmpty()) return TouchPoint(0f, 0f)
+        return TouchPoint(
+            x = activeTouches.values.map { it.point.x }.average().toFloat(),
+            y = activeTouches.values.map { it.point.y }.average().toFloat(),
         )
     }
 
-    fun cancelAllTouches(): TouchSurfaceOutput {
-        val hadDrag = dragActiveId != null
-        activeTouches.clear()
-        dragCandidateId = null
-        dragActiveId = null
-        multiTouchSession = false
-        return if (hadDrag) {
-            TouchSurfaceOutput(
-                commands = listOf(RemoteCommand.Drag(DragState.ENDED, 0.0, 0.0)),
-                semanticEvent = TouchSurfaceSemanticEvent.DRAG_ENDED,
-            )
-        } else {
-            TouchSurfaceOutput()
+    private fun dragEndOutputIfNeeded(endingTouchId: Int): TouchSurfaceOutput? =
+        when {
+            phase == Phase.LEFT_DRAG_ACTIVE && endingTouchId == singleTouchId -> {
+                phase = Phase.IDLE
+                TouchSurfaceOutput(
+                    commands = listOf(RemoteCommand.Drag(DragState.ENDED, 0.0, 0.0, MouseButtonKind.PRIMARY)),
+                    semanticEvent = TouchSurfaceSemanticEvent.PRIMARY_DRAG_ENDED,
+                )
+            }
+
+            phase == Phase.RIGHT_DRAG_ACTIVE -> {
+                phase = Phase.IDLE
+                TouchSurfaceOutput(
+                    commands = listOf(RemoteCommand.Drag(DragState.ENDED, 0.0, 0.0, MouseButtonKind.SECONDARY)),
+                    semanticEvent = TouchSurfaceSemanticEvent.SECONDARY_DRAG_ENDED,
+                )
+            }
+
+            else -> null
         }
+
+    private fun resetIfSessionEnded() {
+        if (activeTouches.isEmpty()) {
+            resetSession()
+        }
+    }
+
+    private fun resetSession() {
+        activeTouches.clear()
+        phase = Phase.IDLE
+        sessionStartTime = null
+        sessionStartCentroid = null
+        previousCentroid = null
+        maxTouchCount = 0
+        singleTouchId = null
     }
 }
 

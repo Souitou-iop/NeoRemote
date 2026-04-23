@@ -32,18 +32,36 @@ final class MouseEventPlannerTests: XCTestCase {
     func testDragLifecycleMapsToDownDragUp() {
         var planner = MouseEventPlanner()
 
-        let start = planner.apply(.drag(state: .started, dx: 0, dy: 0)) {
+        let start = planner.apply(.drag(state: .started, button: .primary, dx: 0, dy: 0)) {
             CGPoint(x: 30, y: 30)
         }
-        let change = planner.apply(.drag(state: .changed, dx: 5, dy: -4)) {
+        let change = planner.apply(.drag(state: .changed, button: .primary, dx: 5, dy: -4)) {
             CGPoint(x: 30, y: 30)
         }
-        let end = planner.apply(.drag(state: .ended, dx: 0, dy: 0)) {
+        let end = planner.apply(.drag(state: .ended, button: .primary, dx: 0, dy: 0)) {
             CGPoint(x: 30, y: 30)
         }
 
         XCTAssertEqual(start, [.mouseDown(button: .primary, point: CGPoint(x: 30, y: 30))])
         XCTAssertEqual(change, [.drag(button: .primary, to: CGPoint(x: 35, y: 34))])
         XCTAssertEqual(end, [.mouseUp(button: .primary, point: CGPoint(x: 35, y: 34))])
+    }
+
+    func testSecondaryDragLifecycleMapsToRightButtonEvents() {
+        var planner = MouseEventPlanner()
+
+        let start = planner.apply(.drag(state: .started, button: .secondary, dx: 0, dy: 0)) {
+            CGPoint(x: 30, y: 30)
+        }
+        let change = planner.apply(.drag(state: .changed, button: .secondary, dx: 5, dy: -4)) {
+            CGPoint(x: 30, y: 30)
+        }
+        let end = planner.apply(.drag(state: .ended, button: .secondary, dx: 0, dy: 0)) {
+            CGPoint(x: 30, y: 30)
+        }
+
+        XCTAssertEqual(start, [.mouseDown(button: .secondary, point: CGPoint(x: 30, y: 30))])
+        XCTAssertEqual(change, [.drag(button: .secondary, to: CGPoint(x: 35, y: 34))])
+        XCTAssertEqual(end, [.mouseUp(button: .secondary, point: CGPoint(x: 35, y: 34))])
     }
 }

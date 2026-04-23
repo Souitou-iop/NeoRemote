@@ -54,12 +54,12 @@ private struct CommandEnvelope: Codable {
             self.deltaY = deltaY
             button = nil
             state = nil
-        case let .drag(state, dx, dy):
+        case let .drag(state, button, dx, dy):
             type = "drag"
             self.dx = dx
             self.dy = dy
             deltaY = nil
-            button = nil
+            self.button = button
             self.state = state
         case .heartbeat:
             type = "heartbeat"

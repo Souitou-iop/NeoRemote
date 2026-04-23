@@ -178,19 +178,19 @@ final class SessionCoordinator: ObservableObject {
 
         guard let event = output.semanticEvent else { return }
         switch event {
-        case .tap:
+        case let .tap(button):
             haptics.playTap()
-            showHUD("已点击")
+            showHUD(tapHUDText(for: button))
         case .scrolling:
             showHUD("双指滚动")
-        case .dragStarted:
+        case let .dragStarted(button):
             haptics.playDragStart()
-            showHUD("开始拖拽")
-        case .dragChanged:
+            showHUD(dragHUDText(for: button, state: .started))
+        case let .dragChanged(button):
             haptics.playDragTick()
-            showHUD("拖拽中")
-        case .dragEnded:
-            showHUD("结束拖拽")
+            showHUD(dragHUDText(for: button, state: .changed))
+        case let .dragEnded(button):
+            showHUD(dragHUDText(for: button, state: .ended))
         }
     }
 
@@ -287,17 +287,39 @@ final class SessionCoordinator: ObservableObject {
             statusMessage = "正在滚动桌面内容"
         case .move:
             statusMessage = "远程控制中"
-        case let .drag(state, _, _):
+        case let .drag(state, button, _, _):
             switch state {
             case .started:
-                statusMessage = "桌面拖拽已开始"
+                statusMessage = "\(button.displayName)拖拽已开始"
             case .changed:
-                statusMessage = "拖拽进行中"
+                statusMessage = "\(button.displayName)拖拽进行中"
             case .ended:
-                statusMessage = "拖拽已结束"
+                statusMessage = "\(button.displayName)拖拽已结束"
             }
         case .heartbeat:
             break
+        }
+    }
+
+    private func tapHUDText(for button: MouseButtonKind) -> String {
+        switch button {
+        case .primary:
+            return "左键点击"
+        case .secondary:
+            return "右键点击"
+        case .middle:
+            return "中键点击"
+        }
+    }
+
+    private func dragHUDText(for button: MouseButtonKind, state: DragState) -> String {
+        switch state {
+        case .started:
+            return "\(button.displayName)拖拽开始"
+        case .changed:
+            return "\(button.displayName)拖拽中"
+        case .ended:
+            return "\(button.displayName)拖拽结束"
         }
     }
 

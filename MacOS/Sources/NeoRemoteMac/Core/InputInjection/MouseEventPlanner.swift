@@ -33,12 +33,12 @@ struct MouseEventPlanner {
         case let .scroll(deltaY):
             return [.scroll(lines: Int32(deltaY.rounded()))]
 
-        case let .drag(state, dx, dy):
+        case let .drag(state, button, dx, dy):
             switch state {
             case .started:
                 let point = currentPosition ?? positionProvider()
-                activeDragButton = .primary
-                return [.mouseDown(button: .primary, point: point)]
+                activeDragButton = button
+                return [.mouseDown(button: button, point: point)]
 
             case .changed:
                 let point = translatedPoint(dx: dx, dy: dy)

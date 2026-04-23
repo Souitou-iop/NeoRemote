@@ -207,7 +207,7 @@ private fun RemoteScreen(
         )
 
         Text(
-            text = "单指移动、单击、双指滚动、双击后拖拽",
+            text = "单指移动/点击 · 双击拖拽 · 双指右键/滚动 · 三指中键",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

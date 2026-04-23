@@ -33,7 +33,16 @@ class ProtocolCodecTest {
             """{"type":"drag","state":"started","dx":4.0,"dy":-2.0}""".encodeToByteArray(),
         )
 
-        assertThat(command).isEqualTo(RemoteCommand.Drag(DragState.STARTED, 4.0, -2.0))
+        assertThat(command).isEqualTo(RemoteCommand.Drag(DragState.STARTED, 4.0, -2.0, MouseButtonKind.PRIMARY))
+    }
+
+    @Test
+    fun `encode and decode secondary drag command`() {
+        val encoded = codec.encode(RemoteCommand.Drag(DragState.STARTED, 4.0, -2.0, MouseButtonKind.SECONDARY))
+        val command = codec.decodeCommand(encoded)
+
+        assertThat(encoded.decodeToString()).contains("\"button\":\"secondary\"")
+        assertThat(command).isEqualTo(RemoteCommand.Drag(DragState.STARTED, 4.0, -2.0, MouseButtonKind.SECONDARY))
     }
 
     @Test
@@ -52,4 +61,3 @@ class ProtocolCodecTest {
         assertThat(command).isEqualTo(RemoteCommand.Tap(MouseButtonKind.MIDDLE))
     }
 }
-

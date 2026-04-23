@@ -15,6 +15,27 @@ final class ProtocolCodecTests: XCTestCase {
         XCTAssertEqual(dy, -3.2, accuracy: 0.001)
     }
 
+    func testEncodeSecondaryDragIncludesButton() throws {
+        let codec = ProtocolCodec()
+
+        let data = try codec.encode(.drag(state: .started, button: .secondary, dx: 4, dy: -2))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "drag")
+        XCTAssertEqual(json["state"] as? String, "started")
+        XCTAssertEqual(json["button"] as? String, "secondary")
+    }
+
+    func testEncodeMiddleTapIncludesButton() throws {
+        let codec = ProtocolCodec()
+
+        let data = try codec.encode(.tap(kind: .middle))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "tap")
+        XCTAssertEqual(json["button"] as? String, "middle")
+    }
+
     func testDecodeKnownStatusMessage() throws {
         let codec = ProtocolCodec()
         let data = """

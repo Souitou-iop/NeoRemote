@@ -210,11 +210,16 @@ class SessionCoordinatorViewModel(
     fun handleTouchOutput(output: TouchSurfaceOutput) {
         output.commands.forEach(::send)
         when (output.semanticEvent) {
-            TouchSurfaceSemanticEvent.TAP -> showHud("已点击")
+            TouchSurfaceSemanticEvent.PRIMARY_TAP -> showHud("左键点击")
+            TouchSurfaceSemanticEvent.SECONDARY_TAP -> showHud("右键点击")
+            TouchSurfaceSemanticEvent.MIDDLE_TAP -> showHud("中键点击")
             TouchSurfaceSemanticEvent.SCROLLING -> showHud("双指滚动")
-            TouchSurfaceSemanticEvent.DRAG_STARTED -> showHud("开始拖拽")
-            TouchSurfaceSemanticEvent.DRAG_CHANGED -> showHud("拖拽中")
-            TouchSurfaceSemanticEvent.DRAG_ENDED -> showHud("结束拖拽")
+            TouchSurfaceSemanticEvent.PRIMARY_DRAG_STARTED -> showHud("左键拖拽开始")
+            TouchSurfaceSemanticEvent.PRIMARY_DRAG_CHANGED -> showHud("左键拖拽中")
+            TouchSurfaceSemanticEvent.PRIMARY_DRAG_ENDED -> showHud("左键拖拽结束")
+            TouchSurfaceSemanticEvent.SECONDARY_DRAG_STARTED -> showHud("右键拖拽开始")
+            TouchSurfaceSemanticEvent.SECONDARY_DRAG_CHANGED -> showHud("右键拖拽中")
+            TouchSurfaceSemanticEvent.SECONDARY_DRAG_ENDED -> showHud("右键拖拽结束")
             null -> Unit
         }
     }
@@ -354,9 +359,9 @@ class SessionCoordinatorViewModel(
                     is RemoteCommand.Scroll -> "正在滚动桌面内容"
                     is RemoteCommand.Move -> "远程控制中"
                     is RemoteCommand.Drag -> when (command.state) {
-                        com.neoremote.android.core.model.DragState.STARTED -> "桌面拖拽已开始"
-                        com.neoremote.android.core.model.DragState.CHANGED -> "拖拽进行中"
-                        com.neoremote.android.core.model.DragState.ENDED -> "拖拽已结束"
+                        com.neoremote.android.core.model.DragState.STARTED -> "${command.button.displayText}拖拽已开始"
+                        com.neoremote.android.core.model.DragState.CHANGED -> "${command.button.displayText}拖拽进行中"
+                        com.neoremote.android.core.model.DragState.ENDED -> "${command.button.displayText}拖拽已结束"
                     }
 
                     is RemoteCommand.Tap -> it.statusMessage
@@ -424,4 +429,11 @@ class SessionCoordinatorViewModel(
                 }
             }
     }
+
+    private val com.neoremote.android.core.model.MouseButtonKind.displayText: String
+        get() = when (this) {
+            com.neoremote.android.core.model.MouseButtonKind.PRIMARY -> "左键"
+            com.neoremote.android.core.model.MouseButtonKind.SECONDARY -> "右键"
+            com.neoremote.android.core.model.MouseButtonKind.MIDDLE -> "中键"
+        }
 }

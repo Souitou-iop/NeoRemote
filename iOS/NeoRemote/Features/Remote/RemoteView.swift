@@ -24,6 +24,11 @@ struct RemoteView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(theme.surfaceBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+
+                    Text("单指移动/点击 · 双击拖拽 · 双指右键/滚动 · 三指中键")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(theme.secondaryForeground)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(20)
 

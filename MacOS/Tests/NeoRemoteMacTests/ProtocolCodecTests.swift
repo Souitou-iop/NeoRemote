@@ -17,6 +17,20 @@ final class ProtocolCodecTests: XCTestCase {
         XCTAssertEqual(try codec.decodeCommand(data), .tap(kind: .primary))
     }
 
+    func testDecodeSecondaryDragCommand() throws {
+        let codec = ProtocolCodec()
+        let data = #"{"type":"drag","state":"started","button":"secondary","dx":4,"dy":-2}"#.data(using: .utf8)!
+
+        XCTAssertEqual(try codec.decodeCommand(data), .drag(state: .started, button: .secondary, dx: 4, dy: -2))
+    }
+
+    func testDecodeLegacyDragDefaultsToPrimaryButton() throws {
+        let codec = ProtocolCodec()
+        let data = #"{"type":"drag","state":"started","dx":4,"dy":-2}"#.data(using: .utf8)!
+
+        XCTAssertEqual(try codec.decodeCommand(data), .drag(state: .started, button: .primary, dx: 4, dy: -2))
+    }
+
     func testEncodeStatusMessage() throws {
         let codec = ProtocolCodec()
         let payload = try codec.encode(.status("ok"))

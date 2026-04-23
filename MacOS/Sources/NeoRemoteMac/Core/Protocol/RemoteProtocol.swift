@@ -4,6 +4,7 @@ import Network
 enum MouseButtonKind: String, Codable, Equatable {
     case primary
     case secondary
+    case middle
 }
 
 enum DragState: String, Codable, Equatable {
@@ -16,7 +17,7 @@ enum RemoteCommand: Equatable {
     case move(dx: Double, dy: Double)
     case tap(kind: MouseButtonKind)
     case scroll(deltaY: Double)
-    case drag(state: DragState, dx: Double, dy: Double)
+    case drag(state: DragState, button: MouseButtonKind, dx: Double, dy: Double)
     case heartbeat
 }
 

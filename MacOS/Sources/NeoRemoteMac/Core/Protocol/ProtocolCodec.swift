@@ -20,6 +20,7 @@ struct ProtocolCodec {
         case "drag":
             return .drag(
                 state: envelope.state ?? .changed,
+                button: envelope.button ?? .primary,
                 dx: envelope.dx ?? 0,
                 dy: envelope.dy ?? 0
             )

@@ -81,6 +81,8 @@ final class CGEventInputInjector: RemoteCommandInjecting {
             .left
         case .secondary:
             .right
+        case .middle:
+            .center
         }
     }
 
@@ -90,6 +92,8 @@ final class CGEventInputInjector: RemoteCommandInjecting {
             .leftMouseDown
         case .secondary:
             .rightMouseDown
+        case .middle:
+            .otherMouseDown
         }
     }
 
@@ -99,6 +103,8 @@ final class CGEventInputInjector: RemoteCommandInjecting {
             .leftMouseUp
         case .secondary:
             .rightMouseUp
+        case .middle:
+            .otherMouseUp
         }
     }
 
@@ -108,6 +114,8 @@ final class CGEventInputInjector: RemoteCommandInjecting {
             .leftMouseDragged
         case .secondary:
             .rightMouseDragged
+        case .middle:
+            .otherMouseDragged
         }
     }
 }
