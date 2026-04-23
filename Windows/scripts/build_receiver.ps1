@@ -6,7 +6,17 @@ New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $buildDir "obj\tests") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $buildDir "obj\app") | Out-Null
 
-$vsDevCmd = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\Tools\VsDevCmd.bat"
+$vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+if (-not (Test-Path $vswhere)) {
+    throw "vswhere not found at $vswhere"
+}
+
+$vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+if (-not $vsInstallPath) {
+    throw "Visual Studio with C++ build tools was not found"
+}
+
+$vsDevCmd = Join-Path $vsInstallPath "Common7\Tools\VsDevCmd.bat"
 if (-not (Test-Path $vsDevCmd)) {
     throw "Visual Studio developer command prompt not found at $vsDevCmd"
 }
