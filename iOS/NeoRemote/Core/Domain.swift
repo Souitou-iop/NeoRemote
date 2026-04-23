@@ -95,6 +95,7 @@ enum TransportConnectionState: Equatable {
 }
 
 enum TouchSurfaceSemanticEvent: Equatable {
+    case moving
     case tap
     case scrolling
     case dragStarted

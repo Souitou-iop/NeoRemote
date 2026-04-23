@@ -1,6 +1,5 @@
 package com.neoremote.android.ui.screens
 
-import com.neoremote.android.BuildConfig
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -54,7 +53,7 @@ fun OnboardingScreen(
     onManualConnect: () -> Unit,
 ) {
     var showingManualDialog by rememberSaveable { mutableStateOf(false) }
-    var debugRefreshTapCount by rememberSaveable { mutableStateOf(0) }
+    var hiddenRefreshTapCount by rememberSaveable { mutableStateOf(0) }
 
     Scaffold(
         topBar = {
@@ -64,12 +63,10 @@ fun OnboardingScreen(
                     IconButton(
                         onClick = {
                             onRefreshDiscovery()
-                            if (BuildConfig.DEBUG) {
-                                debugRefreshTapCount += 1
-                                if (debugRefreshTapCount >= 5) {
-                                    debugRefreshTapCount = 0
-                                    onEnterDemoMode()
-                                }
+                            hiddenRefreshTapCount += 1
+                            if (hiddenRefreshTapCount >= 5) {
+                                hiddenRefreshTapCount = 0
+                                onEnterDemoMode()
                             }
                         },
                     ) {

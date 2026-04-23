@@ -210,6 +210,7 @@ class SessionCoordinatorViewModel(
     fun handleTouchOutput(output: TouchSurfaceOutput) {
         output.commands.forEach(::send)
         when (output.semanticEvent) {
+            TouchSurfaceSemanticEvent.MOVING -> Unit
             TouchSurfaceSemanticEvent.TAP -> showHud("已点击")
             TouchSurfaceSemanticEvent.SCROLLING -> showHud("双指滚动")
             TouchSurfaceSemanticEvent.DRAG_STARTED -> showHud("开始拖拽")

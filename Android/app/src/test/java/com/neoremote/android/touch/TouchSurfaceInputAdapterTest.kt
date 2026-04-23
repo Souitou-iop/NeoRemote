@@ -18,6 +18,7 @@ class TouchSurfaceInputAdapterTest {
         val output = adapter.touchMoved(1, TouchPoint(20f, 10f), 0.1)
 
         assertThat(output.commands).containsExactly(RemoteCommand.Move(20.0, 10.0))
+        assertThat(output.semanticEvent).isEqualTo(TouchSurfaceSemanticEvent.MOVING)
     }
 
     @Test
@@ -80,4 +81,3 @@ class TouchSurfaceInputAdapterTest {
         assertThat(end.commands).containsExactly(RemoteCommand.Drag(DragState.ENDED, 0.0, 0.0))
     }
 }
-

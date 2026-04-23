@@ -3,6 +3,7 @@ package com.neoremote.android.ui
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import com.neoremote.android.core.model.SessionRoute
 import com.neoremote.android.core.model.SessionStatus
@@ -20,11 +21,13 @@ class NeoRemoteUiSmokeTest {
             NeoRemoteApp(
                 state = SessionUiState(),
                 onRefreshDiscovery = {},
+                onEnterDemoMode = {},
                 onConnect = {},
                 onDisconnect = {},
                 onClearRecent = {},
                 onManualDraftChange = { _, _ -> },
                 onManualConnect = {},
+                onHapticsEnabledChange = {},
                 onTouchOutput = {},
             )
         }
@@ -42,11 +45,13 @@ class NeoRemoteUiSmokeTest {
                     statusMessage = "桌面端在线",
                 ),
                 onRefreshDiscovery = {},
+                onEnterDemoMode = {},
                 onConnect = {},
                 onDisconnect = {},
                 onClearRecent = {},
                 onManualDraftChange = { _, _ -> },
                 onManualConnect = {},
+                onHapticsEnabledChange = {},
                 onTouchOutput = {},
             )
         }
@@ -65,11 +70,13 @@ class NeoRemoteUiSmokeTest {
                     statusMessage = "桌面端在线",
                 ),
                 onRefreshDiscovery = {},
+                onEnterDemoMode = {},
                 onConnect = {},
                 onDisconnect = {},
                 onClearRecent = {},
                 onManualDraftChange = { _, _ -> },
                 onManualConnect = {},
+                onHapticsEnabledChange = {},
                 onTouchOutput = {},
             )
         }
@@ -91,11 +98,13 @@ class NeoRemoteUiSmokeTest {
                     statusMessage = "桌面端在线",
                 ),
                 onRefreshDiscovery = {},
+                onEnterDemoMode = {},
                 onConnect = {},
                 onDisconnect = {},
                 onClearRecent = {},
                 onManualDraftChange = { _, _ -> },
                 onManualConnect = {},
+                onHapticsEnabledChange = {},
                 onTouchOutput = {},
             )
         }
@@ -105,5 +114,33 @@ class NeoRemoteUiSmokeTest {
 
         composeRule.onAllNodesWithTag("bottom-tab-settings")[0].performClick()
         composeRule.onNodeWithText("连接策略").fetchSemanticsNode()
+    }
+
+    @Test
+    fun onboarding_refresh_five_taps_enters_demo_mode() {
+        var refreshCount = 0
+        var demoCount = 0
+
+        composeRule.setContent {
+            NeoRemoteApp(
+                state = SessionUiState(),
+                onRefreshDiscovery = { refreshCount += 1 },
+                onEnterDemoMode = { demoCount += 1 },
+                onConnect = {},
+                onDisconnect = {},
+                onClearRecent = {},
+                onManualDraftChange = { _, _ -> },
+                onManualConnect = {},
+                onHapticsEnabledChange = {},
+                onTouchOutput = {},
+            )
+        }
+
+        repeat(5) {
+            composeRule.onNodeWithContentDescription("刷新").performClick()
+        }
+
+        assert(refreshCount == 5)
+        assert(demoCount == 1)
     }
 }
