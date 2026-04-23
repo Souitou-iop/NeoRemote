@@ -36,4 +36,24 @@ final class ProtocolCodecTests: XCTestCase {
 
         XCTAssertEqual(message, .unknown(type: "mystery"))
     }
+
+    func testJsonStreamDecoderSplitsBackToBackMessages() throws {
+        var decoder = JsonMessageStreamDecoder()
+
+        let payloads = decoder.append(#"{"type":"ack"}{"type":"heartbeat"}"#.data(using: .utf8)!)
+
+        XCTAssertEqual(payloads.count, 2)
+        XCTAssertEqual(String(data: try XCTUnwrap(payloads.first), encoding: .utf8), #"{"type":"ack"}"#)
+        XCTAssertEqual(String(data: try XCTUnwrap(payloads.last), encoding: .utf8), #"{"type":"heartbeat"}"#)
+    }
+
+    func testJsonStreamDecoderWaitsForPartialPayload() {
+        var decoder = JsonMessageStreamDecoder()
+
+        let firstChunk = decoder.append(#"{"type":"status","#.data(using: .utf8)!)
+        let secondChunk = decoder.append(#""message":"desktop-ready"}"#.data(using: .utf8)!)
+
+        XCTAssertTrue(firstChunk.isEmpty)
+        XCTAssertEqual(secondChunk.count, 1)
+    }
 }

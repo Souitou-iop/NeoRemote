@@ -43,19 +43,17 @@ class DeviceRegistryTest {
             ManualConnectDraft(host = "10.0.0.8", port = "51101"),
         )
     }
-
     @Test
     fun `manual draft defaults to adb reverse receiver port`() {
         assertThat(registry.loadManualDraft()).isEqualTo(ManualConnectDraft(port = "51101"))
     }
 
     @Test
-    fun `haptics setting defaults to disabled and persists changes`() {
-        assertThat(registry.loadHapticsEnabled()).isFalse()
-
-        registry.saveHapticsEnabled(true)
-
+    fun `haptics enabled defaults to true and persists updates`() {
         assertThat(registry.loadHapticsEnabled()).isTrue()
+
+        registry.saveHapticsEnabled(false)
+
+        assertThat(registry.loadHapticsEnabled()).isFalse()
     }
 }
-

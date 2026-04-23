@@ -3,6 +3,7 @@ import SwiftUI
 struct OnboardingShellView: View {
     @ObservedObject var coordinator: SessionCoordinator
     @State private var showingManualSheet = false
+    @State private var debugRefreshTapCount = 0
 
     var body: some View {
         NavigationStack {
@@ -36,7 +37,7 @@ struct OnboardingShellView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("刷新") {
-                        coordinator.refreshDiscovery()
+                        handleRefreshButtonTap()
                     }
                 }
             }
@@ -167,6 +168,18 @@ struct OnboardingShellView: View {
         case .disconnected:
             return .gray
         }
+    }
+
+    private func handleRefreshButtonTap() {
+        coordinator.refreshDiscovery()
+
+        #if DEBUG
+        debugRefreshTapCount += 1
+        if debugRefreshTapCount >= 5 {
+            debugRefreshTapCount = 0
+            coordinator.enterDemoMode()
+        }
+        #endif
     }
 }
 

@@ -91,6 +91,9 @@ class DeviceRegistry(
             }
             ?: ManualConnectDraft()
 
+    fun loadHapticsEnabled(): Boolean =
+        store.getString(KEY_HAPTICS_ENABLED)?.toBooleanStrictOrNull() ?: true
+
     fun saveManualDraft(draft: ManualConnectDraft) {
         store.putString(
             KEY_MANUAL_CONNECT_DRAFT,
@@ -101,11 +104,8 @@ class DeviceRegistry(
         )
     }
 
-    fun loadHapticsEnabled(): Boolean =
-        store.getString(KEY_HAPTICS_ENABLED)?.toBooleanStrictOrNull() ?: false
-
-    fun saveHapticsEnabled(enabled: Boolean) {
-        store.putString(KEY_HAPTICS_ENABLED, enabled.toString())
+    fun saveHapticsEnabled(isEnabled: Boolean) {
+        store.putString(KEY_HAPTICS_ENABLED, isEnabled.toString())
     }
 
     fun upsertRecent(endpoint: DesktopEndpoint) {

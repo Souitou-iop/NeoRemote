@@ -1,5 +1,6 @@
 package com.neoremote.android.ui.screens
 
+import com.neoremote.android.BuildConfig
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -47,18 +48,31 @@ import com.neoremote.android.ui.components.StatusChip
 fun OnboardingScreen(
     state: SessionUiState,
     onRefreshDiscovery: () -> Unit,
+    onEnterDemoMode: () -> Unit,
     onConnect: (DesktopEndpoint) -> Unit,
     onManualDraftChange: (String, String) -> Unit,
     onManualConnect: () -> Unit,
 ) {
     var showingManualDialog by rememberSaveable { mutableStateOf(false) }
+    var debugRefreshTapCount by rememberSaveable { mutableStateOf(0) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("NeoRemote") },
                 actions = {
-                    IconButton(onClick = onRefreshDiscovery) {
+                    IconButton(
+                        onClick = {
+                            onRefreshDiscovery()
+                            if (BuildConfig.DEBUG) {
+                                debugRefreshTapCount += 1
+                                if (debugRefreshTapCount >= 5) {
+                                    debugRefreshTapCount = 0
+                                    onEnterDemoMode()
+                                }
+                            }
+                        },
+                    ) {
                         Icon(Icons.Outlined.Sync, contentDescription = "刷新")
                     }
                 },
@@ -199,4 +213,3 @@ private fun ManualConnectDialog(
         },
     )
 }
-

@@ -119,7 +119,7 @@ data class SessionUiState(
     val activeEndpoint: DesktopEndpoint? = null,
     val lastConnectedEndpoint: DesktopEndpoint? = null,
     val lastHudMessage: String? = null,
-    val hapticsEnabled: Boolean = false,
+    val hapticsEnabled: Boolean = true,
     val errorMessage: String? = null,
     val statusMessage: String = "等待连接桌面端",
     val manualConnectDraft: ManualConnectDraft = ManualConnectDraft(),
@@ -139,4 +139,3 @@ val SessionStatus.displayText: String
         SessionStatus.RECONNECTING -> "重连中"
         SessionStatus.FAILED -> "失败"
     }
-

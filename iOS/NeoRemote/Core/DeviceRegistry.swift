@@ -4,6 +4,7 @@ final class DeviceRegistry {
     private enum Keys {
         static let recentDevices = "recent_devices"
         static let lastConnected = "last_connected"
+        static let hapticsEnabled = "haptics_enabled"
     }
 
     private let defaults: UserDefaults
@@ -21,6 +22,15 @@ final class DeviceRegistry {
 
     func loadLastConnectedDevice() -> DesktopEndpoint? {
         loadValue(forKey: Keys.lastConnected)
+    }
+
+    func loadHapticsEnabled() -> Bool {
+        guard defaults.object(forKey: Keys.hapticsEnabled) != nil else { return true }
+        return defaults.bool(forKey: Keys.hapticsEnabled)
+    }
+
+    func saveHapticsEnabled(_ isEnabled: Bool) {
+        defaults.set(isEnabled, forKey: Keys.hapticsEnabled)
     }
 
     func upsertRecent(_ endpoint: DesktopEndpoint) {

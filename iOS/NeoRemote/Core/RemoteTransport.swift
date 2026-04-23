@@ -16,6 +16,8 @@ final class TCPRemoteTransport: RemoteTransporting {
 
     private let codec: ProtocolCodec
     private var connection: NWConnection?
+    private var decoder = JsonMessageStreamDecoder()
+    private var manualDisconnect = false
 
     init(codec: ProtocolCodec = ProtocolCodec()) {
         self.codec = codec
@@ -23,6 +25,8 @@ final class TCPRemoteTransport: RemoteTransporting {
 
     func connect(to endpoint: DesktopEndpoint) {
         disconnect()
+        manualDisconnect = false
+        decoder = JsonMessageStreamDecoder()
 
         let tcpOptions = NWProtocolTCP.Options()
         tcpOptions.noDelay = true
@@ -47,6 +51,7 @@ final class TCPRemoteTransport: RemoteTransporting {
     }
 
     func disconnect() {
+        manualDisconnect = true
         connection?.cancel()
         connection = nil
         onStateChange?(.disconnected(errorDescription: nil))
@@ -82,8 +87,12 @@ final class TCPRemoteTransport: RemoteTransporting {
     private func receiveNextMessage() {
         connection?.receive(minimumIncompleteLength: 1, maximumLength: 1024) { [weak self] data, _, isComplete, error in
             DispatchQueue.main.async {
-                if let data, !data.isEmpty, let message = try? self?.codec.decode(data) {
-                    self?.onMessage?(message)
+                if let data, !data.isEmpty, let self {
+                    let payloads = self.decoder.append(data)
+                    payloads.forEach { payload in
+                        guard let message = try? self.codec.decode(payload) else { return }
+                        self.onMessage?(message)
+                    }
                 }
 
                 if let error {
@@ -92,7 +101,7 @@ final class TCPRemoteTransport: RemoteTransporting {
                 }
 
                 if isComplete {
-                    self?.onStateChange?(.disconnected(errorDescription: nil))
+                    self?.onStateChange?(.disconnected(errorDescription: self?.manualDisconnect == true ? nil : "连接已关闭"))
                     return
                 }
 
@@ -119,5 +128,66 @@ final class MockRemoteTransport: RemoteTransporting {
 
     func send(_ data: Data) {
         sentPayloads.append(data)
+    }
+}
+
+struct JsonMessageStreamDecoder {
+    private var buffer: [UInt8] = []
+
+    mutating func append(_ data: Data) -> [Data] {
+        buffer.append(contentsOf: data)
+
+        var payloads: [Data] = []
+        var inString = false
+        var escaping = false
+        var depth = 0
+        var startIndex: Int?
+        var consumedThrough: Int?
+
+        for index in buffer.indices {
+            let byte = buffer[index]
+
+            if escaping {
+                escaping = false
+                continue
+            }
+
+            if inString && byte == UInt8(ascii: "\\") {
+                escaping = true
+                continue
+            }
+
+            if byte == UInt8(ascii: "\"") {
+                inString.toggle()
+                continue
+            }
+
+            if inString {
+                continue
+            }
+
+            if byte == UInt8(ascii: "{") {
+                if depth == 0 {
+                    startIndex = index
+                }
+                depth += 1
+                continue
+            }
+
+            if byte == UInt8(ascii: "}") && depth > 0 {
+                depth -= 1
+                if depth == 0, let payloadStart = startIndex {
+                    payloads.append(Data(buffer[payloadStart ... index]))
+                    consumedThrough = index
+                    startIndex = nil
+                }
+            }
+        }
+
+        if let consumedThrough {
+            buffer.removeFirst(consumedThrough + 1)
+        }
+
+        return payloads
     }
 }

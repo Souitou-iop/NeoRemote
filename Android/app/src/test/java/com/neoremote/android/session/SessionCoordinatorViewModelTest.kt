@@ -179,6 +179,26 @@ class SessionCoordinatorViewModelTest {
         localViewModel.shutdown()
     }
 
+    @Test
+    fun `enter demo mode skips onboarding and lands on connected route`() = runTest(dispatcher) {
+        viewModel.enterDemoMode()
+        runCurrent()
+
+        assertThat(viewModel.uiState.value.route).isEqualTo(SessionRoute.CONNECTED)
+        assertThat(viewModel.uiState.value.status).isEqualTo(SessionStatus.CONNECTED)
+        assertThat(viewModel.uiState.value.activeEndpoint?.displayName).isEqualTo("NeoRemote Demo")
+        assertThat(viewModel.uiState.value.lastHudMessage).isEqualTo("演示模式")
+    }
+
+    @Test
+    fun `set haptics enabled updates ui state and persists value`() = runTest(dispatcher) {
+        viewModel.setHapticsEnabled(false)
+        runCurrent()
+
+        assertThat(viewModel.uiState.value.hapticsEnabled).isFalse()
+        assertThat(registry.loadHapticsEnabled()).isFalse()
+    }
+
     private class ControlledRemoteTransport : RemoteTransport {
         override var onStateChange: ((TransportConnectionState) -> Unit)? = null
         override var onMessage: ((ProtocolMessage) -> Unit)? = null

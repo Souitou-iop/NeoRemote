@@ -20,7 +20,7 @@ final class SessionCoordinatorTests: XCTestCase {
         super.tearDown()
     }
 
-    func testStartWithoutRecoveryStaysOnOnboarding() {
+    func testStartWithoutRecoveryStaysOnOnboarding() async {
         let discovery = MockDiscoveryService(
             cannedResults: [
                 DesktopEndpoint(displayName: "Mac mini", host: "192.168.1.2", port: 50505, source: .discovered)
@@ -33,12 +33,13 @@ final class SessionCoordinatorTests: XCTestCase {
         )
 
         coordinator.start()
+        await settleAsyncUpdates()
 
         XCTAssertEqual(coordinator.route, .onboarding)
         XCTAssertEqual(coordinator.discoveredDevices.count, 1)
     }
 
-    func testRecoveryConnectionPromotesRouteToConnected() {
+    func testRecoveryConnectionPromotesRouteToConnected() async {
         let saved = DesktopEndpoint(displayName: "Office Desktop", host: "10.0.0.8", port: 50505, source: .recent)
         registry.saveLastConnected(saved)
 
@@ -49,6 +50,7 @@ final class SessionCoordinatorTests: XCTestCase {
         )
 
         coordinator.start()
+        await settleAsyncUpdates()
 
         XCTAssertEqual(coordinator.route, .connected)
         XCTAssertEqual(coordinator.status, .connected)
@@ -68,5 +70,62 @@ final class SessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.route, .onboarding)
         XCTAssertEqual(coordinator.status, .failed)
         XCTAssertNotNil(coordinator.errorMessage)
+    }
+
+    func testStaleTransportCallbacksDoNotOverrideCurrentConnection() async {
+        var transports: [ControlledRemoteTransport] = []
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: MockDiscoveryService(),
+            transportFactory: {
+                let transport = ControlledRemoteTransport()
+                transports.append(transport)
+                return transport
+            }
+        )
+
+        let oldEndpoint = DesktopEndpoint(displayName: "Old Desktop", host: "10.0.0.8", port: 50505, source: .manual)
+        let currentEndpoint = DesktopEndpoint(displayName: "Current Desktop", host: "10.0.0.9", port: 50505, source: .manual)
+
+        coordinator.connect(to: oldEndpoint)
+        let firstTransport = try! XCTUnwrap(transports.first)
+        firstTransport.emitState(.connected)
+        await settleAsyncUpdates()
+
+        coordinator.connect(to: currentEndpoint)
+        let secondTransport = try! XCTUnwrap(transports.last)
+        secondTransport.emitState(.connected)
+        firstTransport.emitState(.disconnected(errorDescription: "旧连接关闭"))
+        firstTransport.emitMessage(.status("旧连接消息"))
+        await settleAsyncUpdates()
+
+        XCTAssertEqual(coordinator.route, .connected)
+        XCTAssertEqual(coordinator.status, .connected)
+        XCTAssertEqual(coordinator.activeEndpoint?.host, currentEndpoint.host)
+        XCTAssertEqual(coordinator.statusMessage, "已连接 \(currentEndpoint.displayName)")
+    }
+
+    private func settleAsyncUpdates() async {
+        await Task.yield()
+        await Task.yield()
+    }
+}
+
+private final class ControlledRemoteTransport: RemoteTransporting {
+    var onStateChange: ((TransportConnectionState) -> Void)?
+    var onMessage: ((ProtocolMessage) -> Void)?
+
+    func connect(to _: DesktopEndpoint) {}
+
+    func disconnect() {}
+
+    func send(_: Data) {}
+
+    func emitState(_ state: TransportConnectionState) {
+        onStateChange?(state)
+    }
+
+    func emitMessage(_ message: ProtocolMessage) {
+        onMessage?(message)
     }
 }

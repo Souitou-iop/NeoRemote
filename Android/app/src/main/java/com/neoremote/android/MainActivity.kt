@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
                 NeoRemoteApp(
                     state = state,
                     onRefreshDiscovery = viewModel::refreshDiscovery,
+                    onEnterDemoMode = viewModel::enterDemoMode,
                     onConnect = viewModel::connect,
                     onDisconnect = viewModel::disconnect,
                     onClearRecent = viewModel::clearRecentDevices,
@@ -41,4 +42,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-

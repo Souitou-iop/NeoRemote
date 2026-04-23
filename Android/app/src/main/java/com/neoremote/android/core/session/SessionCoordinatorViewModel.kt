@@ -18,6 +18,7 @@ import com.neoremote.android.core.model.TransportConnectionState
 import com.neoremote.android.core.persistence.DeviceRegistry
 import com.neoremote.android.core.persistence.SharedPreferencesStore
 import com.neoremote.android.core.protocol.ProtocolCodec
+import com.neoremote.android.core.transport.MockRemoteTransport
 import com.neoremote.android.core.transport.RemoteTransport
 import com.neoremote.android.core.transport.SocketRemoteTransport
 import kotlinx.coroutines.CoroutineDispatcher
@@ -177,6 +178,33 @@ class SessionCoordinatorViewModel(
     fun setHapticsEnabled(enabled: Boolean) {
         registry.saveHapticsEnabled(enabled)
         _uiState.update { it.copy(hapticsEnabled = enabled) }
+    }
+
+    fun enterDemoMode() {
+        heartbeatJob?.cancel()
+        heartbeatJob = null
+        discoveryService.stop()
+        transport?.disconnect()
+        transport = MockRemoteTransport()
+
+        _uiState.update {
+            it.copy(
+                status = SessionStatus.CONNECTED,
+                route = SessionRoute.CONNECTED,
+                activeEndpoint = DesktopEndpoint(
+                    id = "demo-endpoint",
+                    displayName = "NeoRemote Demo",
+                    host = "demo.local",
+                    port = 50505,
+                    platform = com.neoremote.android.core.model.DesktopPlatform.MAC_OS,
+                    lastSeenAt = System.currentTimeMillis(),
+                    source = com.neoremote.android.core.model.EndpointSource.MANUAL,
+                ),
+                errorMessage = null,
+                statusMessage = "功能演示",
+            )
+        }
+        showHud("演示模式")
     }
 
     fun handleTouchOutput(output: TouchSurfaceOutput) {

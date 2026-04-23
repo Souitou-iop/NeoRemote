@@ -15,6 +15,7 @@ import com.neoremote.android.ui.screens.OnboardingScreen
 fun NeoRemoteApp(
     state: SessionUiState,
     onRefreshDiscovery: () -> Unit,
+    onEnterDemoMode: () -> Unit,
     onConnect: (DesktopEndpoint) -> Unit,
     onDisconnect: () -> Unit,
     onClearRecent: () -> Unit,
@@ -30,6 +31,7 @@ fun NeoRemoteApp(
         SessionRoute.ONBOARDING -> OnboardingScreen(
             state = state,
             onRefreshDiscovery = onRefreshDiscovery,
+            onEnterDemoMode = onEnterDemoMode,
             onConnect = onConnect,
             onManualDraftChange = onManualDraftChange,
             onManualConnect = onManualConnect,

@@ -7,6 +7,14 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section("连接策略") {
+                    Toggle(
+                        "震动反馈",
+                        isOn: Binding(
+                            get: { coordinator.isHapticsEnabled },
+                            set: { coordinator.setHapticsEnabled($0) }
+                        )
+                    )
+
                     LabeledContent("自动发现") {
                         Text("Bonjour / LAN")
                     }

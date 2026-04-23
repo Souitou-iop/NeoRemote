@@ -10,6 +10,7 @@ final class SessionCoordinator: ObservableObject {
     private let haptics: HapticsController
 
     private var transport: (any RemoteTransporting)?
+    private var activeTransportID: ObjectIdentifier?
     private var hudClearTask: Task<Void, Never>?
     private var heartbeatTask: Task<Void, Never>?
     private var hasStarted = false
@@ -22,6 +23,7 @@ final class SessionCoordinator: ObservableObject {
     @Published var lastConnectedEndpoint: DesktopEndpoint?
     @Published var lastHUDMessage: String?
     @Published var errorMessage: String?
+    @Published var isHapticsEnabled: Bool
     @Published var statusMessage: String = "等待连接桌面端"
     @Published var manualConnectDraft = ManualConnectDraft()
 
@@ -37,7 +39,9 @@ final class SessionCoordinator: ObservableObject {
         self.transportFactory = transportFactory
         self.codec = codec
         self.haptics = haptics
+        self.isHapticsEnabled = registry.loadHapticsEnabled()
 
+        self.haptics.isEnabled = self.isHapticsEnabled
         self.recentDevices = registry.loadRecentDevices()
         self.lastConnectedEndpoint = registry.loadLastConnectedDevice()
     }
@@ -88,28 +92,47 @@ final class SessionCoordinator: ObservableObject {
         route = isRecovery ? route : .onboarding
         statusMessage = isRecovery ? "正在恢复与 \(endpoint.displayName) 的连接" : "正在连接 \(endpoint.displayName)"
 
-        let transport = transportFactory()
-        self.transport = transport
+        let previousTransport = transport
+        transport = nil
+        activeTransportID = nil
+        previousTransport?.disconnect()
 
-        bindTransport(transport)
+        let transport = transportFactory()
+        let transportID = ObjectIdentifier(transport)
+        self.transport = transport
+        activeTransportID = transportID
+
+        bindTransport(transport, transportID: transportID)
         transport.connect(to: endpoint)
     }
 
     func disconnect() {
         heartbeatTask?.cancel()
         heartbeatTask = nil
-        transport?.disconnect()
+        let activeTransport = transport
         transport = nil
+        activeTransportID = nil
         activeEndpoint = nil
         status = .disconnected
         route = .onboarding
         statusMessage = "已断开连接"
+        activeTransport?.disconnect()
     }
 
     func clearRecentDevices() {
         registry.clearRecentDevices()
         recentDevices = []
         lastConnectedEndpoint = nil
+    }
+
+    func setHapticsEnabled(_ isEnabled: Bool) {
+        isHapticsEnabled = isEnabled
+        haptics.isEnabled = isEnabled
+        registry.saveHapticsEnabled(isEnabled)
+
+        if isEnabled {
+            haptics.prepare()
+        }
     }
 
     func enterDemoMode() {
@@ -129,6 +152,7 @@ final class SessionCoordinator: ObservableObject {
 
         activeEndpoint = demoEndpoint
         transport = MockRemoteTransport()
+        activeTransportID = nil
         status = .connected
         route = .connected
         errorMessage = nil
@@ -186,10 +210,11 @@ final class SessionCoordinator: ObservableObject {
         }
     }
 
-    private func bindTransport(_ transport: any RemoteTransporting) {
+    private func bindTransport(_ transport: any RemoteTransporting, transportID: ObjectIdentifier) {
         transport.onStateChange = { [weak self] state in
             guard let self else { return }
             Task { @MainActor in
+                guard self.activeTransportID == transportID else { return }
                 self.handleTransportStateChange(state)
             }
         }
@@ -197,6 +222,7 @@ final class SessionCoordinator: ObservableObject {
         transport.onMessage = { [weak self] message in
             guard let self else { return }
             Task { @MainActor in
+                guard self.activeTransportID == transportID else { return }
                 self.handleProtocolMessage(message)
             }
         }

@@ -47,4 +47,14 @@ final class DeviceRegistryTests: XCTestCase {
         XCTAssertEqual(loaded?.host, endpoint.host)
         XCTAssertEqual(loaded?.port, endpoint.port)
     }
+
+    func testHapticsEnabledDefaultsToTrue() {
+        XCTAssertTrue(registry.loadHapticsEnabled())
+    }
+
+    func testSaveHapticsEnabledRoundTripsValue() {
+        registry.saveHapticsEnabled(false)
+
+        XCTAssertFalse(registry.loadHapticsEnabled())
+    }
 }
