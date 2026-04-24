@@ -9,6 +9,7 @@ import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.model.SessionRoute
 import com.neoremote.android.core.model.SessionStatus
+import com.neoremote.android.core.model.TouchSensitivitySettings
 import com.neoremote.android.core.model.TransportConnectionState
 import com.neoremote.android.core.persistence.DeviceRegistry
 import com.neoremote.android.core.persistence.MemoryKeyValueStore
@@ -135,6 +136,19 @@ class SessionCoordinatorViewModelTest {
     }
 
     @Test
+    fun `touch sensitivity settings update ui state and registry`() = runTest(dispatcher) {
+        viewModel.setCursorSensitivity(1.8)
+        viewModel.setSwipeSensitivity(0.7)
+
+        assertThat(viewModel.uiState.value.touchSensitivitySettings).isEqualTo(
+            TouchSensitivitySettings(cursorSensitivity = 1.8, swipeSensitivity = 0.7),
+        )
+        assertThat(registry.loadTouchSensitivitySettings()).isEqualTo(
+            TouchSensitivitySettings(cursorSensitivity = 1.8, swipeSensitivity = 0.7),
+        )
+    }
+
+    @Test
     fun `stale transport callbacks do not override the active connection`() = runTest(dispatcher) {
         val controlledTransports = mutableListOf<ControlledRemoteTransport>()
         val localViewModel = SessionCoordinatorViewModel(
@@ -197,6 +211,22 @@ class SessionCoordinatorViewModelTest {
 
         assertThat(viewModel.uiState.value.hapticsEnabled).isFalse()
         assertThat(registry.loadHapticsEnabled()).isFalse()
+    }
+
+    @Test
+    fun `adb wired debug connects to localhost receiver port`() = runTest(dispatcher) {
+        viewModel.connectUsingAdbWiredDebug()
+        runCurrent()
+
+        val state = viewModel.uiState.value
+        assertThat(state.manualConnectDraft.host).isEqualTo("127.0.0.1")
+        assertThat(state.manualConnectDraft.port).isEqualTo("51101")
+        assertThat(state.activeEndpoint?.displayName).isEqualTo("ADB Wired Desktop")
+        assertThat(state.activeEndpoint?.host).isEqualTo("127.0.0.1")
+        assertThat(state.activeEndpoint?.port).isEqualTo(51101)
+        assertThat(state.activeEndpoint?.source).isEqualTo(EndpointSource.MANUAL)
+        assertThat(state.status).isEqualTo(SessionStatus.CONNECTED)
+        viewModel.disconnect()
     }
 
     private class ControlledRemoteTransport : RemoteTransport {

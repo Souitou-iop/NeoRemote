@@ -83,10 +83,17 @@ enum DragState: String, Codable {
     case ended
 }
 
+struct ClientHelloPayload: Codable, Equatable {
+    let clientId: String
+    let displayName: String
+    let platform: String
+}
+
 enum RemoteCommand: Equatable {
+    case clientHello(ClientHelloPayload)
     case move(dx: Double, dy: Double)
     case tap(kind: MouseButtonKind)
-    case scroll(deltaY: Double)
+    case scroll(deltaX: Double = 0, deltaY: Double = 0)
     case drag(state: DragState, button: MouseButtonKind, dx: Double, dy: Double)
     case heartbeat
 }
@@ -121,6 +128,24 @@ struct TouchSurfaceOutput: Equatable {
     static let none = TouchSurfaceOutput()
 }
 
+struct TouchSensitivitySettings: Equatable {
+    static let `default` = TouchSensitivitySettings()
+
+    static let cursorRange: ClosedRange<Double> = 0.4 ... 2.5
+    static let swipeRange: ClosedRange<Double> = 0.5 ... 2.0
+    static let step: Double = 0.1
+
+    var cursorSensitivity: Double = 1.0
+    var swipeSensitivity: Double = 1.0
+
+    var clamped: TouchSensitivitySettings {
+        TouchSensitivitySettings(
+            cursorSensitivity: cursorSensitivity.clamped(to: Self.cursorRange),
+            swipeSensitivity: swipeSensitivity.clamped(to: Self.swipeRange)
+        )
+    }
+}
+
 struct ManualConnectDraft: Equatable {
     var host: String = ""
     var port: String = "50505"
@@ -151,5 +176,11 @@ enum ConnectionFailure: LocalizedError, Equatable {
 extension CGPoint {
     func distance(to other: CGPoint) -> CGFloat {
         hypot(other.x - x, other.y - y)
+    }
+}
+
+extension Double {
+    func clamped(to range: ClosedRange<Double>) -> Double {
+        min(max(self, range.lowerBound), range.upperBound)
     }
 }

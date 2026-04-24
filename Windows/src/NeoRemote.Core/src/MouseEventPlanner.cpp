@@ -39,11 +39,12 @@ PlannedMouseEvent PlannedMouseEvent::Drag(MouseButtonKind buttonValue, Point poi
     return event;
 }
 
-PlannedMouseEvent PlannedMouseEvent::Scroll(int lines)
+PlannedMouseEvent PlannedMouseEvent::Scroll(int deltaX, int deltaY)
 {
     PlannedMouseEvent event;
     event.type = PlannedMouseEventType::Scroll;
-    event.scrollLines = lines;
+    event.scrollDeltaX = deltaX;
+    event.scrollDeltaY = deltaY;
     return event;
 }
 
@@ -54,6 +55,9 @@ std::vector<PlannedMouseEvent> MouseEventPlanner::Apply(const RemoteCommand& com
     }
 
     switch (command.type) {
+    case RemoteCommandType::ClientHello:
+        return {};
+
     case RemoteCommandType::Move:
         return {PlannedMouseEvent::Move(TranslatedPoint(command.dx, command.dy))};
 
@@ -66,14 +70,18 @@ std::vector<PlannedMouseEvent> MouseEventPlanner::Apply(const RemoteCommand& com
     }
 
     case RemoteCommandType::Scroll:
-        return {PlannedMouseEvent::Scroll(static_cast<int>(std::llround(command.deltaY)))};
+        return {
+            PlannedMouseEvent::Scroll(
+                static_cast<int>(std::llround(command.deltaX)),
+                static_cast<int>(std::llround(command.deltaY))),
+        };
 
     case RemoteCommandType::Drag:
         switch (command.state) {
         case DragState::Started: {
             const Point point = currentPosition_.value_or(positionProvider());
-            activeDragButton_ = MouseButtonKind::Primary;
-            return {PlannedMouseEvent::MouseDown(MouseButtonKind::Primary, point)};
+            activeDragButton_ = command.button;
+            return {PlannedMouseEvent::MouseDown(command.button, point)};
         }
         case DragState::Changed: {
             const MouseButtonKind button = activeDragButton_.value_or(MouseButtonKind::Primary);

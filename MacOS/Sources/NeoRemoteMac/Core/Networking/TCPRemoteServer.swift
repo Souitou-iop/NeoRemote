@@ -26,8 +26,6 @@ final class TCPRemoteServer: RemoteServering, @unchecked Sendable {
     private let codec: ProtocolCodec
     private let discoveryResponder: UDPDiscoveryResponder
     private var listener: NWListener?
-    private var activeClientID: UUID?
-    private var pendingClientID: UUID?
     private var clients: [UUID: ClientConnection] = [:]
     private var currentPort: UInt16 = 50505
 
@@ -78,8 +76,6 @@ final class TCPRemoteServer: RemoteServering, @unchecked Sendable {
 
         clients.values.forEach { $0.close() }
         clients.removeAll()
-        activeClientID = nil
-        pendingClientID = nil
     }
 
     func send(_ message: ProtocolMessage, to clientID: UUID) {
@@ -107,24 +103,13 @@ final class TCPRemoteServer: RemoteServering, @unchecked Sendable {
     }
 
     private func handleNewConnection(_ connection: NWConnection) {
-        let endpoint = RemoteClientEndpoint(endpoint: connection.endpoint)
-        let reason = "当前 Mac 正在被其他设备控制"
-
-        if activeClientID != nil || pendingClientID != nil {
-            reject(connection: connection, endpoint: endpoint, reason: reason)
-            return
-        }
-
         let id = UUID()
-        pendingClientID = id
 
         let client = ClientConnection(id: id, connection: connection, codec: codec, queue: queue)
         clients[id] = client
 
         client.onReady = { [weak self] clientID, endpoint in
             guard let self else { return }
-            self.pendingClientID = nil
-            self.activeClientID = clientID
             self.onEvent?(.clientConnected(clientID, endpoint))
         }
 
@@ -134,12 +119,6 @@ final class TCPRemoteServer: RemoteServering, @unchecked Sendable {
 
         client.onDisconnected = { [weak self] clientID, endpoint, errorDescription in
             guard let self else { return }
-            if self.activeClientID == clientID {
-                self.activeClientID = nil
-            }
-            if self.pendingClientID == clientID {
-                self.pendingClientID = nil
-            }
             self.clients.removeValue(forKey: clientID)
             self.onEvent?(.clientDisconnected(clientID, endpoint, errorDescription: errorDescription))
         }
@@ -147,14 +126,6 @@ final class TCPRemoteServer: RemoteServering, @unchecked Sendable {
         client.start()
     }
 
-    private func reject(connection: NWConnection, endpoint: RemoteClientEndpoint, reason: String) {
-        let payload = try? codec.encode(.status(reason))
-        connection.start(queue: queue)
-        connection.send(content: payload, completion: .contentProcessed { [weak self] _ in
-            connection.cancel()
-            self?.onEvent?(.clientRejected(endpoint, reason: reason))
-        })
-    }
 }
 
 private final class ClientConnection: @unchecked Sendable {

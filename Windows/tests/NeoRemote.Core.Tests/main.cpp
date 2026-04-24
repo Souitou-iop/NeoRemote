@@ -117,6 +117,43 @@ void TestDecodeMiddleTapCommand()
     RequireEqual(codec.DecodeCommand(R"({"type":"tap","button":"middle"})"), RemoteCommand::Tap(MouseButtonKind::Middle), "middle tap command decode failed");
 }
 
+void TestDecodeClientHelloCommand()
+{
+    ProtocolCodec codec;
+    const auto command = codec.DecodeCommand(R"({"type":"clientHello","clientId":"ios-1","displayName":"Ebato iPhone","platform":"ios"})");
+    Require(command.type == RemoteCommandType::ClientHello, "clientHello command type mismatch");
+    Require(command.clientId == "ios-1", "clientHello id mismatch");
+    Require(command.displayName == "Ebato iPhone", "clientHello display name mismatch");
+    Require(command.platform == "ios", "clientHello platform mismatch");
+}
+
+void TestDecodeScrollCommandSupportsBothAxes()
+{
+    ProtocolCodec codec;
+    RequireEqual(
+        codec.DecodeCommand(R"({"type":"scroll","deltaX":7,"deltaY":-3})"),
+        RemoteCommand::Scroll(7, -3),
+        "scroll command decode failed");
+}
+
+void TestDecodeLegacyScrollDefaultsHorizontalAxisToZero()
+{
+    ProtocolCodec codec;
+    RequireEqual(
+        codec.DecodeCommand(R"({"type":"scroll","deltaY":15})"),
+        RemoteCommand::Scroll(0, 15),
+        "legacy scroll command decode failed");
+}
+
+void TestDecodeSecondaryDragCommandKeepsButton()
+{
+    ProtocolCodec codec;
+    RequireEqual(
+        codec.DecodeCommand(R"({"type":"drag","state":"started","button":"secondary","dx":4,"dy":-2})"),
+        RemoteCommand::Drag(DragState::Started, 4, -2, MouseButtonKind::Secondary),
+        "secondary drag command decode failed");
+}
+
 void TestEncodeStatusMessage()
 {
     ProtocolCodec codec;
@@ -172,7 +209,27 @@ void TestDragLifecycleMapsToDownDragUp()
     RequireEqual(end[0], PlannedMouseEvent::MouseUp(MouseButtonKind::Primary, Point{35, 26}), "drag end mismatch");
 }
 
-void TestClientConnectedSendsAckAndStatus()
+void TestSecondaryDragLifecycleMapsToRightButton()
+{
+    MouseEventPlanner planner;
+    const auto start = planner.Apply(RemoteCommand::Drag(DragState::Started, 0, 0, MouseButtonKind::Secondary), [] { return Point{30, 30}; });
+    const auto change = planner.Apply(RemoteCommand::Drag(DragState::Changed, 5, -4, MouseButtonKind::Secondary), [] { return Point{30, 30}; });
+    const auto end = planner.Apply(RemoteCommand::Drag(DragState::Ended, 0, 0, MouseButtonKind::Secondary), [] { return Point{30, 30}; });
+
+    RequireEqual(start[0], PlannedMouseEvent::MouseDown(MouseButtonKind::Secondary, Point{30, 30}), "secondary drag start mismatch");
+    RequireEqual(change[0], PlannedMouseEvent::Drag(MouseButtonKind::Secondary, Point{35, 26}), "secondary drag change mismatch");
+    RequireEqual(end[0], PlannedMouseEvent::MouseUp(MouseButtonKind::Secondary, Point{35, 26}), "secondary drag end mismatch");
+}
+
+void TestScrollCommandMapsBothAxes()
+{
+    MouseEventPlanner planner;
+    const auto events = planner.Apply(RemoteCommand::Scroll(7.4, -3.2), [] { return Point{30, 30}; });
+
+    RequireEqual(events[0], PlannedMouseEvent::Scroll(7, -3), "scroll event axes mismatch");
+}
+
+void TestApproveConnectionSendsAckAndStatus()
 {
     RecordingServer server;
     RecordingInjector injector;
@@ -182,12 +239,13 @@ void TestClientConnectedSendsAckAndStatus()
     service.Start();
     service.HandleServerEvent(RemoteServerEvent::ListenerReady(50505));
     service.HandleServerEvent(RemoteServerEvent::ClientConnected("client-1", RemoteClientEndpoint{"192.168.1.8", 60000}));
+    service.ApproveConnection("client-1");
 
     Require(server.startCount == 1, "server did not start");
     Require(publisher.startCount == 1, "mDNS publisher did not start");
-    Require(server.sent.size() == 2, "connect did not send ack and status");
-    Require(server.sent[0].message == ProtocolMessage::Ack(), "first connect message was not ack");
-    Require(server.sent[1].message.type == ProtocolMessageType::Status, "second connect message was not status");
+    Require(server.sent.size() == 3, "approval did not send waiting, ack and status");
+    Require(server.sent[1].message == ProtocolMessage::Ack(), "approval did not ack");
+    Require(server.sent[2].message.type == ProtocolMessageType::Status, "approval status missing");
     Require(service.State().type == DesktopDashboardStateType::Connected, "service did not enter connected state");
 }
 
@@ -225,10 +283,11 @@ void TestHeartbeatRepliesToActiveClient()
     RecordingInjector injector;
     DesktopRemoteService service(server, injector);
     service.HandleServerEvent(RemoteServerEvent::ClientConnected("client-1", RemoteClientEndpoint{"10.0.0.2", 55000}));
+    service.ApproveConnection("client-1");
     service.HandleServerEvent(RemoteServerEvent::Command("client-1", RemoteCommand::Heartbeat()));
 
-    Require(server.sent.size() == 3, "heartbeat did not add third sent message");
-    Require(server.sent[2].message == ProtocolMessage::Heartbeat(), "heartbeat reply mismatch");
+    Require(server.sent.size() == 4, "heartbeat did not add reply message");
+    Require(server.sent[3].message == ProtocolMessage::Heartbeat(), "heartbeat reply mismatch");
     Require(injector.commands.empty(), "heartbeat should not inject input");
 }
 
@@ -238,21 +297,41 @@ void TestActiveClientCommandInjectsInput()
     RecordingInjector injector;
     DesktopRemoteService service(server, injector);
     service.HandleServerEvent(RemoteServerEvent::ClientConnected("client-1", RemoteClientEndpoint{"10.0.0.2", 55000}));
+    service.ApproveConnection("client-1");
     service.HandleServerEvent(RemoteServerEvent::Command("client-1", RemoteCommand::Move(10, 5)));
 
     Require(injector.commands.size() == 1, "active command was not injected");
     RequireEqual(injector.commands[0], RemoteCommand::Move(10, 5), "injected command mismatch");
 }
 
-void TestRejectedConnectionShowsOccupiedState()
+void TestMultipleConnectionsCanBeApproved()
 {
     RecordingServer server;
     RecordingInjector injector;
     DesktopRemoteService service(server, injector);
     service.HandleServerEvent(RemoteServerEvent::ClientConnected("client-1", RemoteClientEndpoint{"10.0.0.2", 55000}));
-    service.HandleServerEvent(RemoteServerEvent::ClientRejected(RemoteClientEndpoint{"10.0.0.3", 55001}, "Windows is already controlled"));
+    service.HandleServerEvent(RemoteServerEvent::ClientConnected("client-2", RemoteClientEndpoint{"10.0.0.3", 55001}));
+    service.ApproveConnection("client-1");
+    service.ApproveConnection("client-2");
 
-    Require(service.State().type == DesktopDashboardStateType::Occupied, "second connection rejection did not enter occupied state");
+    Require(service.ConnectedClients().size() == 2, "multiple clients were not connected");
+    Require(service.State().type == DesktopDashboardStateType::Connected, "multi connection did not enter connected state");
+}
+
+void TestClientHelloTrustedAutoAllow()
+{
+    RecordingServer server;
+    RecordingInjector injector;
+    DesktopRemoteService service(server, injector);
+    service.HandleServerEvent(RemoteServerEvent::ClientConnected("client-1", RemoteClientEndpoint{"10.0.0.2", 55000}));
+    service.ApproveConnection("client-1");
+    service.HandleServerEvent(RemoteServerEvent::ClientDisconnected("client-1", RemoteClientEndpoint{"10.0.0.2", 55000}));
+
+    service.HandleServerEvent(RemoteServerEvent::ClientConnected("client-2", RemoteClientEndpoint{"10.0.0.4", 55002}));
+    service.HandleServerEvent(RemoteServerEvent::Command("client-2", RemoteCommand::ClientHello("endpoint:10.0.0.2:55000", "Trusted Phone", "android")));
+
+    Require(service.PendingConnectionRequests().empty(), "trusted hello should auto approve");
+    Require(service.ConnectedClients().size() == 1, "trusted client was not connected");
 }
 
 void TestDisconnectReturnsToIdleListening()
@@ -263,6 +342,7 @@ void TestDisconnectReturnsToIdleListening()
     const RemoteClientEndpoint endpoint{"10.0.0.2", 55000};
     service.HandleServerEvent(RemoteServerEvent::ListenerReady(50505));
     service.HandleServerEvent(RemoteServerEvent::ClientConnected("client-1", endpoint));
+    service.ApproveConnection("client-1");
     service.HandleServerEvent(RemoteServerEvent::ClientDisconnected("client-1", endpoint));
 
     Require(service.State().type == DesktopDashboardStateType::IdleListening, "disconnect did not return to idle listening");
@@ -276,18 +356,25 @@ int main()
         TestDecodeMoveCommand,
         TestDecodeTapCommand,
         TestDecodeMiddleTapCommand,
+        TestDecodeClientHelloCommand,
+        TestDecodeScrollCommandSupportsBothAxes,
+        TestDecodeLegacyScrollDefaultsHorizontalAxisToZero,
+        TestDecodeSecondaryDragCommandKeepsButton,
         TestEncodeStatusMessage,
         TestStreamDecoderSplitsMultipleJsonObjects,
         TestMoveCommandMapsToMovedCursorPosition,
         TestTapCommandMapsToMouseDownAndMouseUp,
         TestMiddleTapCommandMapsToMouseDownAndMouseUp,
         TestDragLifecycleMapsToDownDragUp,
-        TestClientConnectedSendsAckAndStatus,
+        TestSecondaryDragLifecycleMapsToRightButton,
+        TestScrollCommandMapsBothAxes,
+        TestApproveConnectionSendsAckAndStatus,
         TestMdnsPublisherFailureIsReportedButTcpKeepsListening,
         TestStartUsesAdbReversePort,
         TestHeartbeatRepliesToActiveClient,
         TestActiveClientCommandInjectsInput,
-        TestRejectedConnectionShowsOccupiedState,
+        TestMultipleConnectionsCanBeApproved,
+        TestClientHelloTrustedAutoAllow,
         TestDisconnectReturnsToIdleListening,
     };
 

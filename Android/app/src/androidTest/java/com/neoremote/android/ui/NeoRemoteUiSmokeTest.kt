@@ -8,6 +8,8 @@ import androidx.compose.ui.test.onNodeWithText
 import com.neoremote.android.core.model.SessionRoute
 import com.neoremote.android.core.model.SessionStatus
 import com.neoremote.android.core.model.SessionUiState
+import com.neoremote.android.core.model.DesktopEndpoint
+import com.neoremote.android.core.model.EndpointSource
 import org.junit.Rule
 import org.junit.Test
 
@@ -27,6 +29,7 @@ class NeoRemoteUiSmokeTest {
                 onClearRecent = {},
                 onManualDraftChange = { _, _ -> },
                 onManualConnect = {},
+                onAdbWiredConnect = {},
                 onHapticsEnabledChange = {},
                 onTouchOutput = {},
             )
@@ -51,6 +54,7 @@ class NeoRemoteUiSmokeTest {
                 onClearRecent = {},
                 onManualDraftChange = { _, _ -> },
                 onManualConnect = {},
+                onAdbWiredConnect = {},
                 onHapticsEnabledChange = {},
                 onTouchOutput = {},
             )
@@ -76,6 +80,7 @@ class NeoRemoteUiSmokeTest {
                 onClearRecent = {},
                 onManualDraftChange = { _, _ -> },
                 onManualConnect = {},
+                onAdbWiredConnect = {},
                 onHapticsEnabledChange = {},
                 onTouchOutput = {},
             )
@@ -104,6 +109,7 @@ class NeoRemoteUiSmokeTest {
                 onClearRecent = {},
                 onManualDraftChange = { _, _ -> },
                 onManualConnect = {},
+                onAdbWiredConnect = {},
                 onHapticsEnabledChange = {},
                 onTouchOutput = {},
             )
@@ -131,6 +137,7 @@ class NeoRemoteUiSmokeTest {
                 onClearRecent = {},
                 onManualDraftChange = { _, _ -> },
                 onManualConnect = {},
+                onAdbWiredConnect = {},
                 onHapticsEnabledChange = {},
                 onTouchOutput = {},
             )
@@ -142,5 +149,96 @@ class NeoRemoteUiSmokeTest {
 
         assert(refreshCount == 5)
         assert(demoCount == 1)
+    }
+
+    @Test
+    fun onboarding_adb_wired_entry_triggers_connect() {
+        var wiredConnectCount = 0
+
+        composeRule.setContent {
+            NeoRemoteApp(
+                state = SessionUiState(),
+                onRefreshDiscovery = {},
+                onEnterDemoMode = {},
+                onConnect = {},
+                onDisconnect = {},
+                onClearRecent = {},
+                onManualDraftChange = { _, _ -> },
+                onManualConnect = {},
+                onAdbWiredConnect = { wiredConnectCount += 1 },
+                onHapticsEnabledChange = {},
+                onTouchOutput = {},
+            )
+        }
+
+        composeRule.onNodeWithText("连接有线调试").performClick()
+        composeRule.onNodeWithText("有线调试连接").fetchSemanticsNode()
+        composeRule.onNodeWithText("连接 127.0.0.1:51101").performClick()
+
+        assert(wiredConnectCount == 1)
+    }
+
+    @Test
+    fun onboarding_allows_same_device_in_discovered_and_recent_sections() {
+        val endpoint = DesktopEndpoint(
+            id = "shared-device",
+            displayName = "NeoRemote Mac",
+            host = "192.168.1.10",
+            port = 50505,
+            source = EndpointSource.DISCOVERED,
+        )
+
+        composeRule.setContent {
+            NeoRemoteApp(
+                state = SessionUiState(
+                    discoveredDevices = listOf(endpoint),
+                    recentDevices = listOf(endpoint.copy(source = EndpointSource.RECENT)),
+                ),
+                onRefreshDiscovery = {},
+                onEnterDemoMode = {},
+                onConnect = {},
+                onDisconnect = {},
+                onClearRecent = {},
+                onManualDraftChange = { _, _ -> },
+                onManualConnect = {},
+                onAdbWiredConnect = {},
+                onHapticsEnabledChange = {},
+                onTouchOutput = {},
+            )
+        }
+
+        composeRule.onNodeWithText("附近的 Desktop").fetchSemanticsNode()
+        composeRule.onNodeWithText("最近连接").fetchSemanticsNode()
+    }
+
+    @Test
+    fun onboarding_survives_duplicate_discovered_device_keys() {
+        val endpoint = DesktopEndpoint(
+            id = "duplicate-device",
+            displayName = "NeoRemote Mac",
+            host = "192.168.1.10",
+            port = 50505,
+            source = EndpointSource.DISCOVERED,
+        )
+
+        composeRule.setContent {
+            NeoRemoteApp(
+                state = SessionUiState(
+                    discoveredDevices = listOf(endpoint, endpoint),
+                ),
+                onRefreshDiscovery = {},
+                onEnterDemoMode = {},
+                onConnect = {},
+                onDisconnect = {},
+                onClearRecent = {},
+                onManualDraftChange = { _, _ -> },
+                onManualConnect = {},
+                onAdbWiredConnect = {},
+                onHapticsEnabledChange = {},
+                onTouchOutput = {},
+            )
+        }
+
+        composeRule.onNodeWithText("附近的 Desktop").fetchSemanticsNode()
     }
 }

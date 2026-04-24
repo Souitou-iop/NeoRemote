@@ -15,6 +15,13 @@ class ProtocolCodec {
     fun encode(command: RemoteCommand): ByteArray {
         val payload = buildJsonObject {
             when (command) {
+            is RemoteCommand.ClientHello -> {
+                    put("type", "clientHello")
+                    put("clientId", command.clientId)
+                    put("displayName", command.displayName)
+                    put("platform", command.platform)
+            }
+
             is RemoteCommand.Move -> {
                     put("type", "move")
                     put("dx", command.dx)
@@ -28,6 +35,7 @@ class ProtocolCodec {
 
             is RemoteCommand.Scroll -> {
                     put("type", "scroll")
+                    put("deltaX", command.deltaX)
                     put("deltaY", command.deltaY)
             }
 
@@ -58,6 +66,12 @@ class ProtocolCodec {
     fun decodeCommand(data: ByteArray): RemoteCommand {
         val payload = Json.parseToJsonElement(data.decodeToString()).jsonObject
         return when (payload.string("type")) {
+            "clientHello" -> RemoteCommand.ClientHello(
+                clientId = payload.string("clientId"),
+                displayName = payload.string("displayName"),
+                platform = payload.string("platform"),
+            )
+
             "move" -> RemoteCommand.Move(
                 dx = payload.double("dx"),
                 dy = payload.double("dy"),
@@ -69,7 +83,10 @@ class ProtocolCodec {
                     ?: MouseButtonKind.PRIMARY,
             )
 
-            "scroll" -> RemoteCommand.Scroll(deltaY = payload.double("deltaY"))
+            "scroll" -> RemoteCommand.Scroll(
+                deltaX = payload.double("deltaX"),
+                deltaY = payload.double("deltaY"),
+            )
             "drag" -> RemoteCommand.Drag(
                 state = payload.string("state").toDragState() ?: DragState.CHANGED,
                 dx = payload.double("dx"),

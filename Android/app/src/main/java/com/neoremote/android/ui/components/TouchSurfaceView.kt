@@ -13,12 +13,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.neoremote.android.core.model.TouchPoint
+import com.neoremote.android.core.model.TouchSensitivitySettings
 import com.neoremote.android.core.model.TouchSurfaceOutput
 import com.neoremote.android.core.touch.TouchSurfaceInputAdapter
 
 @Composable
 fun TouchSurfaceHost(
     modifier: Modifier = Modifier,
+    settings: TouchSensitivitySettings,
     onOutput: (TouchSurfaceOutput) -> Unit,
 ) {
     AndroidView(
@@ -26,10 +28,12 @@ fun TouchSurfaceHost(
         factory = { context ->
             TouchSurfaceView(context).apply {
                 this.onOutput = onOutput
+                updateSettings(settings)
             }
         },
         update = { view ->
             view.onOutput = onOutput
+            view.updateSettings(settings)
         },
     )
 }
@@ -40,6 +44,7 @@ class TouchSurfaceView @JvmOverloads constructor(
 ) : View(context, attrs) {
     var onOutput: ((TouchSurfaceOutput) -> Unit)? = null
     private val adapter = TouchSurfaceInputAdapter()
+    private val density = resources.displayMetrics.density.takeIf { it > 0f } ?: 1f
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -85,7 +90,7 @@ class TouchSurfaceView @JvmOverloads constructor(
                 emit(
                     adapter.touchBegan(
                         id = event.getPointerId(index),
-                        point = TouchPoint(event.getX(index), event.getY(index)),
+                        point = event.touchPointAt(index),
                         timestamp = timestamp,
                     ),
                 )
@@ -96,7 +101,7 @@ class TouchSurfaceView @JvmOverloads constructor(
                     emit(
                         adapter.touchMoved(
                             id = event.getPointerId(index),
-                            point = TouchPoint(event.getX(index), event.getY(index)),
+                            point = event.touchPointAt(index),
                             timestamp = timestamp,
                         ),
                     )
@@ -114,7 +119,7 @@ class TouchSurfaceView @JvmOverloads constructor(
                 emit(
                     adapter.touchEnded(
                         id = event.getPointerId(index),
-                        point = TouchPoint(event.getX(index), event.getY(index)),
+                        point = event.touchPointAt(index),
                         timestamp = timestamp,
                     ),
                 )
@@ -130,10 +135,17 @@ class TouchSurfaceView @JvmOverloads constructor(
         return true
     }
 
+    fun updateSettings(settings: TouchSensitivitySettings) {
+        adapter.apply(settings)
+    }
+
     private fun emit(output: TouchSurfaceOutput) {
         if (output.commands.isEmpty() && output.semanticEvent == null) return
         onOutput?.invoke(output)
     }
+
+    private fun MotionEvent.touchPointAt(index: Int): TouchPoint =
+        TouchPoint(getX(index) / density, getY(index) / density)
 }
 
 private fun MotionEvent.hasPointerAt(index: Int): Boolean =

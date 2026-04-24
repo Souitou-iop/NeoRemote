@@ -27,13 +27,14 @@ struct PlannedMouseEvent {
     PlannedMouseEventType type{PlannedMouseEventType::Move};
     MouseButtonKind button{MouseButtonKind::Primary};
     Point point{};
-    int scrollLines{0};
+    int scrollDeltaX{0};
+    int scrollDeltaY{0};
 
     static PlannedMouseEvent Move(Point point);
     static PlannedMouseEvent MouseDown(MouseButtonKind button, Point point);
     static PlannedMouseEvent MouseUp(MouseButtonKind button, Point point);
     static PlannedMouseEvent Drag(MouseButtonKind button, Point point);
-    static PlannedMouseEvent Scroll(int lines);
+    static PlannedMouseEvent Scroll(int deltaX, int deltaY);
 
     bool operator==(const PlannedMouseEvent& other) const = default;
 };

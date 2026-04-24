@@ -60,4 +60,30 @@ class ProtocolCodecTest {
         assertThat(encoded.decodeToString()).contains("\"button\":\"middle\"")
         assertThat(command).isEqualTo(RemoteCommand.Tap(MouseButtonKind.MIDDLE))
     }
+
+    @Test
+    fun `encode and decode scroll command keeps both axes`() {
+        val encoded = codec.encode(RemoteCommand.Scroll(deltaX = 7.0, deltaY = -3.0))
+        val command = codec.decodeCommand(encoded)
+
+        assertThat(encoded.decodeToString()).contains("\"deltaX\":7.0")
+        assertThat(encoded.decodeToString()).contains("\"deltaY\":-3.0")
+        assertThat(command).isEqualTo(RemoteCommand.Scroll(deltaX = 7.0, deltaY = -3.0))
+    }
+
+    @Test
+    fun `decode legacy scroll command defaults horizontal axis to zero`() {
+        val command = codec.decodeCommand("""{"type":"scroll","deltaY":15.0}""".encodeToByteArray())
+
+        assertThat(command).isEqualTo(RemoteCommand.Scroll(deltaX = 0.0, deltaY = 15.0))
+    }
+
+    @Test
+    fun `encode and decode client hello command`() {
+        val encoded = codec.encode(RemoteCommand.ClientHello("android-1", "Pixel", "android"))
+        val command = codec.decodeCommand(encoded)
+
+        assertThat(encoded.decodeToString()).contains("\"type\":\"clientHello\"")
+        assertThat(command).isEqualTo(RemoteCommand.ClientHello("android-1", "Pixel", "android"))
+    }
 }

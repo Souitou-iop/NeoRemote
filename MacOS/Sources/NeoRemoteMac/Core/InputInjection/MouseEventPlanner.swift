@@ -6,7 +6,7 @@ enum PlannedMouseEvent: Equatable {
     case mouseDown(button: MouseButtonKind, point: CGPoint)
     case mouseUp(button: MouseButtonKind, point: CGPoint)
     case drag(button: MouseButtonKind, to: CGPoint)
-    case scroll(lines: Int32)
+    case scroll(deltaX: Int32, deltaY: Int32)
 }
 
 struct MouseEventPlanner {
@@ -19,6 +19,9 @@ struct MouseEventPlanner {
         }
 
         switch command {
+        case .clientHello:
+            return []
+
         case let .move(dx, dy):
             let point = translatedPoint(dx: dx, dy: dy)
             return [.move(to: point)]
@@ -30,8 +33,13 @@ struct MouseEventPlanner {
                 .mouseUp(button: button, point: point),
             ]
 
-        case let .scroll(deltaY):
-            return [.scroll(lines: Int32(deltaY.rounded()))]
+        case let .scroll(deltaX, deltaY):
+            return [
+                .scroll(
+                    deltaX: Int32(deltaX.rounded()),
+                    deltaY: Int32(deltaY.rounded())
+                ),
+            ]
 
         case let .drag(state, button, dx, dy):
             switch state {
@@ -60,7 +68,7 @@ struct MouseEventPlanner {
 
     private mutating func translatedPoint(dx: Double, dy: Double) -> CGPoint {
         let current = currentPosition ?? .zero
-        let point = CGPoint(x: current.x + dx, y: current.y - dy)
+        let point = CGPoint(x: current.x + dx, y: current.y + dy)
         currentPosition = point
         return point
     }

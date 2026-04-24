@@ -14,7 +14,14 @@ struct NeoRemoteApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active {
+            switch newPhase {
+            case .active:
+                coordinator.handleAppDidBecomeActive()
+            case .background:
+                coordinator.handleAppDidEnterBackground()
+            case .inactive:
+                break
+            @unknown default:
                 coordinator.refreshDiscovery()
             }
         }

@@ -9,6 +9,7 @@ import android.util.Log
 import com.neoremote.android.core.model.DesktopEndpoint
 import com.neoremote.android.core.model.DesktopPlatform
 import com.neoremote.android.core.model.EndpointSource
+import com.neoremote.android.core.persistence.deduplicationKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -111,7 +112,7 @@ class AndroidNsdDiscoveryService(
             override fun onServiceLost(serviceInfo: NsdServiceInfo) {
                 Log.d(TAG, "NSD service lost: name=${serviceInfo.serviceName} type=${serviceInfo.serviceType}")
                 synchronized(lock) {
-                    discovered.entries.removeAll { (key, _) -> key.startsWith(serviceInfo.serviceName) }
+                    discovered.entries.removeAll { (_, endpoint) -> endpoint.displayName == serviceInfo.serviceName }
                 }
                 publish()
             }
@@ -215,15 +216,16 @@ class AndroidNsdDiscoveryService(
             .toMap()
         val port = fields["port"]?.toIntOrNull() ?: return
         val name = fields["name"].orEmpty().ifBlank { "NeoRemote Windows" }
+        val platform = fields["platform"].toDesktopPlatform() ?: name.inferPlatform()
         val host = packet.address.hostAddress ?: return
-        Log.d(TAG, "UDP fallback resolved: name=$name host=$host port=$port")
+        Log.d(TAG, "UDP fallback resolved: name=$name host=$host port=$port platform=$platform")
         remember(
             DesktopEndpoint(
                 id = "$name-$host-$port-udp",
                 displayName = name,
                 host = host,
                 port = port,
-                platform = DesktopPlatform.WINDOWS,
+                platform = platform,
                 lastSeenAt = System.currentTimeMillis(),
                 source = EndpointSource.DISCOVERED,
             ),
@@ -232,7 +234,7 @@ class AndroidNsdDiscoveryService(
 
     private fun remember(endpoint: DesktopEndpoint) {
         synchronized(lock) {
-            discovered[endpoint.id] = endpoint
+            discovered[endpoint.deduplicationKey()] = endpoint
         }
         publish()
     }
@@ -296,6 +298,13 @@ class FakeDiscoveryService(
 
 private fun String.inferPlatform(): DesktopPlatform =
     if (contains("win", ignoreCase = true)) DesktopPlatform.WINDOWS else DesktopPlatform.MAC_OS
+
+private fun String?.toDesktopPlatform(): DesktopPlatform? =
+    when (this?.trim()?.lowercase()) {
+        "macos", "mac", "darwin" -> DesktopPlatform.MAC_OS
+        "windows", "win" -> DesktopPlatform.WINDOWS
+        else -> null
+    }
 
 private fun String?.isNeoRemoteServiceType(): Boolean {
     val normalized = this

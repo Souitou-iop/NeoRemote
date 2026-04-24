@@ -1,6 +1,7 @@
 package com.neoremote.android.core.session
 
 import android.content.Context
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.neoremote.android.core.discovery.AndroidNsdDiscoveryService
@@ -47,6 +48,7 @@ class SessionCoordinatorViewModel(
             lastConnectedEndpoint = registry.loadLastConnectedDevice(),
             manualConnectDraft = registry.loadManualDraft(),
             hapticsEnabled = registry.loadHapticsEnabled(),
+            touchSensitivitySettings = registry.loadTouchSensitivitySettings(),
         ),
     )
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
@@ -117,6 +119,22 @@ class SessionCoordinatorViewModel(
         }
     }
 
+    fun connectUsingAdbWiredDebug() {
+        val host = ADB_WIRED_HOST
+        val port = ADB_WIRED_PORT
+        updateManualDraft(host = host, port = port.toString())
+        connect(
+            DesktopEndpoint(
+                displayName = "ADB Wired Desktop",
+                host = host,
+                port = port,
+                source = com.neoremote.android.core.model.EndpointSource.MANUAL,
+                lastSeenAt = System.currentTimeMillis(),
+            ),
+            isRecovery = false,
+        )
+    }
+
     fun connect(endpoint: DesktopEndpoint, isRecovery: Boolean = false) {
         val generation = ++connectionGeneration
         heartbeatJob?.cancel()
@@ -180,6 +198,18 @@ class SessionCoordinatorViewModel(
         _uiState.update { it.copy(hapticsEnabled = enabled) }
     }
 
+    fun setCursorSensitivity(value: Double) {
+        updateTouchSensitivity(
+            uiState.value.touchSensitivitySettings.copy(cursorSensitivity = value)
+        )
+    }
+
+    fun setSwipeSensitivity(value: Double) {
+        updateTouchSensitivity(
+            uiState.value.touchSensitivitySettings.copy(swipeSensitivity = value)
+        )
+    }
+
     fun enterDemoMode() {
         heartbeatJob?.cancel()
         heartbeatJob = null
@@ -213,12 +243,12 @@ class SessionCoordinatorViewModel(
             TouchSurfaceSemanticEvent.PRIMARY_TAP -> showHud("左键点击")
             TouchSurfaceSemanticEvent.SECONDARY_TAP -> showHud("右键点击")
             TouchSurfaceSemanticEvent.MIDDLE_TAP -> showHud("中键点击")
-            TouchSurfaceSemanticEvent.SCROLLING -> showHud("双指滚动")
+            TouchSurfaceSemanticEvent.SCROLLING -> Unit
             TouchSurfaceSemanticEvent.PRIMARY_DRAG_STARTED -> showHud("左键拖拽开始")
-            TouchSurfaceSemanticEvent.PRIMARY_DRAG_CHANGED -> showHud("左键拖拽中")
+            TouchSurfaceSemanticEvent.PRIMARY_DRAG_CHANGED -> Unit
             TouchSurfaceSemanticEvent.PRIMARY_DRAG_ENDED -> showHud("左键拖拽结束")
             TouchSurfaceSemanticEvent.SECONDARY_DRAG_STARTED -> showHud("右键拖拽开始")
-            TouchSurfaceSemanticEvent.SECONDARY_DRAG_CHANGED -> showHud("右键拖拽中")
+            TouchSurfaceSemanticEvent.SECONDARY_DRAG_CHANGED -> Unit
             TouchSurfaceSemanticEvent.SECONDARY_DRAG_ENDED -> showHud("右键拖拽结束")
             null -> Unit
         }
@@ -299,6 +329,7 @@ class SessionCoordinatorViewModel(
                         statusMessage = "已连接 ${endpoint.displayName}",
                     )
                 }
+                sendClientHello()
                 showHud("连接成功")
                 startHeartbeat()
             }
@@ -356,11 +387,12 @@ class SessionCoordinatorViewModel(
         _uiState.update {
             it.copy(
                 statusMessage = when (command) {
-                    is RemoteCommand.Scroll -> "正在滚动桌面内容"
-                    is RemoteCommand.Move -> "远程控制中"
+                    is RemoteCommand.ClientHello -> it.statusMessage
+                    is RemoteCommand.Scroll -> it.statusMessage
+                    is RemoteCommand.Move -> it.statusMessage
                     is RemoteCommand.Drag -> when (command.state) {
                         com.neoremote.android.core.model.DragState.STARTED -> "${command.button.displayText}拖拽已开始"
-                        com.neoremote.android.core.model.DragState.CHANGED -> "${command.button.displayText}拖拽进行中"
+                        com.neoremote.android.core.model.DragState.CHANGED -> it.statusMessage
                         com.neoremote.android.core.model.DragState.ENDED -> "${command.button.displayText}拖拽已结束"
                     }
 
@@ -386,6 +418,12 @@ class SessionCoordinatorViewModel(
         }
     }
 
+    private fun updateTouchSensitivity(settings: com.neoremote.android.core.model.TouchSensitivitySettings) {
+        val clamped = settings.clamped
+        registry.saveTouchSensitivitySettings(clamped)
+        _uiState.update { it.copy(touchSensitivitySettings = clamped) }
+    }
+
     private fun startHeartbeat() {
         heartbeatJob?.cancel()
         heartbeatJob = scope.launch {
@@ -394,6 +432,16 @@ class SessionCoordinatorViewModel(
                 send(RemoteCommand.Heartbeat)
             }
         }
+    }
+
+    private fun sendClientHello() {
+        send(
+            RemoteCommand.ClientHello(
+                clientId = registry.loadOrCreateClientId(),
+                displayName = (Build.MODEL ?: "").takeIf { it.isNotBlank() } ?: "Android Device",
+                platform = "android",
+            ),
+        )
     }
 
     fun shutdown() {
@@ -416,6 +464,9 @@ class SessionCoordinatorViewModel(
     }
 
     companion object {
+        private const val ADB_WIRED_HOST = "127.0.0.1"
+        private const val ADB_WIRED_PORT = 51101
+
         fun provideFactory(appContext: Context): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")

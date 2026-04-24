@@ -46,11 +46,20 @@ void Win32InputInjector::Post(const Core::PlannedMouseEvent& event)
     }
 
     case Core::PlannedMouseEventType::Scroll: {
-        INPUT input{};
-        input.type = INPUT_MOUSE;
-        input.mi.dwFlags = MOUSEEVENTF_WHEEL;
-        input.mi.mouseData = static_cast<DWORD>(event.scrollLines * WHEEL_DELTA);
-        SendInput(1, &input, sizeof(INPUT));
+        if (event.scrollDeltaY != 0) {
+            INPUT input{};
+            input.type = INPUT_MOUSE;
+            input.mi.dwFlags = MOUSEEVENTF_WHEEL;
+            input.mi.mouseData = static_cast<DWORD>(event.scrollDeltaY * WHEEL_DELTA);
+            SendInput(1, &input, sizeof(INPUT));
+        }
+        if (event.scrollDeltaX != 0) {
+            INPUT input{};
+            input.type = INPUT_MOUSE;
+            input.mi.dwFlags = MOUSEEVENTF_HWHEEL;
+            input.mi.mouseData = static_cast<DWORD>(event.scrollDeltaX * WHEEL_DELTA);
+            SendInput(1, &input, sizeof(INPUT));
+        }
         return;
     }
     }

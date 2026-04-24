@@ -2,6 +2,8 @@ import SwiftUI
 
 struct DashboardView: View {
     @ObservedObject var service: DesktopRemoteService
+    var openSettings: () -> Void = {}
+    @State private var selectedClientIDs: Set<UUID> = []
 
     var body: some View {
         ScrollView {
@@ -11,6 +13,8 @@ struct DashboardView: View {
                     firstLaunchCard
                 }
                 serviceCard
+                wiredConnectionCard
+                pendingRequestsCard
                 sessionCard
             }
             .padding(24)
@@ -28,15 +32,29 @@ struct DashboardView: View {
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
-            Label(stateTitle, systemImage: stateIcon)
-                .font(.callout.weight(.semibold))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(stateColor.opacity(0.16))
-                .foregroundStyle(stateColor)
-                .clipShape(Capsule())
+            if case .missingAccessibilityPermission = service.dashboardState {
+                Button {
+                    openSettings()
+                } label: {
+                    statusLabel
+                }
+                .buttonStyle(.plain)
+                .help("打开软件设置页，请求辅助功能授权")
+            } else {
+                statusLabel
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var statusLabel: some View {
+        Label(stateTitle, systemImage: stateIcon)
+            .font(.callout.weight(.semibold))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(stateColor.opacity(0.16))
+            .foregroundStyle(stateColor)
+            .clipShape(Capsule())
     }
 
     private var firstLaunchCard: some View {
@@ -63,6 +81,21 @@ struct DashboardView: View {
                     Text(service.isListeningEnabled ? (service.isListening ? "已启动" : "准备启动") : "已关闭")
                 }
 
+                if service.permissionStatus == .denied {
+                    HStack(spacing: 12) {
+                        Label("未授予辅助功能权限，当前连接后不能实际控制鼠标。", systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                        Spacer()
+                        Button("前往授权") {
+                            openSettings()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding(12)
+                    .background(Color.orange.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+
                 HStack(spacing: 12) {
                     Button(service.isListeningEnabled ? "关闭监听" : "开启监听") {
                         service.setListeningEnabled(!service.isListeningEnabled)
@@ -73,26 +106,183 @@ struct DashboardView: View {
                         service.disconnectCurrentSession()
                     }
                     .buttonStyle(.bordered)
-                    .disabled(service.activeClient == nil)
+                    .disabled(service.connectedClients.isEmpty)
                 }
             }
         }
     }
 
     private var sessionCard: some View {
-        DashboardCard(title: "当前会话", subtitle: "最多仅允许 1 台 iPhone 接管这台 Mac") {
+        DashboardCard(title: "已连接设备", subtitle: "多台设备可同时保持连接，输入按服务端收到顺序串行执行") {
             VStack(alignment: .leading, spacing: 14) {
-                if let activeClient = service.activeClient {
-                    LabeledContent("设备") {
-                        Text(activeClient.displayName)
-                    }
-                    LabeledContent("地址") {
-                        Text(activeClient.addressSummary)
-                            .monospacedDigit()
-                    }
-                } else {
-                    Text("当前暂无活跃控制会话。")
+                if service.connectedClients.isEmpty {
+                    Text("当前暂无已允许的控制设备。")
                         .foregroundStyle(.secondary)
+                } else {
+                    HStack(spacing: 12) {
+                        Button("断开选中") {
+                            service.disconnectClients(clientIDs: selectedClientIDs)
+                            selectedClientIDs.removeAll()
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(selectedClientIDs.isEmpty)
+
+                        Button("断开全部") {
+                            service.disconnectClients(clientIDs: Set(service.connectedClients.map(\.id)))
+                            selectedClientIDs.removeAll()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    ForEach(service.connectedClients) { client in
+                        HStack(spacing: 12) {
+                            Toggle("", isOn: Binding(
+                                get: { selectedClientIDs.contains(client.id) },
+                                set: { isSelected in
+                                    if isSelected {
+                                        selectedClientIDs.insert(client.id)
+                                    } else {
+                                        selectedClientIDs.remove(client.id)
+                                    }
+                                }
+                            ))
+                            .labelsHidden()
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 8) {
+                                    Text(client.displayName)
+                                        .font(.body.weight(.semibold))
+                                    if let platform = client.platform {
+                                        Text(platform)
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(Color.blue.opacity(0.12))
+                                            .foregroundStyle(.blue)
+                                            .clipShape(Capsule())
+                                    }
+                                    if client.isTrusted {
+                                        Text("已信任")
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(Color.green.opacity(0.12))
+                                            .foregroundStyle(.green)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                Text("\(client.endpoint.addressSummary) · \(client.connectedAt.formatted(date: .omitted, time: .shortened)) 连接")
+                                    .font(.callout.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Button("断开") {
+                                selectedClientIDs.remove(client.id)
+                                service.disconnectClient(clientID: client.id)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(12)
+                        .background(Color(nsColor: .controlBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                }
+            }
+        }
+    }
+
+    private var pendingRequestsCard: some View {
+        DashboardCard(title: "待处理请求", subtitle: "新设备连接前需要在 Mac 端允许") {
+            VStack(alignment: .leading, spacing: 14) {
+                if service.pendingConnectionRequests.isEmpty {
+                    Text("当前没有待处理连接请求。")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(service.pendingConnectionRequests) { request in
+                        HStack(spacing: 12) {
+                            Image(systemName: "iphone.gen3.radiowaves.left.and.right")
+                                .foregroundStyle(Color.accentColor)
+                                .frame(width: 24)
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(request.displayName ?? "未知移动端")
+                                    .font(.body.weight(.semibold))
+                                Text("\(request.endpoint.addressSummary) · \(request.platform ?? "unknown")")
+                                    .font(.callout.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            Button("拒绝") {
+                                service.rejectConnection(requestID: request.id)
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button("允许") {
+                                service.approveConnection(requestID: request.id)
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .padding(12)
+                        .background(Color(nsColor: .controlBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                }
+            }
+        }
+    }
+
+    private var wiredConnectionCard: some View {
+        DashboardCard(title: "iPhone 有线连接", subtitle: "用数据线连接 iPhone，并打开个人热点后使用下方地址") {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("推荐在 iOS 端选择“有线连接 Mac”，输入这里显示的地址。")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("刷新地址") {
+                        service.refreshConnectionAddresses()
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                if service.connectionAddresses.isEmpty {
+                    Text("暂未发现可用 IPv4 地址。请确认 Mac 网络已连接，或 iPhone USB 个人热点已开启。")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(service.connectionAddresses) { address in
+                        HStack(spacing: 12) {
+                            Image(systemName: address.isRecommendedForWired ? "cable.connector" : "network")
+                                .foregroundStyle(address.isRecommendedForWired ? .green : .secondary)
+                                .frame(width: 22)
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 8) {
+                                    Text(address.label)
+                                        .font(.body.weight(.semibold))
+                                    if address.isRecommendedForWired {
+                                        Text("推荐")
+                                            .font(.caption.weight(.semibold))
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 3)
+                                            .background(Color.green.opacity(0.14))
+                                            .foregroundStyle(.green)
+                                            .clipShape(Capsule())
+                                    }
+                                }
+                                Text(address.addressText)
+                                    .font(.callout.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+                        }
+                        .padding(12)
+                        .background(Color(nsColor: .controlBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
                 }
             }
         }
@@ -109,7 +299,7 @@ struct DashboardView: View {
         case .idleListening:
             return "正在等待设备连接"
         case .connected:
-            return "已有设备正在控制"
+            return "已有设备连接"
         case .occupied:
             return "已拒绝新的占用请求"
         case .error:

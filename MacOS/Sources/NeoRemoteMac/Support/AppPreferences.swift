@@ -6,6 +6,8 @@ final class AppPreferences {
         static let isListeningEnabled = "is_listening_enabled"
         static let isListeningSoundEnabled = "is_listening_sound_enabled"
         static let showsMenuBarExtra = "shows_menu_bar_extra"
+        static let autoAllowTrustedDevices = "auto_allow_trusted_devices"
+        static let trustedDeviceIDs = "trusted_device_ids"
     }
 
     private let defaults: UserDefaults
@@ -47,5 +49,20 @@ final class AppPreferences {
             return defaults.bool(forKey: Keys.showsMenuBarExtra)
         }
         set { defaults.set(newValue, forKey: Keys.showsMenuBarExtra) }
+    }
+
+    var autoAllowTrustedDevices: Bool {
+        get {
+            if defaults.object(forKey: Keys.autoAllowTrustedDevices) == nil {
+                return true
+            }
+            return defaults.bool(forKey: Keys.autoAllowTrustedDevices)
+        }
+        set { defaults.set(newValue, forKey: Keys.autoAllowTrustedDevices) }
+    }
+
+    var trustedDeviceIDs: Set<String> {
+        get { Set(defaults.stringArray(forKey: Keys.trustedDeviceIDs) ?? []) }
+        set { defaults.set(Array(newValue).sorted(), forKey: Keys.trustedDeviceIDs) }
     }
 }

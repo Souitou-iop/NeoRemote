@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -36,6 +37,54 @@ struct DesktopDashboardState {
 struct DashboardEvent {
     std::string title;
     std::string detail;
+};
+
+enum class RemoteClientConnectionStatus {
+    Connected,
+    Disconnected,
+};
+
+struct ConnectedRemoteClient {
+    std::string id;
+    std::string deviceId;
+    RemoteClientEndpoint endpoint;
+    std::string displayName;
+    std::string platform;
+    RemoteClientConnectionStatus status{RemoteClientConnectionStatus::Connected};
+    std::string connectedAt;
+    std::string lastSeenAt;
+    bool isTrusted{false};
+};
+
+struct PendingConnectionRequest {
+    std::string id;
+    std::string deviceId;
+    RemoteClientEndpoint endpoint;
+    std::string displayName;
+    std::string platform;
+    std::string requestedAt;
+};
+
+enum class ConnectionHistoryEvent {
+    Requested,
+    Approved,
+    Rejected,
+    Disconnected,
+    Failed,
+};
+
+struct ConnectionHistoryEntry {
+    std::string deviceId;
+    std::string displayName;
+    std::string platform;
+    std::string endpointSummary;
+    ConnectionHistoryEvent event{ConnectionHistoryEvent::Requested};
+    std::string timestamp;
+    std::string reason;
+};
+
+struct ConnectionPermissionPolicy {
+    bool autoAllowTrustedDevices{true};
 };
 
 enum class RemoteServerEventType {
@@ -96,10 +145,19 @@ public:
     void Stop();
     void SetListeningEnabled(bool enabled);
     void DisconnectCurrentSession();
+    void ApproveConnection(const std::string& requestId);
+    void RejectConnection(const std::string& requestId);
+    void DisconnectClient(const std::string& clientId);
+    void DisconnectClients(const std::vector<std::string>& clientIds);
+    void SetAutoAllowTrustedDevices(bool enabled);
     void HandleServerEvent(const RemoteServerEvent& event);
 
     const DesktopDashboardState& State() const;
     const std::vector<DashboardEvent>& RecentEvents() const;
+    const std::vector<ConnectedRemoteClient>& ConnectedClients() const;
+    const std::vector<PendingConnectionRequest>& PendingConnectionRequests() const;
+    const std::vector<ConnectionHistoryEntry>& ConnectionHistory() const;
+    const ConnectionPermissionPolicy& PermissionPolicy() const;
     bool IsListeningEnabled() const;
     bool IsListening() const;
     unsigned short ListeningPort() const;
@@ -107,6 +165,12 @@ public:
 
 private:
     void AppendEvent(std::string title, std::string detail);
+    void HandleClientHello(const std::string& clientId, const RemoteCommand& command);
+    void ApproveRequest(const PendingConnectionRequest& request);
+    bool ShouldAutoApprove(const std::string& deviceId) const;
+    void MarkClientActive(const std::string& clientId);
+    void AppendConnectionHistory(const PendingConnectionRequest& request, ConnectionHistoryEvent event, std::string reason = "");
+    void AppendConnectionHistory(const ConnectedRemoteClient& client, ConnectionHistoryEvent event, std::string reason = "");
     void RecalculateState();
 
     IRemoteServer& server_;
@@ -117,9 +181,13 @@ private:
     bool isListeningEnabled_{true};
     bool isListening_{false};
     unsigned short listeningPort_{51101};
-    std::optional<std::string> activeClientId_;
     std::optional<RemoteClientEndpoint> activeClient_;
-    std::optional<RemoteClientEndpoint> occupiedEndpoint_;
+    std::optional<std::string> lastActiveClientId_;
+    std::vector<ConnectedRemoteClient> connectedClients_;
+    std::vector<PendingConnectionRequest> pendingConnectionRequests_;
+    std::vector<ConnectionHistoryEntry> connectionHistory_;
+    ConnectionPermissionPolicy permissionPolicy_{};
+    std::set<std::string> trustedDeviceIds_;
     std::string lastError_;
 };
 

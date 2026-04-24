@@ -36,6 +36,29 @@ final class ProtocolCodecTests: XCTestCase {
         XCTAssertEqual(json["button"] as? String, "middle")
     }
 
+    func testEncodeScrollIncludesBothAxes() throws {
+        let codec = ProtocolCodec()
+
+        let data = try codec.encode(.scroll(deltaX: 7, deltaY: -3))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "scroll")
+        XCTAssertEqual(json["deltaX"] as? Double, 7)
+        XCTAssertEqual(json["deltaY"] as? Double, -3)
+    }
+
+    func testEncodeClientHelloIncludesDeviceIdentity() throws {
+        let codec = ProtocolCodec()
+
+        let data = try codec.encode(.clientHello(ClientHelloPayload(clientId: "ios-1", displayName: "Ebato 的 iPhone", platform: "ios")))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "clientHello")
+        XCTAssertEqual(json["clientId"] as? String, "ios-1")
+        XCTAssertEqual(json["displayName"] as? String, "Ebato 的 iPhone")
+        XCTAssertEqual(json["platform"] as? String, "ios")
+    }
+
     func testDecodeKnownStatusMessage() throws {
         let codec = ProtocolCodec()
         let data = """

@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Settings
@@ -27,23 +27,29 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.neoremote.android.core.model.DesktopEndpoint
 import com.neoremote.android.core.model.SessionUiState
+import com.neoremote.android.core.model.TouchSensitivitySettings
 import com.neoremote.android.core.model.TouchSurfaceOutput
 import com.neoremote.android.core.model.displayText
 import com.neoremote.android.ui.components.DeviceCard
@@ -70,6 +76,8 @@ fun ConnectedShell(
     onDisconnect: () -> Unit,
     onClearRecent: () -> Unit,
     onHapticsEnabledChange: (Boolean) -> Unit,
+    onCursorSensitivityChange: (Double) -> Unit,
+    onSwipeSensitivityChange: (Double) -> Unit,
     onTouchOutput: (TouchSurfaceOutput) -> Unit,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(ConnectedTab.REMOTE) }
@@ -125,6 +133,8 @@ fun ConnectedShell(
                         onDisconnect = onDisconnect,
                         onClearRecent = onClearRecent,
                         onHapticsEnabledChange = onHapticsEnabledChange,
+                        onCursorSensitivityChange = onCursorSensitivityChange,
+                        onSwipeSensitivityChange = onSwipeSensitivityChange,
                         bottomPadding = bottomInsetPadding,
                     )
                 }
@@ -203,6 +213,7 @@ private fun RemoteScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
+            settings = state.touchSensitivitySettings,
             onOutput = onTouchOutput,
         )
 
@@ -234,7 +245,10 @@ private fun DevicesScreen(
             item {
                 Text("附近的 Desktop", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
-            items(state.discoveredDevices, key = { "discovered-${it.id}" }) { device ->
+            itemsIndexed(
+                state.discoveredDevices,
+                key = { index, device -> "discovered-$index-${device.id}-${device.addressText}" },
+            ) { _, device ->
                 DeviceCard(endpoint = device, actionLabel = "连接") { onConnect(device) }
             }
         }
@@ -244,7 +258,10 @@ private fun DevicesScreen(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text("最近连接", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
-            items(state.recentDevices, key = { "recent-${it.id}" }) { device ->
+            itemsIndexed(
+                state.recentDevices,
+                key = { index, device -> "recent-$index-${device.id}-${device.addressText}" },
+            ) { _, device ->
                 DeviceCard(endpoint = device, actionLabel = "恢复") { onConnect(device) }
             }
         }
@@ -266,6 +283,8 @@ private fun SettingsScreen(
     onDisconnect: () -> Unit,
     onClearRecent: () -> Unit,
     onHapticsEnabledChange: (Boolean) -> Unit,
+    onCursorSensitivityChange: (Double) -> Unit,
+    onSwipeSensitivityChange: (Double) -> Unit,
     bottomPadding: PaddingValues,
 ) {
     LazyColumn(
@@ -292,6 +311,18 @@ private fun SettingsScreen(
                     checked = state.hapticsEnabled,
                     onCheckedChange = onHapticsEnabledChange,
                 )
+                SliderSettingRow(
+                    label = "光标灵敏度",
+                    value = state.touchSensitivitySettings.cursorSensitivity,
+                    range = TouchSensitivitySettings.CURSOR_RANGE,
+                    onValueChange = onCursorSensitivityChange,
+                )
+                SliderSettingRow(
+                    label = "滑动灵敏度",
+                    value = state.touchSensitivitySettings.swipeSensitivity,
+                    range = TouchSensitivitySettings.SWIPE_RANGE,
+                    onValueChange = onSwipeSensitivityChange,
+                )
             }
         }
         item {
@@ -314,6 +345,39 @@ private fun SettingsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun SliderSettingRow(
+    label: String,
+    value: Double,
+    range: ClosedFloatingPointRange<Double>,
+    onValueChange: (Double) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(String.format("%.1f", value), fontWeight = FontWeight.Medium)
+        }
+        CompositionLocalProvider(LocalHapticFeedback provides NoOpHapticFeedback) {
+            Slider(
+                value = value.toFloat(),
+                onValueChange = { raw ->
+                    val stepped = kotlin.math.round(raw / TouchSensitivitySettings.STEP.toFloat()) *
+                        TouchSensitivitySettings.STEP
+                    onValueChange(stepped)
+                },
+                valueRange = range.start.toFloat()..range.endInclusive.toFloat(),
+            )
+        }
+    }
+}
+
+private object NoOpHapticFeedback : HapticFeedback {
+    override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) = Unit
 }
 
 @Composable

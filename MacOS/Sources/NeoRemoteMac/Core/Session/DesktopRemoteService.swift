@@ -17,6 +17,55 @@ struct DashboardEvent: Identifiable, Equatable {
     let timestamp: Date
 }
 
+enum RemoteClientConnectionStatus: String, Equatable {
+    case connected
+    case disconnected
+}
+
+struct ConnectedRemoteClient: Identifiable, Equatable {
+    let id: UUID
+    var deviceId: String
+    var endpoint: RemoteClientEndpoint
+    var displayName: String
+    var platform: String?
+    var status: RemoteClientConnectionStatus
+    var connectedAt: Date
+    var lastSeenAt: Date
+    var isTrusted: Bool
+}
+
+struct PendingConnectionRequest: Identifiable, Equatable {
+    let id: UUID
+    var deviceId: String
+    var endpoint: RemoteClientEndpoint
+    var displayName: String?
+    var platform: String?
+    var requestedAt: Date
+}
+
+enum ConnectionHistoryEvent: String, Equatable {
+    case requested
+    case approved
+    case rejected
+    case disconnected
+    case failed
+}
+
+struct ConnectionHistoryEntry: Identifiable, Equatable {
+    let id = UUID()
+    let deviceId: String
+    let displayName: String
+    let platform: String?
+    let endpointSummary: String
+    let event: ConnectionHistoryEvent
+    let timestamp: Date
+    let reason: String?
+}
+
+struct ConnectionPermissionPolicy: Equatable {
+    var autoAllowTrustedDevices: Bool = true
+}
+
 @MainActor
 final class DesktopRemoteService: ObservableObject {
     @Published private(set) var dashboardState: DesktopDashboardState = .firstLaunch
@@ -28,18 +77,26 @@ final class DesktopRemoteService: ObservableObject {
     @Published private(set) var showsMenuBarExtra = true
     @Published private(set) var permissionStatus: AccessibilityPermissionStatus = .denied
     @Published private(set) var lastErrorMessage: String?
+    @Published private(set) var connectionAddresses: [DesktopConnectionAddress] = []
+    @Published private(set) var connectedClients: [ConnectedRemoteClient] = []
+    @Published private(set) var pendingConnectionRequests: [PendingConnectionRequest] = []
+    @Published private(set) var connectionHistory: [ConnectionHistoryEntry] = []
+    @Published private(set) var permissionPolicy = ConnectionPermissionPolicy()
 
     private let server: RemoteServering
     private let permissionController: AccessibilityPermissionControlling
     private let injector: RemoteCommandInjecting
     private let preferences: AppPreferences
     private let feedbackPlayer: ListeningFeedbackPlaying
+    private let addressProvider: DesktopConnectionAddressProviding
     private let listenPort: UInt16
+    private let inputQueue = DispatchQueue(label: "com.neoremote.mac.input-injection", qos: .userInteractive)
 
     private var hasBootstrapped = false
-    private var activeClientID: UUID?
-    private var lastOccupiedAt: Date?
+    private var lastActiveClientID: UUID?
+    private var lastClientActivityRefresh: [UUID: Date] = [:]
     private var listeningPort: UInt16?
+    private var isListeningStarting = false
 
     init(
         server: RemoteServering = TCPRemoteServer(),
@@ -47,6 +104,7 @@ final class DesktopRemoteService: ObservableObject {
         injector: RemoteCommandInjecting = CGEventInputInjector(),
         preferences: AppPreferences = AppPreferences(),
         feedbackPlayer: ListeningFeedbackPlaying = ListeningFeedbackPlayer(),
+        addressProvider: DesktopConnectionAddressProviding = SystemDesktopConnectionAddressProvider(),
         listenPort: UInt16 = 50505
     ) {
         self.server = server
@@ -54,10 +112,14 @@ final class DesktopRemoteService: ObservableObject {
         self.injector = injector
         self.preferences = preferences
         self.feedbackPlayer = feedbackPlayer
+        self.addressProvider = addressProvider
         self.listenPort = listenPort
         self.isListeningEnabled = preferences.isListeningEnabled
         self.isListeningSoundEnabled = preferences.isListeningSoundEnabled
         self.showsMenuBarExtra = preferences.showsMenuBarExtra
+        self.permissionPolicy = ConnectionPermissionPolicy(
+            autoAllowTrustedDevices: preferences.autoAllowTrustedDevices
+        )
 
         self.server.onEvent = { [weak self] event in
             Task { @MainActor in
@@ -77,7 +139,8 @@ final class DesktopRemoteService: ObservableObject {
         case .idleListening:
             return "正在监听 \(listeningPort ?? listenPort)"
         case let .connected(endpoint):
-            return "正在控制 \(endpoint.displayName)"
+            let count = connectedClients.count
+            return count > 1 ? "\(count) 台设备已连接，当前由 \(endpoint.displayName) 控制" : "正在控制 \(endpoint.displayName)"
         case let .occupied(endpoint):
             return "\(endpoint.displayName) 正在控制中"
         case let .error(message):
@@ -97,6 +160,10 @@ final class DesktopRemoteService: ObservableObject {
         isListeningEnabled = preferences.isListeningEnabled
         isListeningSoundEnabled = preferences.isListeningSoundEnabled
         showsMenuBarExtra = preferences.showsMenuBarExtra
+        permissionPolicy = ConnectionPermissionPolicy(
+            autoAllowTrustedDevices: preferences.autoAllowTrustedDevices
+        )
+        refreshConnectionAddresses()
 
         if preferences.didCompleteOnboarding {
             if isListeningEnabled {
@@ -128,14 +195,25 @@ final class DesktopRemoteService: ObservableObject {
             recalculateDashboardState()
             return
         }
+        guard !isListeningStarting else {
+            recalculateDashboardState()
+            return
+        }
 
         do {
+            isListeningStarting = true
             try server.start(port: listenPort)
             lastErrorMessage = nil
+            recalculateDashboardState()
         } catch {
+            isListeningStarting = false
             lastErrorMessage = error.localizedDescription
             recalculateDashboardState()
         }
+    }
+
+    func refreshConnectionAddresses() {
+        connectionAddresses = addressProvider.loadConnectionAddresses(port: listenPort)
     }
 
     func stopListening() {
@@ -188,9 +266,19 @@ final class DesktopRemoteService: ObservableObject {
     }
 
     private func stopListeningRuntime() {
+        pendingConnectionRequests.forEach {
+            appendConnectionHistory(for: $0, event: .disconnected, reason: "停止监听")
+        }
+        connectedClients.forEach {
+            appendConnectionHistory(for: $0, event: .disconnected, reason: "停止监听")
+        }
         server.stop()
         activeClient = nil
-        activeClientID = nil
+        lastActiveClientID = nil
+        lastClientActivityRefresh.removeAll()
+        pendingConnectionRequests.removeAll()
+        connectedClients.removeAll()
+        isListeningStarting = false
         isListening = false
         listeningPort = nil
         lastErrorMessage = nil
@@ -198,8 +286,41 @@ final class DesktopRemoteService: ObservableObject {
     }
 
     func disconnectCurrentSession() {
-        guard let activeClientID else { return }
-        server.disconnect(clientID: activeClientID)
+        guard let clientID = lastActiveClientID ?? connectedClients.last?.id else { return }
+        disconnectClient(clientID: clientID)
+    }
+
+    func approveConnection(requestID: UUID) {
+        guard let request = pendingConnectionRequests.first(where: { $0.id == requestID }) else { return }
+        approve(request)
+    }
+
+    func rejectConnection(requestID: UUID) {
+        guard let request = pendingConnectionRequests.first(where: { $0.id == requestID }) else { return }
+        pendingConnectionRequests.removeAll { $0.id == requestID }
+        appendConnectionHistory(for: request, event: .rejected, reason: "用户拒绝")
+        appendEvent("连接已拒绝", detail: request.summaryText)
+        server.send(.status("连接已被 Mac 拒绝"), to: request.id)
+        server.disconnect(clientID: request.id)
+        recalculateDashboardState()
+    }
+
+    func disconnectClient(clientID: UUID) {
+        guard connectedClients.contains(where: { $0.id == clientID }) else { return }
+        server.disconnect(clientID: clientID)
+    }
+
+    func disconnectClients(clientIDs: Set<UUID>) {
+        clientIDs.forEach(disconnectClient)
+    }
+
+    func setAutoAllowTrustedDevices(_ enabled: Bool) {
+        preferences.autoAllowTrustedDevices = enabled
+        permissionPolicy.autoAllowTrustedDevices = enabled
+        appendEvent(
+            enabled ? "已开启历史设备自动允许" : "已关闭历史设备自动允许",
+            detail: enabled ? "已允许过的移动端下次会自动连接" : "每次连接都需要手动审批"
+        )
     }
 
     func requestAccessibilityPermission() {
@@ -230,13 +351,13 @@ final class DesktopRemoteService: ObservableObject {
     private func handlePermissionChange(from previous: AccessibilityPermissionStatus, triggerDetail: String) {
         if permissionStatus == .granted, previous != .granted {
             appendEvent("辅助功能权限已就绪", detail: triggerDetail)
-            if let activeClientID {
-                server.send(.status("辅助功能权限已恢复，可继续控制"), to: activeClientID)
+            if let clientID = lastActiveClientID {
+                server.send(.status("辅助功能权限已恢复，可继续控制"), to: clientID)
             }
         } else if permissionStatus == .denied {
             appendEvent("缺少辅助功能权限", detail: triggerDetail)
-            if let activeClientID {
-                server.send(.status("已连接，但缺少辅助功能权限，暂不可控制"), to: activeClientID)
+            if let clientID = lastActiveClientID {
+                server.send(.status("已连接，但缺少辅助功能权限，暂不可控制"), to: clientID)
             }
         }
         recalculateDashboardState()
@@ -245,44 +366,61 @@ final class DesktopRemoteService: ObservableObject {
     private func handleServerEvent(_ event: RemoteServerEvent) {
         switch event {
         case let .listenerReady(port):
+            isListeningStarting = false
             isListening = true
             listeningPort = port
+            refreshConnectionAddresses()
             appendEvent("服务已启动", detail: "Bonjour 已发布，TCP 监听端口 \(port)")
             recalculateDashboardState()
 
         case .listenerStopped:
+            isListeningStarting = false
             isListening = false
             listeningPort = nil
             recalculateDashboardState()
 
         case let .listenerFailed(message):
+            isListeningStarting = false
             lastErrorMessage = message
             isListening = false
             appendEvent("监听失败", detail: message)
             recalculateDashboardState()
 
         case let .clientConnected(clientID, endpoint):
-            activeClientID = clientID
-            activeClient = endpoint
-            lastOccupiedAt = nil
-            appendEvent("设备已连接", detail: endpoint.addressSummary)
-            server.send(.ack, to: clientID)
-            if permissionStatus == .granted {
-                server.send(.status("已连接 Mac，可开始控制"), to: clientID)
+            let request = PendingConnectionRequest(
+                id: clientID,
+                deviceId: endpoint.temporaryDeviceId,
+                endpoint: endpoint,
+                displayName: nil,
+                platform: nil,
+                requestedAt: Date()
+            )
+            pendingConnectionRequests.removeAll { $0.id == clientID }
+            pendingConnectionRequests.append(request)
+            appendConnectionHistory(for: request, event: .requested, reason: nil)
+            appendEvent("收到连接请求", detail: request.summaryText)
+
+            if shouldAutoApprove(deviceId: request.deviceId) {
+                approve(request)
             } else {
-                server.send(.status("已连接，但缺少辅助功能权限，暂不可控制"), to: clientID)
+                server.send(.status("正在等待 Mac 允许连接"), to: clientID)
             }
             recalculateDashboardState()
 
         case let .clientRejected(endpoint, reason):
-            lastOccupiedAt = Date()
             appendEvent("已拒绝新连接", detail: "\(endpoint.addressSummary) · \(reason)")
             recalculateDashboardState()
 
         case let .command(clientID, command):
-            guard clientID == activeClientID else { return }
+            if case let .clientHello(payload) = command {
+                handleClientHello(payload, from: clientID)
+                return
+            }
+
+            guard connectedClients.contains(where: { $0.id == clientID }) else { return }
 
             if case .heartbeat = command {
+                markClientActive(clientID, refreshPublishedActivity: true)
                 server.send(.heartbeat, to: clientID)
                 if permissionStatus == .denied {
                     server.send(.status("已连接，但缺少辅助功能权限，暂不可控制"), to: clientID)
@@ -290,26 +428,38 @@ final class DesktopRemoteService: ObservableObject {
                 return
             }
 
+            markClientActive(clientID, refreshPublishedActivity: shouldRefreshActivity(for: clientID))
+
             guard permissionStatus == .granted else { return }
 
-            do {
-                try injector.handle(command)
-                lastOccupiedAt = nil
-            } catch {
-                lastErrorMessage = error.localizedDescription
-                appendEvent("输入注入失败", detail: error.localizedDescription)
+            let injector = self.injector
+            inputQueue.async { [weak self] in
+                do {
+                    try injector.handle(command)
+                } catch {
+                    Task { @MainActor in
+                        self?.lastErrorMessage = error.localizedDescription
+                        self?.appendEvent("输入注入失败", detail: error.localizedDescription)
+                        self?.recalculateDashboardState()
+                    }
+                }
             }
-            recalculateDashboardState()
 
         case let .clientDisconnected(clientID, endpoint, errorDescription):
-            guard clientID == activeClientID else { return }
-            activeClientID = nil
-            activeClient = nil
-            lastOccupiedAt = nil
-            appendEvent(
-                "设备已断开",
-                detail: errorDescription.map { "\(endpoint.addressSummary) · \($0)" } ?? endpoint.addressSummary
-            )
+            if let request = pendingConnectionRequests.first(where: { $0.id == clientID }) {
+                pendingConnectionRequests.removeAll { $0.id == clientID }
+                appendConnectionHistory(for: request, event: .disconnected, reason: errorDescription)
+            }
+            if let client = connectedClients.first(where: { $0.id == clientID }) {
+                connectedClients.removeAll { $0.id == clientID }
+                appendConnectionHistory(for: client, event: .disconnected, reason: errorDescription)
+            }
+            if lastActiveClientID == clientID {
+                lastActiveClientID = connectedClients.last?.id
+            }
+            lastClientActivityRefresh.removeValue(forKey: clientID)
+            activeClient = connectedClients.first(where: { $0.id == lastActiveClientID })?.endpoint ?? connectedClients.last?.endpoint
+            appendEvent("设备已断开", detail: errorDescription.map { "\(endpoint.addressSummary) · \($0)" } ?? endpoint.addressSummary)
             recalculateDashboardState()
         }
     }
@@ -331,9 +481,7 @@ final class DesktopRemoteService: ObservableObject {
         }
 
         if let activeClient {
-            if lastOccupiedAt != nil {
-                dashboardState = .occupied(activeEndpoint: activeClient)
-            } else if permissionStatus == .granted {
+            if permissionStatus == .granted {
                 dashboardState = .connected(activeClient)
             } else {
                 dashboardState = .missingAccessibilityPermission
@@ -346,10 +494,138 @@ final class DesktopRemoteService: ObservableObject {
             return
         }
 
-        if isListening {
+        if isListening || isListeningStarting {
             dashboardState = .idleListening
         } else {
             dashboardState = .error(message: "服务未启动")
+        }
+    }
+
+    private func handleClientHello(_ payload: ClientHelloPayload, from clientID: UUID) {
+        guard !payload.clientId.isEmpty else { return }
+
+        if let requestIndex = pendingConnectionRequests.firstIndex(where: { $0.id == clientID }) {
+            pendingConnectionRequests[requestIndex].deviceId = payload.clientId
+            pendingConnectionRequests[requestIndex].displayName = payload.displayName.nilIfBlank
+            pendingConnectionRequests[requestIndex].platform = payload.platform.nilIfBlank
+            let request = pendingConnectionRequests[requestIndex]
+            appendEvent("连接请求已识别", detail: request.summaryText)
+            if shouldAutoApprove(deviceId: request.deviceId) {
+                approve(request)
+            }
+            recalculateDashboardState()
+            return
+        }
+
+        guard let clientIndex = connectedClients.firstIndex(where: { $0.id == clientID }) else { return }
+        connectedClients[clientIndex].deviceId = payload.clientId
+        connectedClients[clientIndex].displayName = payload.displayName.nilIfBlank ?? connectedClients[clientIndex].displayName
+        connectedClients[clientIndex].platform = payload.platform.nilIfBlank
+        if connectedClients[clientIndex].isTrusted {
+            var trustedIDs = preferences.trustedDeviceIDs
+            trustedIDs.insert(payload.clientId)
+            preferences.trustedDeviceIDs = trustedIDs
+        }
+        connectedClients[clientIndex].isTrusted = preferences.trustedDeviceIDs.contains(payload.clientId)
+        markClientActive(clientID, refreshPublishedActivity: true)
+        recalculateDashboardState()
+    }
+
+    private func approve(_ request: PendingConnectionRequest) {
+        pendingConnectionRequests.removeAll { $0.id == request.id }
+        var trustedIDs = preferences.trustedDeviceIDs
+        trustedIDs.insert(request.deviceId)
+        preferences.trustedDeviceIDs = trustedIDs
+
+        let client = ConnectedRemoteClient(
+            id: request.id,
+            deviceId: request.deviceId,
+            endpoint: request.endpoint,
+            displayName: request.displayName ?? request.endpoint.displayName,
+            platform: request.platform,
+            status: .connected,
+            connectedAt: Date(),
+            lastSeenAt: Date(),
+            isTrusted: true
+        )
+        connectedClients.removeAll { $0.id == client.id }
+        connectedClients.append(client)
+        markClientActive(client.id, refreshPublishedActivity: true)
+        appendConnectionHistory(for: client, event: .approved, reason: nil)
+        appendEvent("设备已允许", detail: client.summaryText)
+        server.send(.ack, to: client.id)
+        server.send(permissionStatus == .granted ? .status("已连接 Mac，可开始控制") : .status("已连接，但缺少辅助功能权限，暂不可控制"), to: client.id)
+        recalculateDashboardState()
+    }
+
+    private func shouldAutoApprove(deviceId: String) -> Bool {
+        permissionPolicy.autoAllowTrustedDevices && preferences.trustedDeviceIDs.contains(deviceId)
+    }
+
+    private func markClientActive(_ clientID: UUID, refreshPublishedActivity: Bool = false) {
+        lastActiveClientID = clientID
+        if let index = connectedClients.firstIndex(where: { $0.id == clientID }) {
+            let now = Date()
+            if refreshPublishedActivity {
+                connectedClients[index].lastSeenAt = now
+                lastClientActivityRefresh[clientID] = now
+            }
+            activeClient = connectedClients[index].endpoint
+        }
+    }
+
+    private func shouldRefreshActivity(for clientID: UUID) -> Bool {
+        let now = Date()
+        let lastRefresh = lastClientActivityRefresh[clientID] ?? .distantPast
+        guard now.timeIntervalSince(lastRefresh) >= 0.5 else { return false }
+        lastClientActivityRefresh[clientID] = now
+        return true
+    }
+
+    private func appendConnectionHistory(for request: PendingConnectionRequest, event: ConnectionHistoryEvent, reason: String?) {
+        appendConnectionHistory(
+            deviceId: request.deviceId,
+            displayName: request.displayName ?? request.endpoint.displayName,
+            platform: request.platform,
+            endpointSummary: request.endpoint.addressSummary,
+            event: event,
+            reason: reason
+        )
+    }
+
+    private func appendConnectionHistory(for client: ConnectedRemoteClient, event: ConnectionHistoryEvent, reason: String?) {
+        appendConnectionHistory(
+            deviceId: client.deviceId,
+            displayName: client.displayName,
+            platform: client.platform,
+            endpointSummary: client.endpoint.addressSummary,
+            event: event,
+            reason: reason
+        )
+    }
+
+    private func appendConnectionHistory(
+        deviceId: String,
+        displayName: String,
+        platform: String?,
+        endpointSummary: String,
+        event: ConnectionHistoryEvent,
+        reason: String?
+    ) {
+        connectionHistory.insert(
+            ConnectionHistoryEntry(
+                deviceId: deviceId,
+                displayName: displayName,
+                platform: platform,
+                endpointSummary: endpointSummary,
+                event: event,
+                timestamp: Date(),
+                reason: reason
+            ),
+            at: 0
+        )
+        if connectionHistory.count > 50 {
+            connectionHistory = Array(connectionHistory.prefix(50))
         }
     }
 
@@ -366,5 +642,29 @@ final class DesktopRemoteService: ObservableObject {
     private func playListeningFeedback(enabled: Bool) {
         guard isListeningSoundEnabled else { return }
         feedbackPlayer.play(enabled: enabled)
+    }
+}
+
+private extension PendingConnectionRequest {
+    var summaryText: String {
+        let name = displayName ?? endpoint.displayName
+        return "\(name) · \(endpoint.addressSummary)"
+    }
+}
+
+private extension ConnectedRemoteClient {
+    var summaryText: String {
+        "\(displayName) · \(endpoint.addressSummary)"
+    }
+}
+
+private extension RemoteClientEndpoint {
+    var temporaryDeviceId: String { "endpoint:\(host):\(port)" }
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

@@ -25,8 +25,20 @@ struct TouchSurfaceInputAdapter {
     var tapDurationThreshold: TimeInterval = 0.22
     var doubleTapWindow: TimeInterval = 0.32
     var dragDistanceThreshold: CGFloat = 14
+    var scrollActivationDistance: CGFloat = 14
     var rightDragHoldDelay: TimeInterval = 0.18
     var scrollDominanceThreshold: CGFloat = 1.15
+
+    init(settings: TouchSensitivitySettings = .default) {
+        apply(settings: settings)
+    }
+
+    mutating func apply(settings: TouchSensitivitySettings) {
+        let clamped = settings.clamped
+        moveMultiplier = clamped.cursorSensitivity
+        scrollMultiplier = clamped.swipeSensitivity
+        scrollActivationDistance = 14 / CGFloat(clamped.swipeSensitivity)
+    }
 
     private var activeTouches: [Int: ActiveTouch] = [:]
     private var phase: Phase = .idle
@@ -216,12 +228,10 @@ struct TouchSurfaceInputAdapter {
         }
 
         if phase == .scrollActive {
-            let deltaY = Double(-dy) * scrollMultiplier
-            guard abs(deltaY) > 0.1 else { return .none }
-            return TouchSurfaceOutput(commands: [.scroll(deltaY: deltaY)], semanticEvent: .scrolling)
+            return scrollOutput(dx: dx, dy: dy)
         }
 
-        guard sessionDistance > dragDistanceThreshold else { return .none }
+        guard sessionDistance > min(dragDistanceThreshold, scrollActivationDistance) else { return .none }
 
         if sessionDuration >= rightDragHoldDelay {
             phase = .rightDragActive
@@ -232,14 +242,25 @@ struct TouchSurfaceInputAdapter {
             return TouchSurfaceOutput(commands: commands, semanticEvent: .dragStarted(.secondary))
         }
 
-        if abs(dy) >= abs(dx) * scrollDominanceThreshold {
+        if sessionDistance >= scrollActivationDistance, abs(dy) >= abs(dx) * scrollDominanceThreshold {
             phase = .scrollActive
-            let deltaY = Double(-dy) * scrollMultiplier
-            guard abs(deltaY) > 0.1 else { return .none }
-            return TouchSurfaceOutput(commands: [.scroll(deltaY: deltaY)], semanticEvent: .scrolling)
+            return scrollOutput(dx: dx, dy: dy)
+        }
+
+        if sessionDistance >= scrollActivationDistance, abs(dx) >= abs(dy) * scrollDominanceThreshold {
+            phase = .scrollActive
+            return scrollOutput(dx: dx, dy: dy)
         }
 
         return .none
+    }
+
+    private func scrollOutput(dx: CGFloat, dy: CGFloat) -> TouchSurfaceOutput {
+        let isHorizontal = abs(dx) >= abs(dy)
+        let deltaX = isHorizontal ? Double(-dx) * scrollMultiplier : 0
+        let deltaY = isHorizontal ? 0 : Double(-dy) * scrollMultiplier
+        guard abs(deltaX) > 0.1 || abs(deltaY) > 0.1 else { return .none }
+        return TouchSurfaceOutput(commands: [.scroll(deltaX: deltaX, deltaY: deltaY)], semanticEvent: .scrolling)
     }
 
     private func centroid() -> CGPoint {

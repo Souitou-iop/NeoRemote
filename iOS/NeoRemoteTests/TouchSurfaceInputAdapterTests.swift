@@ -59,8 +59,42 @@ final class TouchSurfaceInputAdapterTests: XCTestCase {
         _ = adapter.touchBegan(id: 2, point: CGPoint(x: 30, y: 60), timestamp: 0)
         let output = adapter.touchMoved(id: 1, point: CGPoint(x: 0, y: 20), timestamp: 0.04)
 
-        XCTAssertEqual(output.commands, [.scroll(deltaY: 15)])
+        XCTAssertEqual(output.commands, [.scroll(deltaX: 0, deltaY: 15)])
         XCTAssertEqual(output.semanticEvent, .scrolling)
+    }
+
+    func testTwoFingerHorizontalMoveEmitsHorizontalScroll() {
+        var adapter = TouchSurfaceInputAdapter()
+
+        _ = adapter.touchBegan(id: 1, point: CGPoint(x: 50, y: 0), timestamp: 0)
+        _ = adapter.touchBegan(id: 2, point: CGPoint(x: 60, y: 30), timestamp: 0)
+        let output = adapter.touchMoved(id: 1, point: CGPoint(x: 20, y: 0), timestamp: 0.04)
+
+        XCTAssertEqual(output.commands, [.scroll(deltaX: 15, deltaY: 0)])
+        XCTAssertEqual(output.semanticEvent, .scrolling)
+    }
+
+    func testCursorSensitivityScalesSingleFingerMovement() {
+        var adapter = TouchSurfaceInputAdapter(
+            settings: TouchSensitivitySettings(cursorSensitivity: 2, swipeSensitivity: 1)
+        )
+
+        _ = adapter.touchBegan(id: 1, point: CGPoint(x: 0, y: 0), timestamp: 0)
+        let output = adapter.touchMoved(id: 1, point: CGPoint(x: 10, y: 5), timestamp: 0.02)
+
+        XCTAssertEqual(output.commands, [.move(dx: 20, dy: 10)])
+    }
+
+    func testSwipeSensitivityLowersScrollActivationThresholdAndScalesOutput() {
+        var adapter = TouchSurfaceInputAdapter(
+            settings: TouchSensitivitySettings(cursorSensitivity: 1, swipeSensitivity: 2)
+        )
+
+        _ = adapter.touchBegan(id: 1, point: CGPoint(x: 0, y: 50), timestamp: 0)
+        _ = adapter.touchBegan(id: 2, point: CGPoint(x: 30, y: 60), timestamp: 0)
+        let output = adapter.touchMoved(id: 1, point: CGPoint(x: 0, y: 32), timestamp: 0.04)
+
+        XCTAssertEqual(output.commands, [.scroll(deltaX: 0, deltaY: 18)])
     }
 
     func testTwoFingerHoldAndMoveEmitsSecondaryDragLifecycle() {

@@ -5,6 +5,7 @@ import com.neoremote.android.core.model.DragState
 import com.neoremote.android.core.model.MouseButtonKind
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.model.TouchPoint
+import com.neoremote.android.core.model.TouchSensitivitySettings
 import com.neoremote.android.core.model.TouchSurfaceOutput
 import com.neoremote.android.core.model.TouchSurfaceSemanticEvent
 import com.neoremote.android.core.touch.TouchSurfaceInputAdapter
@@ -74,8 +75,45 @@ class TouchSurfaceInputAdapterTest {
 
         val output = adapter.touchMoved(1, TouchPoint(0f, 70f), 0.06)
 
-        assertThat(output.commands).containsExactly(RemoteCommand.Scroll(15.0))
+        assertThat(output.commands).containsExactly(RemoteCommand.Scroll(deltaX = 0.0, deltaY = 15.0))
         assertThat(output.semanticEvent).isEqualTo(TouchSurfaceSemanticEvent.SCROLLING)
+    }
+
+    @Test
+    fun `two finger horizontal move emits horizontal scroll`() {
+        val adapter = TouchSurfaceInputAdapter()
+        adapter.touchBegan(1, TouchPoint(50f, 0f), 0.0)
+        adapter.touchBegan(2, TouchPoint(60f, 30f), 0.02)
+
+        val output = adapter.touchMoved(1, TouchPoint(20f, 0f), 0.06)
+
+        assertThat(output.commands).containsExactly(RemoteCommand.Scroll(deltaX = 15.0, deltaY = 0.0))
+        assertThat(output.semanticEvent).isEqualTo(TouchSurfaceSemanticEvent.SCROLLING)
+    }
+
+    @Test
+    fun `cursor sensitivity scales single pointer movement`() {
+        val adapter = TouchSurfaceInputAdapter(
+            settings = TouchSensitivitySettings(cursorSensitivity = 2.0, swipeSensitivity = 1.0),
+        )
+        adapter.touchBegan(1, TouchPoint(0f, 0f), 0.0)
+
+        val output = adapter.touchMoved(1, TouchPoint(10f, 5f), 0.1)
+
+        assertThat(output.commands).containsExactly(RemoteCommand.Move(20.0, 10.0))
+    }
+
+    @Test
+    fun `swipe sensitivity lowers scroll activation threshold and scales output`() {
+        val adapter = TouchSurfaceInputAdapter(
+            settings = TouchSensitivitySettings(cursorSensitivity = 1.0, swipeSensitivity = 2.0),
+        )
+        adapter.touchBegan(1, TouchPoint(0f, 50f), 0.0)
+        adapter.touchBegan(2, TouchPoint(30f, 60f), 0.02)
+
+        val output = adapter.touchMoved(1, TouchPoint(0f, 32f), 0.06)
+
+        assertThat(output.commands).containsExactly(RemoteCommand.Scroll(deltaX = 0.0, deltaY = 18.0))
     }
 
     @Test

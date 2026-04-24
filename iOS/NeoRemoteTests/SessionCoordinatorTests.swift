@@ -72,6 +72,29 @@ final class SessionCoordinatorTests: XCTestCase {
         XCTAssertNotNil(coordinator.errorMessage)
     }
 
+    func testWiredMacConnectUsesDefaultTcpPort() async {
+        var transports: [ControlledRemoteTransport] = []
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: MockDiscoveryService(),
+            transportFactory: {
+                let transport = ControlledRemoteTransport()
+                transports.append(transport)
+                return transport
+            }
+        )
+
+        coordinator.connectUsingWiredMacAddress(host: "172.20.10.2")
+        transports.first?.emitState(.connected)
+        await settleAsyncUpdates()
+
+        XCTAssertEqual(coordinator.manualConnectDraft, ManualConnectDraft(host: "172.20.10.2", port: "50505"))
+        XCTAssertEqual(coordinator.activeEndpoint?.host, "172.20.10.2")
+        XCTAssertEqual(coordinator.activeEndpoint?.port, 50505)
+        XCTAssertEqual(coordinator.activeEndpoint?.displayName, "Desktop")
+        XCTAssertEqual(coordinator.status, .connected)
+    }
+
     func testStaleTransportCallbacksDoNotOverrideCurrentConnection() async {
         var transports: [ControlledRemoteTransport] = []
         let coordinator = SessionCoordinator(
@@ -105,6 +128,62 @@ final class SessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.statusMessage, "已连接 \(currentEndpoint.displayName)")
     }
 
+    func testBackgroundStopsDiscoveryWithoutPublishingEmptyState() async {
+        let discovery = TrackingDiscoveryService(
+            cannedResults: [
+                DesktopEndpoint(displayName: "Mac mini", host: "192.168.1.2", port: 50505, source: .discovered)
+            ]
+        )
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: discovery,
+            transportFactory: { MockRemoteTransport() }
+        )
+
+        coordinator.start()
+        await settleAsyncUpdates()
+
+        XCTAssertEqual(coordinator.discoveredDevices.count, 1)
+
+        coordinator.handleAppDidEnterBackground()
+        await settleAsyncUpdates()
+
+        XCTAssertEqual(discovery.stopCount, 1)
+        XCTAssertEqual(coordinator.discoveredDevices.count, 1)
+
+        coordinator.handleAppDidBecomeActive()
+        await settleAsyncUpdates()
+
+        XCTAssertEqual(discovery.refreshCount, 2)
+        XCTAssertEqual(coordinator.discoveredDevices.count, 1)
+    }
+
+    func testConnectedLifecyclePausesAndRestartsHeartbeat() async {
+        var transports: [ControlledRemoteTransport] = []
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: TrackingDiscoveryService(),
+            transportFactory: {
+                let transport = ControlledRemoteTransport()
+                transports.append(transport)
+                return transport
+            }
+        )
+
+        coordinator.connect(to: DesktopEndpoint(displayName: "Desk", host: "10.0.0.2", port: 50505, source: .manual))
+        let transport = try! XCTUnwrap(transports.first)
+        transport.emitState(.connected)
+        await settleAsyncUpdates()
+
+        XCTAssertEqual(coordinator.status, .connected)
+
+        coordinator.handleAppDidEnterBackground()
+        coordinator.handleAppDidBecomeActive()
+        try? await Task.sleep(for: .milliseconds(2100))
+
+        XCTAssertFalse(transport.sentPayloads.isEmpty)
+    }
+
     private func settleAsyncUpdates() async {
         await Task.yield()
         await Task.yield()
@@ -114,12 +193,15 @@ final class SessionCoordinatorTests: XCTestCase {
 private final class ControlledRemoteTransport: RemoteTransporting {
     var onStateChange: ((TransportConnectionState) -> Void)?
     var onMessage: ((ProtocolMessage) -> Void)?
+    private(set) var sentPayloads: [Data] = []
 
     func connect(to _: DesktopEndpoint) {}
 
     func disconnect() {}
 
-    func send(_: Data) {}
+    func send(_ data: Data) {
+        sentPayloads.append(data)
+    }
 
     func emitState(_ state: TransportConnectionState) {
         onStateChange?(state)
@@ -127,5 +209,30 @@ private final class ControlledRemoteTransport: RemoteTransporting {
 
     func emitMessage(_ message: ProtocolMessage) {
         onMessage?(message)
+    }
+}
+
+private final class TrackingDiscoveryService: DiscoveryServing {
+    var onUpdate: (([DesktopEndpoint]) -> Void)?
+    var cannedResults: [DesktopEndpoint]
+    private(set) var refreshCount = 0
+    private(set) var stopCount = 0
+
+    init(cannedResults: [DesktopEndpoint] = []) {
+        self.cannedResults = cannedResults
+    }
+
+    func start() {
+        refresh()
+    }
+
+    func stop() {
+        stopCount += 1
+        onUpdate?([])
+    }
+
+    func refresh() {
+        refreshCount += 1
+        onUpdate?(cannedResults)
     }
 }

@@ -8,16 +8,23 @@ MIN_SYSTEM_VERSION="15.0"
 
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$PACKAGE_DIR/dist"
+CACHE_DIR="$PACKAGE_DIR/.build/cache"
+CLANG_CACHE_DIR="$CACHE_DIR/clang-module-cache"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
+DEFAULT_CODESIGN_IDENTITY="${NEOREMOTE_CODESIGN_IDENTITY:-}"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
-swift build --package-path "$PACKAGE_DIR"
-BUILD_BINARY="$(swift build --package-path "$PACKAGE_DIR" --show-bin-path)/$APP_NAME"
+mkdir -p "$CLANG_CACHE_DIR"
+export CLANG_MODULE_CACHE_PATH="$CLANG_CACHE_DIR"
+export XDG_CACHE_HOME="$CACHE_DIR/xdg"
+
+swift build --disable-sandbox --package-path "$PACKAGE_DIR"
+BUILD_BINARY="$(swift build --disable-sandbox --package-path "$PACKAGE_DIR" --show-bin-path)/$APP_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS"
@@ -35,6 +42,16 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$BUNDLE_ID</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleDisplayName</key>
+  <string>NeoRemote</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>zh_CN</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
@@ -44,6 +61,42 @@ cat >"$INFO_PLIST" <<PLIST
 </dict>
 </plist>
 PLIST
+
+printf "APPL????" >"$APP_CONTENTS/PkgInfo"
+
+resolve_codesign_identity() {
+  if [[ -n "$DEFAULT_CODESIGN_IDENTITY" ]]; then
+    echo "$DEFAULT_CODESIGN_IDENTITY"
+    return
+  fi
+
+  local identity
+  identity="$(security find-identity -v -p codesigning 2>/dev/null \
+    | awk -F '"' '/Apple Development|Developer ID Application/ { print $2; exit }')"
+
+  if [[ -n "$identity" ]]; then
+    echo "$identity"
+  fi
+}
+
+sign_app_bundle() {
+  local identity
+  identity="$(resolve_codesign_identity)"
+
+  if [[ -z "$identity" ]]; then
+    echo "warning: no stable code signing identity found; using ad-hoc signing." >&2
+    echo "warning: macOS Accessibility permission may need to be granted again after rebuilds." >&2
+    codesign --force --timestamp=none --sign - "$APP_BINARY"
+    codesign --force --timestamp=none --sign - "$APP_BUNDLE"
+    return
+  fi
+
+  echo "signing $APP_NAME.app with: $identity"
+  codesign --force --timestamp=none --sign "$identity" "$APP_BINARY"
+  codesign --force --timestamp=none --sign "$identity" "$APP_BUNDLE"
+}
+
+sign_app_bundle
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"

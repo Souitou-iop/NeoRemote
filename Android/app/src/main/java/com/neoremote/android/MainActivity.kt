@@ -35,7 +35,10 @@ class MainActivity : ComponentActivity() {
                     onClearRecent = viewModel::clearRecentDevices,
                     onManualDraftChange = viewModel::updateManualDraft,
                     onManualConnect = viewModel::connectUsingManualDraft,
+                    onAdbWiredConnect = viewModel::connectUsingAdbWiredDebug,
                     onHapticsEnabledChange = viewModel::setHapticsEnabled,
+                    onCursorSensitivityChange = viewModel::setCursorSensitivity,
+                    onSwipeSensitivityChange = viewModel::setSwipeSensitivity,
                     onTouchOutput = viewModel::handleTouchOutput,
                 )
             }

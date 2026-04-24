@@ -33,6 +33,10 @@ constexpr UINT RefreshUiMessage = WM_APP + 900;
 enum class Action {
     ToggleListening,
     Disconnect,
+    DisconnectAll,
+    ApproveFirstRequest,
+    RejectFirstRequest,
+    ToggleTrustedAutoAllow,
     Hide,
     Exit,
 };
@@ -261,7 +265,10 @@ std::wstring DetailText()
         return L"正在准备 NeoRemote 接收端";
     }
     if (const auto active = service->ActiveClient()) {
-        return ToWide("当前连接设备：" + active->AddressSummary());
+        return ToWide("当前连接设备：" + active->AddressSummary() + "，共 " + std::to_string(service->ConnectedClients().size()) + " 台");
+    }
+    if (!service->PendingConnectionRequests().empty()) {
+        return ToWide("有 " + std::to_string(service->PendingConnectionRequests().size()) + " 个连接请求等待处理");
     }
     if (service->IsListening()) {
         return L"局域网中的 iOS 或 Android 设备现在可以连接";
@@ -346,11 +353,17 @@ RECT InsetRectangle(RECT rect, int horizontal, int vertical)
 void RebuildButtons(HDC hdc, int y, int left, int right)
 {
     const bool listening = service && service->IsListeningEnabled();
-    const bool hasClient = service && service->ActiveClient().has_value();
+    const bool hasClient = service && !service->ConnectedClients().empty();
+    const bool hasPending = service && !service->PendingConnectionRequests().empty();
+    const bool autoAllow = service && service->PermissionPolicy().autoAllowTrustedDevices;
 
     buttons = {
         UiButton{{}, listening ? L"停止监听" : L"开始监听", Action::ToggleListening, true, true},
-        UiButton{{}, L"断开连接", Action::Disconnect, false, hasClient},
+        UiButton{{}, L"允许请求", Action::ApproveFirstRequest, false, hasPending},
+        UiButton{{}, L"拒绝请求", Action::RejectFirstRequest, false, hasPending},
+        UiButton{{}, L"断开当前", Action::Disconnect, false, hasClient},
+        UiButton{{}, L"断开全部", Action::DisconnectAll, false, hasClient},
+        UiButton{{}, autoAllow ? L"关闭自动允许" : L"开启自动允许", Action::ToggleTrustedAutoAllow, false, service != nullptr},
         UiButton{{}, L"隐藏到托盘", Action::Hide, false, true},
         UiButton{{}, L"退出", Action::Exit, false, true},
     };
@@ -381,21 +394,56 @@ void DrawButton(HDC hdc, const UiButton& button)
     DrawTextLine(hdc, button.label, labelRect, bodyFont, text, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 }
 
-void DrawEvents(HDC hdc, RECT rect)
+void DrawDevicesAndEvents(HDC hdc, RECT rect)
 {
     const ThemePalette palette = Palette();
     FillRoundRect(hdc, rect, 12, palette.surfaceBackground);
     StrokeRoundRect(hdc, rect, 12, palette.surfaceBorder);
 
     RECT heading{rect.left + 20, rect.top + 16, rect.right - 20, rect.top + 42};
-    DrawTextLine(hdc, L"最近事件", heading, headingFont, palette.primaryText);
+    DrawTextLine(hdc, L"设备与事件", heading, headingFont, palette.primaryText);
 
     int y = rect.top + 54;
-    if (!service || service->RecentEvents().empty()) {
+    if (!service) {
         RECT empty{rect.left + 20, y, rect.right - 20, y + 28};
         DrawTextLine(hdc, L"暂无事件", empty, bodyFont, palette.mutedText);
         return;
     }
+
+    if (!service->PendingConnectionRequests().empty()) {
+        DrawTextLine(hdc, L"待处理请求", RECT{rect.left + 20, y, rect.right - 20, y + 22}, headingFont, palette.primaryText);
+        y += 28;
+        for (const auto& request : service->PendingConnectionRequests()) {
+            if (y + 40 > rect.bottom - 16) {
+                return;
+            }
+            DrawTextLine(hdc, ToWide((request.displayName.empty() ? "未知移动端" : request.displayName) + " · " + request.endpoint.AddressSummary()), RECT{rect.left + 20, y, rect.right - 20, y + 22}, bodyFont, palette.primaryText);
+            DrawTextLine(hdc, ToWide(request.platform.empty() ? "等待 clientHello" : request.platform), RECT{rect.left + 20, y + 20, rect.right - 20, y + 40}, smallFont, palette.mutedText);
+            y += 48;
+        }
+    }
+
+    if (!service->ConnectedClients().empty()) {
+        DrawTextLine(hdc, L"已连接设备", RECT{rect.left + 20, y, rect.right - 20, y + 22}, headingFont, palette.primaryText);
+        y += 28;
+        for (const auto& client : service->ConnectedClients()) {
+            if (y + 40 > rect.bottom - 16) {
+                return;
+            }
+            DrawTextLine(hdc, ToWide(client.displayName + " · " + client.endpoint.AddressSummary()), RECT{rect.left + 20, y, rect.right - 20, y + 22}, bodyFont, palette.primaryText);
+            DrawTextLine(hdc, ToWide((client.platform.empty() ? "unknown" : client.platform) + std::string(client.isTrusted ? " · trusted" : "")), RECT{rect.left + 20, y + 20, rect.right - 20, y + 40}, smallFont, palette.mutedText);
+            y += 48;
+        }
+    }
+
+    if (service->RecentEvents().empty()) {
+        RECT empty{rect.left + 20, y, rect.right - 20, y + 28};
+        DrawTextLine(hdc, L"暂无事件", empty, bodyFont, palette.mutedText);
+        return;
+    }
+
+    DrawTextLine(hdc, L"最近事件", RECT{rect.left + 20, y, rect.right - 20, y + 22}, headingFont, palette.primaryText);
+    y += 28;
 
     int shown = 0;
     for (const auto& event : service->RecentEvents()) {
@@ -445,7 +493,7 @@ void Paint(HDC hdc, RECT client)
     }
 
     RECT eventsRect{32, 300, client.right - 32, client.bottom - 32};
-    DrawEvents(hdc, eventsRect);
+    DrawDevicesAndEvents(hdc, eventsRect);
 }
 
 void RefreshUi(HWND hwnd)
@@ -493,6 +541,34 @@ void PerformAction(HWND hwnd, Action action)
     case Action::Disconnect:
         if (service) {
             service->DisconnectCurrentSession();
+        }
+        RefreshUi(hwnd);
+        return;
+    case Action::DisconnectAll:
+        if (service) {
+            std::vector<std::string> clientIds;
+            for (const auto& client : service->ConnectedClients()) {
+                clientIds.push_back(client.id);
+            }
+            service->DisconnectClients(clientIds);
+        }
+        RefreshUi(hwnd);
+        return;
+    case Action::ApproveFirstRequest:
+        if (service && !service->PendingConnectionRequests().empty()) {
+            service->ApproveConnection(service->PendingConnectionRequests().front().id);
+        }
+        RefreshUi(hwnd);
+        return;
+    case Action::RejectFirstRequest:
+        if (service && !service->PendingConnectionRequests().empty()) {
+            service->RejectConnection(service->PendingConnectionRequests().front().id);
+        }
+        RefreshUi(hwnd);
+        return;
+    case Action::ToggleTrustedAutoAllow:
+        if (service) {
+            service->SetAutoAllowTrustedDevices(!service->PermissionPolicy().autoAllowTrustedDevices);
         }
         RefreshUi(hwnd);
         return;

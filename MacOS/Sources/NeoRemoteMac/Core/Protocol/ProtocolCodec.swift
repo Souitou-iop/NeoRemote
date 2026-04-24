@@ -11,12 +11,20 @@ struct ProtocolCodec {
     func decodeCommand(_ data: Data) throws -> RemoteCommand {
         let envelope = try decoder.decode(CommandEnvelope.self, from: data)
         switch envelope.type {
+        case "clientHello":
+            return .clientHello(
+                ClientHelloPayload(
+                    clientId: envelope.clientId ?? "",
+                    displayName: envelope.displayName ?? "",
+                    platform: envelope.platform ?? ""
+                )
+            )
         case "move":
             return .move(dx: envelope.dx ?? 0, dy: envelope.dy ?? 0)
         case "tap":
             return .tap(kind: envelope.button ?? .primary)
         case "scroll":
-            return .scroll(deltaY: envelope.deltaY ?? 0)
+            return .scroll(deltaX: envelope.deltaX ?? 0, deltaY: envelope.deltaY ?? 0)
         case "drag":
             return .drag(
                 state: envelope.state ?? .changed,
@@ -47,9 +55,13 @@ private struct CommandEnvelope: Codable {
     let type: String
     let dx: Double?
     let dy: Double?
+    let deltaX: Double?
     let deltaY: Double?
     let button: MouseButtonKind?
     let state: DragState?
+    let clientId: String?
+    let displayName: String?
+    let platform: String?
 }
 
 private struct MessageEnvelope: Codable {

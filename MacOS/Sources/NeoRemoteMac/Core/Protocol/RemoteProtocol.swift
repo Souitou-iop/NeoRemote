@@ -13,10 +13,17 @@ enum DragState: String, Codable, Equatable {
     case ended
 }
 
+struct ClientHelloPayload: Codable, Equatable {
+    let clientId: String
+    let displayName: String
+    let platform: String
+}
+
 enum RemoteCommand: Equatable {
+    case clientHello(ClientHelloPayload)
     case move(dx: Double, dy: Double)
     case tap(kind: MouseButtonKind)
-    case scroll(deltaY: Double)
+    case scroll(deltaX: Double = 0, deltaY: Double = 0)
     case drag(state: DragState, button: MouseButtonKind, dx: Double, dy: Double)
     case heartbeat
 }

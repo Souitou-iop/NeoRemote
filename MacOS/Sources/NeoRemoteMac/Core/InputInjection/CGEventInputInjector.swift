@@ -2,7 +2,7 @@ import AppKit
 import CoreGraphics
 import Foundation
 
-protocol RemoteCommandInjecting: AnyObject {
+protocol RemoteCommandInjecting: AnyObject, Sendable {
     func handle(_ command: RemoteCommand) throws
 }
 
@@ -14,7 +14,7 @@ enum InputInjectionError: Error, LocalizedError {
     }
 }
 
-final class CGEventInputInjector: RemoteCommandInjecting {
+final class CGEventInputInjector: RemoteCommandInjecting, @unchecked Sendable {
     private var planner = MouseEventPlanner()
     private let eventSource: CGEventSource?
     private let positionProvider: () -> CGPoint
@@ -48,13 +48,13 @@ final class CGEventInputInjector: RemoteCommandInjecting {
         case let .drag(button, point):
             try postMouse(type: dragType(for: button), point: point, button: cgButton(for: button))
 
-        case let .scroll(lines):
+        case let .scroll(deltaX, deltaY):
             guard let event = CGEvent(
                 scrollWheelEvent2Source: eventSource,
                 units: .line,
-                wheelCount: 1,
-                wheel1: lines,
-                wheel2: 0,
+                wheelCount: 2,
+                wheel1: deltaY,
+                wheel2: deltaX,
                 wheel3: 0
             ) else {
                 throw InputInjectionError.unableToCreateEvent

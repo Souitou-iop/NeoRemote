@@ -18,7 +18,7 @@ struct RemoteView: View {
                 VStack(spacing: 18) {
                     statusHeader
 
-                    TouchSurfaceRepresentable { output in
+                    TouchSurfaceRepresentable(settings: coordinator.touchSensitivitySettings) { output in
                         coordinator.handleTouchOutput(output)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -124,16 +124,18 @@ private struct RemoteTheme {
 }
 
 struct TouchSurfaceRepresentable: UIViewRepresentable {
+    var settings: TouchSensitivitySettings
     var onOutput: (TouchSurfaceOutput) -> Void
 
     func makeUIView(context: Context) -> TouchSurfaceUIKitView {
-        let view = TouchSurfaceUIKitView()
+        let view = TouchSurfaceUIKitView(settings: settings)
         view.onOutput = onOutput
         return view
     }
 
     func updateUIView(_ uiView: TouchSurfaceUIKitView, context _: Context) {
         uiView.onOutput = onOutput
+        uiView.update(settings: settings)
     }
 }
 
@@ -141,8 +143,9 @@ final class TouchSurfaceUIKitView: UIView {
     var onOutput: ((TouchSurfaceOutput) -> Void)?
     private var adapter = TouchSurfaceInputAdapter()
 
-    override init(frame: CGRect) {
+    init(settings: TouchSensitivitySettings, frame: CGRect = .zero) {
         super.init(frame: frame)
+        adapter.apply(settings: settings)
         isMultipleTouchEnabled = true
         backgroundColor = .clear
     }
@@ -150,6 +153,10 @@ final class TouchSurfaceUIKitView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(settings: TouchSensitivitySettings) {
+        adapter.apply(settings: settings)
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

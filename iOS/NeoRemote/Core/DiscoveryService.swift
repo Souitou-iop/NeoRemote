@@ -234,7 +234,7 @@ private extension BonjourDiscoveryService {
         )
 
         DispatchQueue.main.async { [weak self] in
-            self?.discovered[endpoint.id] = endpoint
+            self?.discovered[endpoint.deduplicationKey] = endpoint
             self?.publish()
         }
     }
@@ -303,7 +303,7 @@ extension BonjourDiscoveryService: NetServiceBrowserDelegate {
         moreComing _: Bool
     ) {
         services.removeAll { $0 === service }
-        discovered = discovered.filter { !$0.key.hasPrefix(service.name) }
+        discovered = discovered.filter { $0.value.displayName != service.name }
         publish()
     }
 }
@@ -311,7 +311,7 @@ extension BonjourDiscoveryService: NetServiceBrowserDelegate {
 extension BonjourDiscoveryService: NetServiceDelegate {
     func netServiceDidResolveAddress(_ sender: NetService) {
         guard let endpoint = makeEndpoint(from: sender) else { return }
-        discovered[endpoint.id] = endpoint
+        discovered[endpoint.deduplicationKey] = endpoint
         publish()
     }
 

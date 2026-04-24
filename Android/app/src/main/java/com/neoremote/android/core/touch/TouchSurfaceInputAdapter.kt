@@ -4,14 +4,14 @@ import com.neoremote.android.core.model.DragState
 import com.neoremote.android.core.model.MouseButtonKind
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.model.TouchPoint
+import com.neoremote.android.core.model.TouchSensitivitySettings
 import com.neoremote.android.core.model.TouchSurfaceOutput
 import com.neoremote.android.core.model.TouchSurfaceSemanticEvent
 import kotlin.math.abs
 import kotlin.math.hypot
 
 class TouchSurfaceInputAdapter(
-    private val moveMultiplier: Double = 1.0,
-    private val scrollMultiplier: Double = 1.0,
+    settings: TouchSensitivitySettings = TouchSensitivitySettings(),
     private val tapDistanceThreshold: Float = 12f,
     private val tapDurationThreshold: Double = 0.22,
     private val doubleTapWindow: Double = 0.32,
@@ -19,6 +19,10 @@ class TouchSurfaceInputAdapter(
     private val rightDragHoldDelay: Double = 0.18,
     private val scrollDominanceThreshold: Float = 1.15f,
 ) {
+    private var moveMultiplier: Double = 1.0
+    private var scrollMultiplier: Double = 1.0
+    private var scrollActivationDistance: Float = 14f
+
     private data class ActiveTouch(
         val startPoint: TouchPoint,
         val point: TouchPoint,
@@ -44,6 +48,17 @@ class TouchSurfaceInputAdapter(
     private var previousCentroid: TouchPoint? = null
     private var maxTouchCount = 0
     private var singleTouchId: Int? = null
+
+    init {
+        apply(settings)
+    }
+
+    fun apply(settings: TouchSensitivitySettings) {
+        val clamped = settings.clamped
+        moveMultiplier = clamped.cursorSensitivity
+        scrollMultiplier = clamped.swipeSensitivity
+        scrollActivationDistance = (14.0 / clamped.swipeSensitivity).toFloat()
+    }
 
     fun touchBegan(id: Int, point: TouchPoint, timestamp: Double): TouchSurfaceOutput {
         if (activeTouches.isEmpty()) {
@@ -257,15 +272,10 @@ class TouchSurfaceInputAdapter(
         }
 
         if (phase == Phase.SCROLL_ACTIVE) {
-            val deltaY = -dy * scrollMultiplier
-            if (abs(deltaY) <= 0.1) return TouchSurfaceOutput()
-            return TouchSurfaceOutput(
-                commands = listOf(RemoteCommand.Scroll(deltaY)),
-                semanticEvent = TouchSurfaceSemanticEvent.SCROLLING,
-            )
+            return scrollOutput(dx = dx, dy = dy)
         }
 
-        if (sessionDistance <= dragDistanceThreshold) return TouchSurfaceOutput()
+        if (sessionDistance <= minOf(dragDistanceThreshold, scrollActivationDistance)) return TouchSurfaceOutput()
 
         if (sessionDuration >= rightDragHoldDelay) {
             phase = Phase.RIGHT_DRAG_ACTIVE
@@ -288,17 +298,28 @@ class TouchSurfaceInputAdapter(
             )
         }
 
-        if (abs(dy) >= abs(dx) * scrollDominanceThreshold) {
+        if (sessionDistance >= scrollActivationDistance && abs(dy) >= abs(dx) * scrollDominanceThreshold) {
             phase = Phase.SCROLL_ACTIVE
-            val deltaY = -dy * scrollMultiplier
-            if (abs(deltaY) <= 0.1) return TouchSurfaceOutput()
-            return TouchSurfaceOutput(
-                commands = listOf(RemoteCommand.Scroll(deltaY)),
-                semanticEvent = TouchSurfaceSemanticEvent.SCROLLING,
-            )
+            return scrollOutput(dx = dx, dy = dy)
+        }
+
+        if (sessionDistance >= scrollActivationDistance && abs(dx) >= abs(dy) * scrollDominanceThreshold) {
+            phase = Phase.SCROLL_ACTIVE
+            return scrollOutput(dx = dx, dy = dy)
         }
 
         return TouchSurfaceOutput()
+    }
+
+    private fun scrollOutput(dx: Float, dy: Float): TouchSurfaceOutput {
+        val isHorizontal = abs(dx) >= abs(dy)
+        val deltaX = if (isHorizontal) -dx * scrollMultiplier else 0.0
+        val deltaY = if (isHorizontal) 0.0 else -dy * scrollMultiplier
+        if (abs(deltaX) <= 0.1 && abs(deltaY) <= 0.1) return TouchSurfaceOutput()
+        return TouchSurfaceOutput(
+            commands = listOf(RemoteCommand.Scroll(deltaX = deltaX, deltaY = deltaY)),
+            semanticEvent = TouchSurfaceSemanticEvent.SCROLLING,
+        )
     }
 
     private fun centroid(): TouchPoint {

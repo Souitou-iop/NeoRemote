@@ -86,7 +86,6 @@ void TcpRemoteServer::Stop()
     {
         std::scoped_lock lock(mutex_);
         clients_.clear();
-        activeClientId_.reset();
     }
 
     Emit(Core::RemoteServerEvent::ListenerStopped());
@@ -174,21 +173,11 @@ void TcpRemoteServer::AcceptLoop(unsigned short port)
         std::string clientId;
         {
             std::scoped_lock lock(mutex_);
-            if (activeClientId_) {
-                clientId.clear();
-            } else {
-                auto connection = std::make_unique<ClientConnection>();
-                connection->socket = clientSocket;
-                connection->endpoint = endpoint;
-                clientId = MakeClientId();
-                activeClientId_ = clientId;
-                clients_[clientId] = std::move(connection);
-            }
-        }
-
-        if (clientId.empty()) {
-            Reject(clientSocket, endpoint, "当前 Windows 已被另一台设备控制");
-            continue;
+            auto connection = std::make_unique<ClientConnection>();
+            connection->socket = clientSocket;
+            connection->endpoint = endpoint;
+            clientId = MakeClientId();
+            clients_[clientId] = std::move(connection);
         }
 
         std::thread([this, clientId] { ReceiveLoop(clientId); }).detach();
@@ -237,9 +226,6 @@ void TcpRemoteServer::ReceiveLoop(std::string clientId)
     {
         std::scoped_lock lock(mutex_);
         clients_.erase(clientId);
-        if (activeClientId_ == clientId) {
-            activeClientId_.reset();
-        }
     }
     Emit(Core::RemoteServerEvent::ClientDisconnected(clientId, endpoint));
 }

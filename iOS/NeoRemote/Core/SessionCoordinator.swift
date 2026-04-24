@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 @MainActor
 final class SessionCoordinator: ObservableObject {
@@ -14,6 +15,7 @@ final class SessionCoordinator: ObservableObject {
     private var hudClearTask: Task<Void, Never>?
     private var heartbeatTask: Task<Void, Never>?
     private var hasStarted = false
+    private var isInBackground = false
 
     @Published var status: SessionStatus = .disconnected
     @Published var route: SessionRoute = .onboarding
@@ -24,6 +26,7 @@ final class SessionCoordinator: ObservableObject {
     @Published var lastHUDMessage: String?
     @Published var errorMessage: String?
     @Published var isHapticsEnabled: Bool
+    @Published var touchSensitivitySettings: TouchSensitivitySettings
     @Published var statusMessage: String = "等待连接桌面端"
     @Published var manualConnectDraft = ManualConnectDraft()
 
@@ -40,6 +43,7 @@ final class SessionCoordinator: ObservableObject {
         self.codec = codec
         self.haptics = haptics
         self.isHapticsEnabled = registry.loadHapticsEnabled()
+        self.touchSensitivitySettings = registry.loadTouchSensitivitySettings()
 
         self.haptics.isEnabled = self.isHapticsEnabled
         self.recentDevices = registry.loadRecentDevices()
@@ -69,9 +73,34 @@ final class SessionCoordinator: ObservableObject {
     }
 
     func refreshDiscovery() {
+        guard !isInBackground else { return }
         status = activeEndpoint == nil ? .discovering : status
         statusMessage = "重新扫描桌面端"
         discoveryService.refresh()
+    }
+
+    func handleAppDidBecomeActive() {
+        isInBackground = false
+        haptics.prepare()
+
+        if status == .connected {
+            startHeartbeat()
+            if let activeEndpoint {
+                statusMessage = "已连接 \(activeEndpoint.displayName)"
+            }
+        } else if hasStarted {
+            refreshDiscovery()
+        }
+    }
+
+    func handleAppDidEnterBackground() {
+        isInBackground = true
+        hudClearTask?.cancel()
+        hudClearTask = nil
+        lastHUDMessage = nil
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+        discoveryService.stop()
     }
 
     func connectUsingManualDraft() {
@@ -83,6 +112,11 @@ final class SessionCoordinator: ObservableObject {
             status = .failed
             route = .onboarding
         }
+    }
+
+    func connectUsingWiredMacAddress(host: String) {
+        manualConnectDraft = ManualConnectDraft(host: host, port: "50505")
+        connectUsingManualDraft()
     }
 
     func connect(to endpoint: DesktopEndpoint, isRecovery: Bool = false) {
@@ -135,6 +169,24 @@ final class SessionCoordinator: ObservableObject {
         }
     }
 
+    func setCursorSensitivity(_ value: Double) {
+        updateTouchSensitivity(
+            TouchSensitivitySettings(
+                cursorSensitivity: value,
+                swipeSensitivity: touchSensitivitySettings.swipeSensitivity
+            )
+        )
+    }
+
+    func setSwipeSensitivity(_ value: Double) {
+        updateTouchSensitivity(
+            TouchSensitivitySettings(
+                cursorSensitivity: touchSensitivitySettings.cursorSensitivity,
+                swipeSensitivity: value
+            )
+        )
+    }
+
     func enterDemoMode() {
         heartbeatTask?.cancel()
         heartbeatTask = nil
@@ -182,13 +234,12 @@ final class SessionCoordinator: ObservableObject {
             haptics.playTap()
             showHUD(tapHUDText(for: button))
         case .scrolling:
-            showHUD("双指滚动")
+            break
         case let .dragStarted(button):
             haptics.playDragStart()
             showHUD(dragHUDText(for: button, state: .started))
-        case let .dragChanged(button):
+        case .dragChanged:
             haptics.playDragTick()
-            showHUD(dragHUDText(for: button, state: .changed))
         case let .dragEnded(button):
             showHUD(dragHUDText(for: button, state: .ended))
         }
@@ -198,6 +249,7 @@ final class SessionCoordinator: ObservableObject {
         discoveryService.onUpdate = { [weak self] devices in
             guard let self else { return }
             Task { @MainActor in
+                guard !self.isInBackground else { return }
                 self.discoveredDevices = devices
                 if self.activeEndpoint == nil, devices.isEmpty {
                     self.status = .discovering
@@ -239,6 +291,7 @@ final class SessionCoordinator: ObservableObject {
             status = .connected
             route = .connected
             statusMessage = "已连接 \(activeEndpoint.displayName)"
+            sendClientHello()
             registry.upsertRecent(activeEndpoint)
             registry.saveLastConnected(activeEndpoint)
             recentDevices = registry.loadRecentDevices()
@@ -281,24 +334,38 @@ final class SessionCoordinator: ObservableObject {
 
     private func handleSemanticUpdate(for command: RemoteCommand) {
         switch command {
+        case .clientHello:
+            break
         case .tap:
             break
         case .scroll:
-            statusMessage = "正在滚动桌面内容"
+            break
         case .move:
-            statusMessage = "远程控制中"
+            break
         case let .drag(state, button, _, _):
             switch state {
             case .started:
                 statusMessage = "\(button.displayName)拖拽已开始"
             case .changed:
-                statusMessage = "\(button.displayName)拖拽进行中"
+                break
             case .ended:
                 statusMessage = "\(button.displayName)拖拽已结束"
             }
         case .heartbeat:
             break
         }
+    }
+
+    private func sendClientHello() {
+        send(
+            .clientHello(
+                ClientHelloPayload(
+                    clientId: registry.loadOrCreateClientID(),
+                    displayName: UIDevice.current.name,
+                    platform: "ios"
+                )
+            )
+        )
     }
 
     private func tapHUDText(for button: MouseButtonKind) -> String {
@@ -335,6 +402,12 @@ final class SessionCoordinator: ObservableObject {
                 }
             }
         }
+    }
+
+    private func updateTouchSensitivity(_ settings: TouchSensitivitySettings) {
+        let clamped = settings.clamped
+        touchSensitivitySettings = clamped
+        registry.saveTouchSensitivitySettings(clamped)
     }
 
     private func startHeartbeat() {

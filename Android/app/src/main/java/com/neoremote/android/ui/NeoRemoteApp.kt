@@ -21,7 +21,10 @@ fun NeoRemoteApp(
     onClearRecent: () -> Unit,
     onManualDraftChange: (String, String) -> Unit,
     onManualConnect: () -> Unit,
+    onAdbWiredConnect: () -> Unit,
     onHapticsEnabledChange: (Boolean) -> Unit,
+    onCursorSensitivityChange: (Double) -> Unit = {},
+    onSwipeSensitivityChange: (Double) -> Unit = {},
     onTouchOutput: (TouchSurfaceOutput) -> Unit,
 ) {
     val context = LocalContext.current
@@ -35,6 +38,7 @@ fun NeoRemoteApp(
             onConnect = onConnect,
             onManualDraftChange = onManualDraftChange,
             onManualConnect = onManualConnect,
+            onAdbWiredConnect = onAdbWiredConnect,
         )
 
         SessionRoute.CONNECTED -> ConnectedShell(
@@ -44,6 +48,8 @@ fun NeoRemoteApp(
             onDisconnect = onDisconnect,
             onClearRecent = onClearRecent,
             onHapticsEnabledChange = onHapticsEnabledChange,
+            onCursorSensitivityChange = onCursorSensitivityChange,
+            onSwipeSensitivityChange = onSwipeSensitivityChange,
             onTouchOutput = { output ->
                 if (state.hapticsEnabled) {
                     haptics.perform(output.semanticEvent)

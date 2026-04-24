@@ -60,9 +60,17 @@ enum class DragState {
 }
 
 sealed interface RemoteCommand {
+    data class ClientHello(
+        val clientId: String,
+        val displayName: String,
+        val platform: String,
+    ) : RemoteCommand
     data class Move(val dx: Double, val dy: Double) : RemoteCommand
     data class Tap(val kind: MouseButtonKind) : RemoteCommand
-    data class Scroll(val deltaY: Double) : RemoteCommand
+    data class Scroll(
+        val deltaX: Double = 0.0,
+        val deltaY: Double = 0.0,
+    ) : RemoteCommand
     data class Drag(
         val state: DragState,
         val dx: Double,
@@ -115,6 +123,23 @@ data class TouchSurfaceOutput(
     val semanticEvent: TouchSurfaceSemanticEvent? = null,
 )
 
+data class TouchSensitivitySettings(
+    val cursorSensitivity: Double = 1.0,
+    val swipeSensitivity: Double = 1.0,
+) {
+    val clamped: TouchSensitivitySettings
+        get() = copy(
+            cursorSensitivity = cursorSensitivity.coerceIn(CURSOR_RANGE),
+            swipeSensitivity = swipeSensitivity.coerceIn(SWIPE_RANGE),
+        )
+
+    companion object {
+        val CURSOR_RANGE = 0.4..2.5
+        val SWIPE_RANGE = 0.5..2.0
+        const val STEP = 0.1
+    }
+}
+
 sealed class ConnectionFailure(message: String) : IllegalArgumentException(message) {
     data object InvalidHost : ConnectionFailure("请输入有效的桌面端地址。")
     data object InvalidPort : ConnectionFailure("请输入有效的端口。")
@@ -130,6 +155,7 @@ data class SessionUiState(
     val lastConnectedEndpoint: DesktopEndpoint? = null,
     val lastHudMessage: String? = null,
     val hapticsEnabled: Boolean = true,
+    val touchSensitivitySettings: TouchSensitivitySettings = TouchSensitivitySettings(),
     val errorMessage: String? = null,
     val statusMessage: String = "等待连接桌面端",
     val manualConnectDraft: ManualConnectDraft = ManualConnectDraft(),

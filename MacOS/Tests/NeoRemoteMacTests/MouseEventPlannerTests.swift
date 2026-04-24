@@ -10,7 +10,7 @@ final class MouseEventPlannerTests: XCTestCase {
             CGPoint(x: 100, y: 100)
         }
 
-        XCTAssertEqual(events, [.move(to: CGPoint(x: 120, y: 90))])
+        XCTAssertEqual(events, [.move(to: CGPoint(x: 120, y: 110))])
     }
 
     func testTapCommandMapsToMouseDownAndMouseUp() {
@@ -43,8 +43,8 @@ final class MouseEventPlannerTests: XCTestCase {
         }
 
         XCTAssertEqual(start, [.mouseDown(button: .primary, point: CGPoint(x: 30, y: 30))])
-        XCTAssertEqual(change, [.drag(button: .primary, to: CGPoint(x: 35, y: 34))])
-        XCTAssertEqual(end, [.mouseUp(button: .primary, point: CGPoint(x: 35, y: 34))])
+        XCTAssertEqual(change, [.drag(button: .primary, to: CGPoint(x: 35, y: 26))])
+        XCTAssertEqual(end, [.mouseUp(button: .primary, point: CGPoint(x: 35, y: 26))])
     }
 
     func testSecondaryDragLifecycleMapsToRightButtonEvents() {
@@ -61,7 +61,17 @@ final class MouseEventPlannerTests: XCTestCase {
         }
 
         XCTAssertEqual(start, [.mouseDown(button: .secondary, point: CGPoint(x: 30, y: 30))])
-        XCTAssertEqual(change, [.drag(button: .secondary, to: CGPoint(x: 35, y: 34))])
-        XCTAssertEqual(end, [.mouseUp(button: .secondary, point: CGPoint(x: 35, y: 34))])
+        XCTAssertEqual(change, [.drag(button: .secondary, to: CGPoint(x: 35, y: 26))])
+        XCTAssertEqual(end, [.mouseUp(button: .secondary, point: CGPoint(x: 35, y: 26))])
+    }
+
+    func testScrollCommandMapsBothAxes() {
+        var planner = MouseEventPlanner()
+
+        let events = planner.apply(.scroll(deltaX: 7.4, deltaY: -3.2)) {
+            CGPoint(x: 40, y: 60)
+        }
+
+        XCTAssertEqual(events, [.scroll(deltaX: 7, deltaY: -3)])
     }
 }

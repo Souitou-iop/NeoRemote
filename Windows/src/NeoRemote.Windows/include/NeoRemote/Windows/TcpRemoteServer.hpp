@@ -50,7 +50,6 @@ private:
     SOCKET listener_{INVALID_SOCKET};
     std::thread acceptThread_;
     std::mutex mutex_;
-    std::optional<std::string> activeClientId_;
     std::unordered_map<std::string, std::unique_ptr<ClientConnection>> clients_;
 };
 

@@ -27,47 +27,82 @@ private struct CommandEnvelope: Codable {
     let type: String
     let dx: Double?
     let dy: Double?
+    let deltaX: Double?
     let deltaY: Double?
     let button: MouseButtonKind?
     let state: DragState?
+    let clientId: String?
+    let displayName: String?
+    let platform: String?
 
     init(command: RemoteCommand) {
         switch command {
+        case let .clientHello(payload):
+            type = "clientHello"
+            dx = nil
+            dy = nil
+            deltaX = nil
+            deltaY = nil
+            button = nil
+            state = nil
+            clientId = payload.clientId
+            displayName = payload.displayName
+            platform = payload.platform
         case let .move(dx, dy):
             type = "move"
             self.dx = dx
             self.dy = dy
+            deltaX = nil
             deltaY = nil
             button = nil
             state = nil
+            clientId = nil
+            displayName = nil
+            platform = nil
         case let .tap(kind):
             type = "tap"
             dx = nil
             dy = nil
+            deltaX = nil
             deltaY = nil
             button = kind
             state = nil
-        case let .scroll(deltaY):
+            clientId = nil
+            displayName = nil
+            platform = nil
+        case let .scroll(deltaX, deltaY):
             type = "scroll"
             dx = nil
             dy = nil
+            self.deltaX = deltaX
             self.deltaY = deltaY
             button = nil
             state = nil
+            clientId = nil
+            displayName = nil
+            platform = nil
         case let .drag(state, button, dx, dy):
             type = "drag"
             self.dx = dx
             self.dy = dy
+            deltaX = nil
             deltaY = nil
             self.button = button
             self.state = state
+            clientId = nil
+            displayName = nil
+            platform = nil
         case .heartbeat:
             type = "heartbeat"
             dx = nil
             dy = nil
+            deltaX = nil
             deltaY = nil
             button = nil
             state = nil
+            clientId = nil
+            displayName = nil
+            platform = nil
         }
     }
 }

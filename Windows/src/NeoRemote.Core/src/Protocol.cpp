@@ -128,6 +128,16 @@ RemoteCommand RemoteCommand::Move(double dxValue, double dyValue)
     return command;
 }
 
+RemoteCommand RemoteCommand::ClientHello(std::string clientIdValue, std::string displayNameValue, std::string platformValue)
+{
+    RemoteCommand command;
+    command.type = RemoteCommandType::ClientHello;
+    command.clientId = std::move(clientIdValue);
+    command.displayName = std::move(displayNameValue);
+    command.platform = std::move(platformValue);
+    return command;
+}
+
 RemoteCommand RemoteCommand::Tap(MouseButtonKind buttonValue)
 {
     RemoteCommand command;
@@ -136,21 +146,28 @@ RemoteCommand RemoteCommand::Tap(MouseButtonKind buttonValue)
     return command;
 }
 
-RemoteCommand RemoteCommand::Scroll(double deltaYValue)
+RemoteCommand RemoteCommand::Scroll(double deltaXValue, double deltaYValue)
 {
     RemoteCommand command;
     command.type = RemoteCommandType::Scroll;
+    command.deltaX = deltaXValue;
     command.deltaY = deltaYValue;
     return command;
 }
 
 RemoteCommand RemoteCommand::Drag(DragState stateValue, double dxValue, double dyValue)
 {
+    return RemoteCommand::Drag(stateValue, dxValue, dyValue, MouseButtonKind::Primary);
+}
+
+RemoteCommand RemoteCommand::Drag(DragState stateValue, double dxValue, double dyValue, MouseButtonKind buttonValue)
+{
     RemoteCommand command;
     command.type = RemoteCommandType::Drag;
     command.state = stateValue;
     command.dx = dxValue;
     command.dy = dyValue;
+    command.button = buttonValue;
     return command;
 }
 
@@ -189,17 +206,26 @@ RemoteCommand ProtocolCodec::DecodeCommand(std::string_view json) const
     if (*type == "move") {
         return RemoteCommand::Move(FindNumber(json, "dx").value_or(0), FindNumber(json, "dy").value_or(0));
     }
+    if (*type == "clientHello") {
+        return RemoteCommand::ClientHello(
+            FindString(json, "clientId").value_or(""),
+            FindString(json, "displayName").value_or(""),
+            FindString(json, "platform").value_or(""));
+    }
     if (*type == "tap") {
         return RemoteCommand::Tap(ParseButton(FindString(json, "button")));
     }
     if (*type == "scroll") {
-        return RemoteCommand::Scroll(FindNumber(json, "deltaY").value_or(0));
+        return RemoteCommand::Scroll(
+            FindNumber(json, "deltaX").value_or(0),
+            FindNumber(json, "deltaY").value_or(0));
     }
     if (*type == "drag") {
         return RemoteCommand::Drag(
             ParseDragState(FindString(json, "state")),
             FindNumber(json, "dx").value_or(0),
-            FindNumber(json, "dy").value_or(0));
+            FindNumber(json, "dy").value_or(0),
+            ParseButton(FindString(json, "button")));
     }
     if (*type == "heartbeat") {
         return RemoteCommand::Heartbeat();

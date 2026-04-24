@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.NetworkWifi
@@ -51,8 +51,10 @@ fun OnboardingScreen(
     onConnect: (DesktopEndpoint) -> Unit,
     onManualDraftChange: (String, String) -> Unit,
     onManualConnect: () -> Unit,
+    onAdbWiredConnect: () -> Unit,
 ) {
     var showingManualDialog by rememberSaveable { mutableStateOf(false) }
+    var showingAdbWiredDialog by rememberSaveable { mutableStateOf(false) }
     var hiddenRefreshTapCount by rememberSaveable { mutableStateOf(0) }
 
     Scaffold(
@@ -127,7 +129,10 @@ fun OnboardingScreen(
                 item {
                     Text("附近的 Desktop", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
-                items(state.discoveredDevices, key = { it.id }) { device ->
+                itemsIndexed(
+                    state.discoveredDevices,
+                    key = { index, device -> "discovered-$index-${device.id}-${device.addressText}" },
+                ) { _, device ->
                     DeviceCard(endpoint = device, actionLabel = "连接") { onConnect(device) }
                 }
             }
@@ -136,7 +141,10 @@ fun OnboardingScreen(
                 item {
                     Text("最近连接", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
-                items(state.recentDevices, key = { it.id }) { device ->
+                itemsIndexed(
+                    state.recentDevices,
+                    key = { index, device -> "recent-$index-${device.id}-${device.addressText}" },
+                ) { _, device ->
                     DeviceCard(endpoint = device, actionLabel = "恢复") { onConnect(device) }
                 }
             }
@@ -153,6 +161,19 @@ fun OnboardingScreen(
                     }
                 }
             }
+
+            item {
+                SectionCard(
+                    title = "ADB 有线调试",
+                    subtitle = "USB 调试连接后，通过 adb reverse 把电脑端口映射到手机本机。",
+                ) {
+                    FilledTonalButton(onClick = { showingAdbWiredDialog = true }) {
+                        Icon(Icons.Outlined.Keyboard, contentDescription = null)
+                        Spacer(modifier = Modifier.padding(horizontal = 6.dp))
+                        Text("连接有线调试")
+                    }
+                }
+            }
         }
     }
 
@@ -164,6 +185,16 @@ fun OnboardingScreen(
                 onManualDraftChange(host, port)
                 onManualConnect()
                 showingManualDialog = false
+            },
+        )
+    }
+
+    if (showingAdbWiredDialog) {
+        AdbWiredDebugDialog(
+            onDismiss = { showingAdbWiredDialog = false },
+            onConfirm = {
+                onAdbWiredConnect()
+                showingAdbWiredDialog = false
             },
         )
     }
@@ -201,6 +232,35 @@ private fun ManualConnectDialog(
         confirmButton = {
             Button(onClick = { onConfirm(host, port) }) {
                 Text("连接 Desktop")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        },
+    )
+}
+
+@Composable
+private fun AdbWiredDebugDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Outlined.Keyboard, contentDescription = null) },
+        title = { Text("有线调试连接") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("1. 用 USB 连接 Android 手机和电脑，并开启 USB 调试。")
+                Text("2. 在电脑上执行：adb reverse tcp:51101 tcp:51101")
+                Text("3. 保持桌面端 NeoRemote 正在监听，然后连接 127.0.0.1:51101。")
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text("连接 127.0.0.1:51101")
             }
         },
         dismissButton = {

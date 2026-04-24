@@ -10,7 +10,9 @@ struct NeoRemoteMacApp: App {
     var body: some Scene {
         WindowGroup("NeoRemote", id: "dashboard") {
             NavigationStack {
-                DashboardView(service: service)
+                DashboardView(service: service) {
+                    openWindow(id: "settings")
+                }
             }
             .task {
                 service.bootstrap()

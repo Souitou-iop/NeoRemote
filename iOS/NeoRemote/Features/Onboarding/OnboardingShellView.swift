@@ -3,6 +3,7 @@ import SwiftUI
 struct OnboardingShellView: View {
     @ObservedObject var coordinator: SessionCoordinator
     @State private var showingManualSheet = false
+    @State private var showingWiredMacSheet = false
     @State private var hiddenRefreshTapCount = 0
 
     var body: some View {
@@ -29,6 +30,7 @@ struct OnboardingShellView: View {
                     }
 
                     manualSection
+                    wiredMacSection
                 }
                 .padding(20)
             }
@@ -44,6 +46,10 @@ struct OnboardingShellView: View {
             .sheet(isPresented: $showingManualSheet) {
                 ManualConnectSheet(coordinator: coordinator)
                     .presentationDetents([.medium])
+            }
+            .sheet(isPresented: $showingWiredMacSheet) {
+                WiredMacConnectSheet(coordinator: coordinator)
+                    .presentationDetents([.medium, .large])
             }
         }
     }
@@ -137,6 +143,32 @@ struct OnboardingShellView: View {
         }
     }
 
+    private var wiredMacSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("有线连接")
+                .font(.headline)
+
+            Text("iPhone 用数据线连接 Mac，并打开个人热点后，可以输入 Mac 端显示的有线地址。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Button {
+                showingWiredMacSheet = true
+            } label: {
+                HStack {
+                    Label("有线连接 Mac", systemImage: "cable.connector")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.bold())
+                }
+                .padding()
+                .background(Color(uiColor: .secondarySystemGroupedBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
     private func deviceSection(title: String, subtitle: String, devices: [DesktopEndpoint]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
@@ -211,6 +243,46 @@ private struct ManualConnectSheet: View {
             .onAppear {
                 host = coordinator.manualConnectDraft.host
                 port = coordinator.manualConnectDraft.port
+            }
+        }
+    }
+}
+
+private struct WiredMacConnectSheet: View {
+    @ObservedObject var coordinator: SessionCoordinator
+    @Environment(\.dismiss) private var dismiss
+    @State private var host: String = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("连接步骤") {
+                    Text("1. 用数据线连接 iPhone 和 Mac。")
+                    Text("2. 在 iPhone 设置中打开个人热点。")
+                    Text("3. 确认 Mac 端 NeoRemote 正在监听，并输入 Mac 端显示的有线地址。")
+                }
+
+                Section("Mac 有线地址") {
+                    TextField("172.20.10.2", text: $host)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    Text("端口固定使用 50505。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section {
+                    Button("连接 Mac") {
+                        coordinator.connectUsingWiredMacAddress(host: host)
+                        dismiss()
+                    }
+                }
+            }
+            .navigationTitle("有线连接 Mac")
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                host = coordinator.manualConnectDraft.host
             }
         }
     }
