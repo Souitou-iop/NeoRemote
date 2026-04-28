@@ -38,7 +38,8 @@ jobs:
             -archivePath "$RUNNER_TEMP/NeoRemote-unsigned.xcarchive" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=
+            CODE_SIGN_IDENTITY= \
+            ASSETCATALOG_COMPILER_APPICON_NAME=AppIcon
 
       - name: Package unsigned IPA
         run: |
@@ -123,25 +124,12 @@ jobs:
           APP_CONTENTS="$APP_BUNDLE/Contents"
           APP_MACOS="$APP_CONTENTS/MacOS"
           APP_RESOURCES="$APP_CONTENTS/Resources"
-          ICON_BUILD_DIR="$RUNNER_TEMP/icon-assets"
 
-          rm -rf "$APP_BUNDLE" "$ICON_BUILD_DIR" artifacts
-          mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$ICON_BUILD_DIR" artifacts
+          rm -rf "$APP_BUNDLE" artifacts
+          mkdir -p "$APP_MACOS" "$APP_RESOURCES" artifacts
           cp "$BUILD_DIR/$APP_NAME" "$APP_MACOS/$APP_NAME"
           chmod +x "$APP_MACOS/$APP_NAME"
-
-          /Applications/Xcode.app/Contents/Developer/usr/bin/actool icon/NeoRemote.icon \
-            --compile "$ICON_BUILD_DIR" \
-            --output-format human-readable-text \
-            --notices \
-            --warnings \
-            --app-icon NeoRemote \
-            --minimum-deployment-target 15.0 \
-            --platform macosx \
-            --target-device mac \
-            --output-partial-info-plist "$ICON_BUILD_DIR/assetcatalog-info.plist"
-          cp "$ICON_BUILD_DIR/Assets.car" "$APP_RESOURCES/Assets.car"
-          cp "$ICON_BUILD_DIR/NeoRemote.icns" "$APP_RESOURCES/NeoRemote.icns"
+          cp MacOS/Resources/AppIcon.icns "$APP_RESOURCES/AppIcon.icns"
 
           cat > "$APP_CONTENTS/Info.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
@@ -157,9 +145,9 @@ jobs:
             <key>CFBundleDisplayName</key>
             <string>NeoRemote</string>
             <key>CFBundleIconFile</key>
-            <string>NeoRemote</string>
+            <string>AppIcon</string>
             <key>CFBundleIconName</key>
-            <string>NeoRemote</string>
+            <string>AppIcon</string>
             <key>CFBundleShortVersionString</key>
             <string>1.0</string>
             <key>CFBundleVersion</key>
