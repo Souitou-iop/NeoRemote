@@ -1,4 +1,6 @@
 #include "resource.h"
 
+IDI_APP_ICON ICON "icons/NeoRemote.ico"
+
 IDW_LISTENING_ON WAVE "sounds/listening_on.wav"
 IDW_LISTENING_OFF WAVE "sounds/listening_off.wav"

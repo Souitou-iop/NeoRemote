@@ -52,6 +52,9 @@
     <Page Include="MainWindow.xaml" />
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="..\NeoRemote.Win32App\resources\NeoRemote.Win32App.rc" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250205002" />
     <PackageReference Include="Microsoft.Windows.CppWinRT" Version="2.0.240405.15" />
   </ItemGroup>

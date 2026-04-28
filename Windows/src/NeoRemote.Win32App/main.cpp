@@ -6,9 +6,9 @@
 #include "NeoRemote/Windows/MdnsPublisher.hpp"
 #include "NeoRemote/Windows/TcpRemoteServer.hpp"
 #include "NeoRemote/Windows/TrayIcon.hpp"
+#include "resources/resource.h"
 #include "NeoRemote/Windows/UdpDiscoveryResponder.hpp"
 #include "NeoRemote/Windows/Win32InputInjector.hpp"
-#include "resources/resource.h"
 
 #include <dwmapi.h>
 #include <mmsystem.h>
@@ -694,7 +694,8 @@ HWND CreateMainWindow(HINSTANCE instance)
     windowClass.hInstance = instance;
     windowClass.lpfnWndProc = WindowProc;
     windowClass.lpszClassName = WindowClassName;
-    windowClass.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+    windowClass.hIcon = LoadIconW(instance, MAKEINTRESOURCEW(IDI_APP_ICON));
+    windowClass.hIconSm = LoadIconW(instance, MAKEINTRESOURCEW(IDI_APP_ICON));
     windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     windowClass.hbrBackground = nullptr;
     RegisterClassExW(&windowClass);

@@ -12,6 +12,15 @@ constexpr UINT MenuExit = 1004;
 constexpr UINT MenuThemeFollowSystem = 1101;
 constexpr UINT MenuThemeLight = 1102;
 constexpr UINT MenuThemeDark = 1103;
+constexpr WORD AppIconResourceId = 101;
+
+HICON LoadAppIcon()
+{
+    if (HICON icon = LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(AppIconResourceId))) {
+        return icon;
+    }
+    return LoadIconW(nullptr, IDI_APPLICATION);
+}
 
 } // namespace
 
@@ -23,7 +32,7 @@ TrayIcon::TrayIcon(HWND ownerWindow)
     data_.uID = 1;
     data_.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
     data_.uCallbackMessage = CallbackMessage;
-    data_.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+    data_.hIcon = LoadAppIcon();
 }
 
 TrayIcon::~TrayIcon()
