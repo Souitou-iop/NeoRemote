@@ -1,29 +1,15 @@
 {
   "fill" : {
-    "automatic-gradient" : "display-p3:1.00000,1.00000,1.00000,1.00000"
+    "automatic-gradient" : "extended-gray:1.00000,1.00000"
   },
   "groups" : [
     {
       "layers" : [
         {
-          "blend-mode-specializations" : [
-            {
-              "appearance" : "dark",
-              "value" : "normal"
-            }
-          ],
           "fill-specializations" : [
             {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "display-p3:1.00000,1.00000,1.00000,1.00000"
-              }
-            },
-            {
               "appearance" : "tinted",
-              "value" : {
-                "solid" : "extended-gray:1.00000,1.00000"
-              }
+              "value" : "automatic"
             }
           ],
           "image-name" : "remote_control_signal_icon_no_bg.svg",
