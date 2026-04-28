@@ -1,0 +1,277 @@
+name: Beta release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Beta version, for example v0.1.0-beta.1. Leave empty to use beta-<run number>."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: beta-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ios-unsigned-ipa:
+    name: iOS unsigned IPA
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Archive without signing
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -project iOS/NeoRemote.xcodeproj \
+            -scheme NeoRemote \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/NeoRemote-unsigned.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=
+
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/NeoRemotePayload/Payload" artifacts
+          cp -R "$RUNNER_TEMP/NeoRemote-unsigned.xcarchive/Products/Applications/NeoRemote.app" \
+            "$RUNNER_TEMP/NeoRemotePayload/Payload/"
+          (
+            cd "$RUNNER_TEMP/NeoRemotePayload"
+            zip -qry "$GITHUB_WORKSPACE/artifacts/NeoRemote-ios-unsigned.ipa" Payload
+          )
+          unzip -t artifacts/NeoRemote-ios-unsigned.ipa
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-ios
+          path: artifacts/NeoRemote-ios-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+  android-unsigned-apk:
+    name: Android unsigned release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build unsigned release APK
+        working-directory: Android
+        run: ./gradlew assembleRelease
+
+      - name: Package APK
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          cp Android/app/build/outputs/apk/release/app-release-unsigned.apk \
+            artifacts/NeoRemote-android-release-unsigned.apk
+          unzip -t artifacts/NeoRemote-android-release-unsigned.apk
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-android
+          path: artifacts/NeoRemote-android-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  macos-app:
+    name: macOS app
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Test macOS package
+        run: swift test --package-path MacOS
+
+      - name: Build macOS release
+        run: swift build -c release --package-path MacOS
+
+      - name: Package macOS app
+        run: |
+          set -euo pipefail
+          APP_NAME="NeoRemoteMac"
+          BUILD_DIR="$(swift build -c release --package-path MacOS --show-bin-path)"
+          APP_BUNDLE="$RUNNER_TEMP/$APP_NAME.app"
+          APP_CONTENTS="$APP_BUNDLE/Contents"
+          APP_MACOS="$APP_CONTENTS/MacOS"
+          APP_RESOURCES="$APP_CONTENTS/Resources"
+          ICON_BUILD_DIR="$RUNNER_TEMP/icon-assets"
+
+          rm -rf "$APP_BUNDLE" "$ICON_BUILD_DIR" artifacts
+          mkdir -p "$APP_MACOS" "$APP_RESOURCES" "$ICON_BUILD_DIR" artifacts
+          cp "$BUILD_DIR/$APP_NAME" "$APP_MACOS/$APP_NAME"
+          chmod +x "$APP_MACOS/$APP_NAME"
+
+          /Applications/Xcode.app/Contents/Developer/usr/bin/actool icon/NeoRemote.icon \
+            --compile "$ICON_BUILD_DIR" \
+            --output-format human-readable-text \
+            --notices \
+            --warnings \
+            --app-icon NeoRemote \
+            --minimum-deployment-target 15.0 \
+            --platform macosx \
+            --target-device mac \
+            --output-partial-info-plist "$ICON_BUILD_DIR/assetcatalog-info.plist"
+          cp "$ICON_BUILD_DIR/Assets.car" "$APP_RESOURCES/Assets.car"
+          cp "$ICON_BUILD_DIR/NeoRemote.icns" "$APP_RESOURCES/NeoRemote.icns"
+
+          cat > "$APP_CONTENTS/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>$APP_NAME</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.neoremote.mac</string>
+            <key>CFBundleName</key>
+            <string>$APP_NAME</string>
+            <key>CFBundleDisplayName</key>
+            <string>NeoRemote</string>
+            <key>CFBundleIconFile</key>
+            <string>NeoRemote</string>
+            <key>CFBundleIconName</key>
+            <string>NeoRemote</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0</string>
+            <key>CFBundleVersion</key>
+            <string>${{ github.run_number }}</string>
+            <key>CFBundleInfoDictionaryVersion</key>
+            <string>6.0</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>15.0</string>
+            <key>NSPrincipalClass</key>
+            <string>NSApplication</string>
+          </dict>
+          </plist>
+          PLIST
+          printf "APPL????" > "$APP_CONTENTS/PkgInfo"
+
+          codesign --force --timestamp=none --sign - "$APP_MACOS/$APP_NAME"
+          codesign --force --timestamp=none --sign - "$APP_BUNDLE"
+          ditto -c -k --keepParent "$APP_BUNDLE" artifacts/NeoRemote-macos.zip
+          unzip -t artifacts/NeoRemote-macos.zip
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-macos
+          path: artifacts/NeoRemote-macos.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-receiver:
+    name: Windows receiver
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Windows receiver
+        shell: pwsh
+        run: ./Windows/scripts/build_receiver.ps1
+
+      - name: Package Windows receiver
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $receiver = "Windows/build/NeoRemote.WindowsReceiver.exe"
+          if (-not (Test-Path $receiver)) {
+              throw "Windows receiver artifact not found at $receiver"
+          }
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Compress-Archive -Path $receiver -DestinationPath artifacts/NeoRemote-windows-receiver.zip -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: beta-windows
+          path: artifacts/NeoRemote-windows-receiver.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  create-beta-release:
+    name: Create beta release
+    runs-on: ubuntu-latest
+    needs:
+      - ios-unsigned-ipa
+      - android-unsigned-apk
+      - macos-app
+      - windows-receiver
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          VERSION="$INPUT_VERSION"
+          if [ -z "$VERSION" ]; then
+            VERSION="beta-${GITHUB_RUN_NUMBER}"
+          fi
+          TAG="v${VERSION#v}"
+          TITLE="NeoRemote ${TAG}"
+
+          cat > "$RUNNER_TEMP/release-notes.md" <<NOTES
+          ## NeoRemote beta
+
+          This beta release was built by GitHub Actions from commit \`${GITHUB_SHA}\`.
+
+          Artifacts:
+          - iOS unsigned IPA
+          - Android unsigned release APK
+          - macOS app zip
+          - Windows receiver zip
+
+          Notes:
+          - iOS and Android artifacts are unsigned or not store-signed beta builds.
+          - macOS app is ad-hoc signed for local testing.
+          NOTES
+
+          gh release create "$TAG" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$TITLE" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --prerelease
