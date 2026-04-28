@@ -36,7 +36,6 @@ Windows/build/
 
 # Local tooling
 .codex/
-.github-runner/
 
 # Misc
 *.log
