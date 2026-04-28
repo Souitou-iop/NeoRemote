@@ -17,6 +17,10 @@ APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 DEFAULT_CODESIGN_IDENTITY="${NEOREMOTE_CODESIGN_IDENTITY:-}"
+ICON_COMPOSER_FILE="$PACKAGE_DIR/../icon/NeoRemote.icon"
+ACTOOL="/Applications/Xcode.app/Contents/Developer/usr/bin/actool"
+ICON_FILE_NAME="AppIcon"
+ICON_NAME="AppIcon"
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
@@ -31,8 +35,31 @@ BUILD_BINARY="$(swift build --disable-sandbox --package-path "$PACKAGE_DIR" --sh
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
-cp "$PACKAGE_DIR/Resources/AppIcon.icns" "$APP_RESOURCES/AppIcon.icns"
 chmod +x "$APP_BINARY"
+
+if [[ -d "$ICON_COMPOSER_FILE" && -x "$ACTOOL" ]]; then
+  ICON_BUILD_DIR="$CACHE_DIR/icon-assets"
+  rm -rf "$ICON_BUILD_DIR"
+  mkdir -p "$ICON_BUILD_DIR"
+
+  "$ACTOOL" "$ICON_COMPOSER_FILE" \
+    --compile "$ICON_BUILD_DIR" \
+    --output-format human-readable-text \
+    --notices \
+    --warnings \
+    --app-icon NeoRemote \
+    --minimum-deployment-target "$MIN_SYSTEM_VERSION" \
+    --platform macosx \
+    --target-device mac \
+    --output-partial-info-plist "$ICON_BUILD_DIR/assetcatalog-info.plist"
+
+  cp "$ICON_BUILD_DIR/Assets.car" "$APP_RESOURCES/Assets.car"
+  cp "$ICON_BUILD_DIR/NeoRemote.icns" "$APP_RESOURCES/NeoRemote.icns"
+  ICON_FILE_NAME="NeoRemote"
+  ICON_NAME="NeoRemote"
+else
+  cp "$PACKAGE_DIR/Resources/AppIcon.icns" "$APP_RESOURCES/AppIcon.icns"
+fi
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -48,7 +75,9 @@ cat >"$INFO_PLIST" <<PLIST
   <key>CFBundleDisplayName</key>
   <string>NeoRemote</string>
   <key>CFBundleIconFile</key>
-  <string>AppIcon</string>
+  <string>$ICON_FILE_NAME</string>
+  <key>CFBundleIconName</key>
+  <string>$ICON_NAME</string>
   <key>CFBundleShortVersionString</key>
   <string>1.0</string>
   <key>CFBundleVersion</key>
