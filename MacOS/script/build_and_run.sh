@@ -13,6 +13,7 @@ CLANG_CACHE_DIR="$CACHE_DIR/clang-module-cache"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
+APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 DEFAULT_CODESIGN_IDENTITY="${NEOREMOTE_CODESIGN_IDENTITY:-}"
@@ -20,6 +21,7 @@ DEFAULT_CODESIGN_IDENTITY="${NEOREMOTE_CODESIGN_IDENTITY:-}"
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 mkdir -p "$CLANG_CACHE_DIR"
+mkdir -p "$APP_RESOURCES"
 export CLANG_MODULE_CACHE_PATH="$CLANG_CACHE_DIR"
 export XDG_CACHE_HOME="$CACHE_DIR/xdg"
 
@@ -27,8 +29,9 @@ swift build --disable-sandbox --package-path "$PACKAGE_DIR"
 BUILD_BINARY="$(swift build --disable-sandbox --package-path "$PACKAGE_DIR" --show-bin-path)/$APP_NAME"
 
 rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_MACOS"
+mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
+cp "$PACKAGE_DIR/Resources/AppIcon.icns" "$APP_RESOURCES/AppIcon.icns"
 chmod +x "$APP_BINARY"
 
 cat >"$INFO_PLIST" <<PLIST
@@ -44,6 +47,8 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$APP_NAME</string>
   <key>CFBundleDisplayName</key>
   <string>NeoRemote</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>CFBundleShortVersionString</key>
   <string>1.0</string>
   <key>CFBundleVersion</key>

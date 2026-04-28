@@ -26,6 +26,8 @@
 		A1B2C3D4E5F6000000000117 /* DeviceRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000018 /* DeviceRegistryTests.swift */; };
 		A1B2C3D4E5F6000000000118 /* TouchSurfaceInputAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000019 /* TouchSurfaceInputAdapterTests.swift */; };
 		A1B2C3D4E5F6000000000119 /* SessionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000020 /* SessionCoordinatorTests.swift */; };
+		A1B2C3D4E5F6000000000120 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000023 /* Assets.xcassets */; };
+		A1B2C3D4E5F6000000000121 /* NeoRemote.icon in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000024 /* NeoRemote.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,6 +63,8 @@
 		A1B2C3D4E5F6000000000020 /* SessionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCoordinatorTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000021 /* NeoRemote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NeoRemote.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3D4E5F6000000000022 /* NeoRemoteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NeoRemoteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B2C3D4E5F6000000000023 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000024 /* NeoRemote.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = NeoRemote.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -141,6 +145,8 @@
 			isa = PBXGroup;
 			children = (
 				A1B2C3D4E5F6000000000016 /* Info.plist */,
+				A1B2C3D4E5F6000000000023 /* Assets.xcassets */,
+				A1B2C3D4E5F6000000000024 /* NeoRemote.icon */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -278,6 +284,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D4E5F6000000000120 /* Assets.xcassets in Resources */,
+				A1B2C3D4E5F6000000000121 /* NeoRemote.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -367,6 +375,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NeoRemote/Resources/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = NeoRemote;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -393,6 +402,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NeoRemote/Resources/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = NeoRemote;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
