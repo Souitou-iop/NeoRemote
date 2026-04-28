@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
@@ -48,7 +48,7 @@ jobs:
           unzip -t artifacts/NeoRemote-unsigned.ipa
 
       - name: Upload unsigned IPA
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: NeoRemote-unsigned-ipa
           path: artifacts/NeoRemote-unsigned.ipa
@@ -61,7 +61,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -120,7 +120,7 @@ jobs:
           unzip -t artifacts/NeoRemote-android-release-signed.apk
 
       - name: Upload release-signed APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: NeoRemote-android-release-signed-apk
           path: artifacts/NeoRemote-android-release-signed.apk
@@ -133,7 +133,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Test macOS package
         run: swift test --package-path MacOS
@@ -189,7 +189,7 @@ jobs:
           unzip -t artifacts/NeoRemoteMac.zip
 
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: NeoRemoteMac
           path: artifacts/NeoRemoteMac.zip
@@ -202,7 +202,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Build Windows receiver
         shell: pwsh
@@ -220,7 +220,7 @@ jobs:
           Compress-Archive -Path $receiver -DestinationPath artifacts/NeoRemoteWindowsReceiver.zip -Force
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: NeoRemoteWindowsReceiver
           path: artifacts/NeoRemoteWindowsReceiver.zip
