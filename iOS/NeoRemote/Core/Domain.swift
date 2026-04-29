@@ -13,6 +13,7 @@ enum SessionStatus: String, Codable, CaseIterable {
 enum DesktopPlatform: String, Codable, CaseIterable, Identifiable {
     case macOS
     case windows
+    case android
 
     var id: String { rawValue }
 
@@ -22,6 +23,8 @@ enum DesktopPlatform: String, Codable, CaseIterable, Identifiable {
             return "macOS"
         case .windows:
             return "Windows"
+        case .android:
+            return "Android"
         }
     }
 }
@@ -83,6 +86,35 @@ enum DragState: String, Codable {
     case ended
 }
 
+enum VideoActionKind: String, Codable, CaseIterable {
+    case swipeUp
+    case swipeDown
+    case swipeLeft
+    case swipeRight
+    case doubleTapLike
+    case playPause
+    case back
+
+    var displayName: String {
+        switch self {
+        case .swipeUp:
+            return "下一条"
+        case .swipeDown:
+            return "上一条"
+        case .swipeLeft:
+            return "左滑"
+        case .swipeRight:
+            return "右滑"
+        case .doubleTapLike:
+            return "双击点赞"
+        case .playPause:
+            return "播放/暂停"
+        case .back:
+            return "返回"
+        }
+    }
+}
+
 struct ClientHelloPayload: Codable, Equatable {
     let clientId: String
     let displayName: String
@@ -95,6 +127,7 @@ enum RemoteCommand: Equatable {
     case tap(kind: MouseButtonKind)
     case scroll(deltaX: Double = 0, deltaY: Double = 0)
     case drag(state: DragState, button: MouseButtonKind, dx: Double, dy: Double)
+    case videoAction(VideoActionKind)
     case heartbeat
 }
 

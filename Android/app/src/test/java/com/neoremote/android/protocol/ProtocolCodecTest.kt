@@ -5,6 +5,8 @@ import com.neoremote.android.core.model.DragState
 import com.neoremote.android.core.model.MouseButtonKind
 import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
+import com.neoremote.android.core.model.SystemAction
+import com.neoremote.android.core.model.VideoActionKind
 import com.neoremote.android.core.protocol.ProtocolCodec
 import org.junit.Test
 
@@ -85,5 +87,32 @@ class ProtocolCodecTest {
 
         assertThat(encoded.decodeToString()).contains("\"type\":\"clientHello\"")
         assertThat(command).isEqualTo(RemoteCommand.ClientHello("android-1", "Pixel", "android"))
+    }
+
+    @Test
+    fun `encode and decode system action command`() {
+        val encoded = codec.encode(RemoteCommand.SystemActionCommand(SystemAction.BACK))
+        val command = codec.decodeCommand(encoded)
+
+        assertThat(encoded.decodeToString()).contains("\"type\":\"systemAction\"")
+        assertThat(encoded.decodeToString()).contains("\"action\":\"back\"")
+        assertThat(command).isEqualTo(RemoteCommand.SystemActionCommand(SystemAction.BACK))
+    }
+
+    @Test
+    fun `encode and decode video action command`() {
+        val encoded = codec.encode(RemoteCommand.VideoAction(VideoActionKind.SWIPE_UP))
+        val command = codec.decodeCommand(encoded)
+
+        assertThat(encoded.decodeToString()).contains("\"type\":\"videoAction\"")
+        assertThat(encoded.decodeToString()).contains("\"action\":\"swipeUp\"")
+        assertThat(command).isEqualTo(RemoteCommand.VideoAction(VideoActionKind.SWIPE_UP))
+    }
+
+    @Test
+    fun `decode unknown video action does not throw`() {
+        val command = codec.decodeCommand("""{"type":"videoAction","action":"mystery"}""".encodeToByteArray())
+
+        assertThat(command).isEqualTo(RemoteCommand.VideoAction(VideoActionKind.UNKNOWN))
     }
 }

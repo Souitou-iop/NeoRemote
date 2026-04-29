@@ -61,7 +61,15 @@ final class BonjourDiscoveryService: NSObject, DiscoveryServing {
             return nil
         }
 
-        let platform = service.name.lowercased().contains("win") ? DesktopPlatform.windows : DesktopPlatform.macOS
+        let lowercasedName = service.name.lowercased()
+        let platform: DesktopPlatform
+        if lowercasedName.contains("android") {
+            platform = .android
+        } else if lowercasedName.contains("win") {
+            platform = .windows
+        } else {
+            platform = .macOS
+        }
 
         return DesktopEndpoint(
             id: "\(service.name)-\(host)-\(port)",
@@ -213,6 +221,8 @@ private extension BonjourDiscoveryService {
 
         let platform: DesktopPlatform? = {
             switch fields["platform"]?.lowercased() {
+            case "android":
+                return .android
             case "windows":
                 return .windows
             case "macos":

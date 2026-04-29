@@ -297,12 +297,17 @@ class FakeDiscoveryService(
 }
 
 private fun String.inferPlatform(): DesktopPlatform =
-    if (contains("win", ignoreCase = true)) DesktopPlatform.WINDOWS else DesktopPlatform.MAC_OS
+    when {
+        contains("android", ignoreCase = true) -> DesktopPlatform.ANDROID
+        contains("win", ignoreCase = true) -> DesktopPlatform.WINDOWS
+        else -> DesktopPlatform.MAC_OS
+    }
 
 private fun String?.toDesktopPlatform(): DesktopPlatform? =
     when (this?.trim()?.lowercase()) {
         "macos", "mac", "darwin" -> DesktopPlatform.MAC_OS
         "windows", "win" -> DesktopPlatform.WINDOWS
+        "android", "mobile" -> DesktopPlatform.ANDROID
         else -> null
     }
 

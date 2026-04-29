@@ -19,12 +19,14 @@ enum class SessionRoute {
 enum class DesktopPlatform {
     MAC_OS,
     WINDOWS,
+    ANDROID,
     ;
 
     val displayName: String
         get() = when (this) {
             MAC_OS -> "macOS"
             WINDOWS -> "Windows"
+            ANDROID -> "Android"
         }
 }
 
@@ -59,6 +61,23 @@ enum class DragState {
     ENDED,
 }
 
+enum class SystemAction {
+    BACK,
+    HOME,
+    RECENTS,
+}
+
+enum class VideoActionKind {
+    SWIPE_UP,
+    SWIPE_DOWN,
+    SWIPE_LEFT,
+    SWIPE_RIGHT,
+    DOUBLE_TAP_LIKE,
+    PLAY_PAUSE,
+    BACK,
+    UNKNOWN,
+}
+
 sealed interface RemoteCommand {
     data class ClientHello(
         val clientId: String,
@@ -77,6 +96,8 @@ sealed interface RemoteCommand {
         val dy: Double,
         val button: MouseButtonKind = MouseButtonKind.PRIMARY,
     ) : RemoteCommand
+    data class SystemActionCommand(val action: SystemAction) : RemoteCommand
+    data class VideoAction(val action: VideoActionKind) : RemoteCommand
     data object Heartbeat : RemoteCommand
 }
 

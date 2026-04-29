@@ -14,7 +14,7 @@ struct DevicesView: View {
 
                 Section("最近连接") {
                     if coordinator.recentDevices.isEmpty {
-                        Text("还没有已保存的桌面端。")
+                        Text("还没有已保存的设备。")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(coordinator.recentDevices) { endpoint in
@@ -30,7 +30,7 @@ struct DevicesView: View {
 
                 Section("自动发现") {
                     if coordinator.discoveredDevices.isEmpty {
-                        Text("当前未发现新的桌面端。")
+                        Text("当前未发现新的设备。")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(coordinator.discoveredDevices) { endpoint in
@@ -62,7 +62,7 @@ private struct DeviceRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: endpoint.platform == .windows ? "desktopcomputer" : "laptopcomputer")
+            Image(systemName: endpoint.platform.deviceSymbolName)
                 .font(.title3)
                 .frame(width: 30)
                 .foregroundStyle(Color.accentColor)
@@ -79,5 +79,18 @@ private struct DeviceRow: View {
             }
         }
         .padding(.vertical, 6)
+    }
+}
+
+private extension Optional where Wrapped == DesktopPlatform {
+    var deviceSymbolName: String {
+        switch self {
+        case .some(.android):
+            return "iphone"
+        case .some(.windows):
+            return "desktopcomputer"
+        case .some(.macOS), .none:
+            return "laptopcomputer"
+        }
     }
 }

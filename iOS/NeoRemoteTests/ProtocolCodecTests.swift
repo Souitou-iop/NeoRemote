@@ -47,6 +47,16 @@ final class ProtocolCodecTests: XCTestCase {
         XCTAssertEqual(json["deltaY"] as? Double, -3)
     }
 
+    func testEncodeVideoActionUsesCamelCaseActionName() throws {
+        let codec = ProtocolCodec()
+
+        let data = try codec.encode(.videoAction(.swipeUp))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "videoAction")
+        XCTAssertEqual(json["action"] as? String, "swipeUp")
+    }
+
     func testEncodeClientHelloIncludesDeviceIdentity() throws {
         let codec = ProtocolCodec()
 

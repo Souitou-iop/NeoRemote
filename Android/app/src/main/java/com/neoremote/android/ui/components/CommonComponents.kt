@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.DesktopWindows
+import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -122,6 +123,8 @@ fun DeviceCard(
             Icon(
                 imageVector = if (endpoint.platform == DesktopPlatform.WINDOWS) {
                     Icons.Outlined.DesktopWindows
+                } else if (endpoint.platform == DesktopPlatform.ANDROID) {
+                    Icons.Outlined.PhoneAndroid
                 } else {
                     Icons.Outlined.Computer
                 },

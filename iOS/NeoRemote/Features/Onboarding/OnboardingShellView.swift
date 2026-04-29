@@ -15,8 +15,8 @@ struct OnboardingShellView: View {
 
                     if !coordinator.discoveredDevices.isEmpty {
                         deviceSection(
-                            title: "附近的 Desktop",
-                            subtitle: "自动发现到的局域网桌面端",
+                            title: "附近设备",
+                            subtitle: "自动发现到的桌面端或 Android 被控端",
                             devices: coordinator.discoveredDevices
                         )
                     }
@@ -24,7 +24,7 @@ struct OnboardingShellView: View {
                     if !coordinator.recentDevices.isEmpty {
                         deviceSection(
                             title: "最近连接",
-                            subtitle: "下次进入时会优先恢复这些桌面端",
+                            subtitle: "下次进入时会优先恢复这些设备",
                             devices: coordinator.recentDevices
                         )
                     }
@@ -298,7 +298,7 @@ private struct DeviceCard: View {
                 .fill(Color.blue.opacity(0.12))
                 .frame(width: 48, height: 48)
                 .overlay {
-                    Image(systemName: endpoint.platform == .windows ? "desktopcomputer.trianglebadge.exclamationmark" : "laptopcomputer")
+                    Image(systemName: endpoint.platform.deviceSymbolName)
                         .font(.headline)
                         .foregroundStyle(.blue)
                 }
@@ -323,5 +323,18 @@ private struct DeviceCard: View {
         .padding(16)
         .background(Color(uiColor: .secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+}
+
+private extension Optional where Wrapped == DesktopPlatform {
+    var deviceSymbolName: String {
+        switch self {
+        case .some(.android):
+            return "iphone"
+        case .some(.windows):
+            return "desktopcomputer.trianglebadge.exclamationmark"
+        case .some(.macOS), .none:
+            return "laptopcomputer"
+        }
     }
 }

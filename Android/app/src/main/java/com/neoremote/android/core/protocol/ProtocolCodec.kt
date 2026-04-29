@@ -4,6 +4,8 @@ import com.neoremote.android.core.model.DragState
 import com.neoremote.android.core.model.MouseButtonKind
 import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
+import com.neoremote.android.core.model.SystemAction
+import com.neoremote.android.core.model.VideoActionKind
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
@@ -45,6 +47,16 @@ class ProtocolCodec {
                     put("button", command.button.name.lowercase())
                     put("dx", command.dx)
                     put("dy", command.dy)
+            }
+
+            is RemoteCommand.SystemActionCommand -> {
+                    put("type", "systemAction")
+                    put("action", command.action.name.lowercase())
+            }
+
+            is RemoteCommand.VideoAction -> {
+                    put("type", "videoAction")
+                    put("action", command.action.protocolName)
             }
 
                 RemoteCommand.Heartbeat -> put("type", "heartbeat")
@@ -94,6 +106,14 @@ class ProtocolCodec {
                 button = payload.string("button").toMouseButtonKind() ?: MouseButtonKind.PRIMARY,
             )
 
+            "systemAction" -> RemoteCommand.SystemActionCommand(
+                action = payload.string("action").toSystemAction() ?: SystemAction.BACK,
+            )
+
+            "videoAction" -> RemoteCommand.VideoAction(
+                action = payload.string("action").toVideoActionKind(),
+            )
+
             "heartbeat" -> RemoteCommand.Heartbeat
             else -> throw IllegalArgumentException("未识别的命令类型：${payload.string("type")}")
         }
@@ -112,6 +132,36 @@ private fun String.toDragState(): DragState? = when (lowercase()) {
     "changed" -> DragState.CHANGED
     "ended" -> DragState.ENDED
     else -> null
+}
+
+private fun String.toSystemAction(): SystemAction? = when (lowercase()) {
+    "back" -> SystemAction.BACK
+    "home" -> SystemAction.HOME
+    "recents" -> SystemAction.RECENTS
+    else -> null
+}
+
+private val VideoActionKind.protocolName: String
+    get() = when (this) {
+        VideoActionKind.SWIPE_UP -> "swipeUp"
+        VideoActionKind.SWIPE_DOWN -> "swipeDown"
+        VideoActionKind.SWIPE_LEFT -> "swipeLeft"
+        VideoActionKind.SWIPE_RIGHT -> "swipeRight"
+        VideoActionKind.DOUBLE_TAP_LIKE -> "doubleTapLike"
+        VideoActionKind.PLAY_PAUSE -> "playPause"
+        VideoActionKind.BACK -> "back"
+        VideoActionKind.UNKNOWN -> "unknown"
+    }
+
+private fun String.toVideoActionKind(): VideoActionKind = when (this) {
+    "swipeUp" -> VideoActionKind.SWIPE_UP
+    "swipeDown" -> VideoActionKind.SWIPE_DOWN
+    "swipeLeft" -> VideoActionKind.SWIPE_LEFT
+    "swipeRight" -> VideoActionKind.SWIPE_RIGHT
+    "doubleTapLike" -> VideoActionKind.DOUBLE_TAP_LIKE
+    "playPause" -> VideoActionKind.PLAY_PAUSE
+    "back" -> VideoActionKind.BACK
+    else -> VideoActionKind.UNKNOWN
 }
 
 private fun kotlinx.serialization.json.JsonObject.string(key: String): String =

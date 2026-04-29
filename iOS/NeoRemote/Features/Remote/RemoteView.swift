@@ -2,8 +2,16 @@ import SwiftUI
 import UIKit
 
 struct RemoteView: View {
+    private enum Mode: String, CaseIterable, Identifiable {
+        case touchpad = "触控板"
+        case douyin = "抖音"
+
+        var id: String { rawValue }
+    }
+
     @ObservedObject var coordinator: SessionCoordinator
     @Environment(\.colorScheme) private var colorScheme
+    @State private var mode: Mode = .touchpad
 
     var body: some View {
         NavigationStack {
@@ -18,17 +26,32 @@ struct RemoteView: View {
                 VStack(spacing: 18) {
                     statusHeader
 
-                    TouchSurfaceRepresentable(settings: coordinator.touchSensitivitySettings) { output in
-                        coordinator.handleTouchOutput(output)
+                    Picker("Remote mode", selection: $mode) {
+                        ForEach(Mode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(theme.surfaceBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .pickerStyle(.segmented)
 
-                    Text("单指移动/点击 · 双击拖拽 · 双指右键/滚动 · 三指中键")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(theme.secondaryForeground)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    switch mode {
+                    case .touchpad:
+                        TouchSurfaceRepresentable(settings: coordinator.touchSensitivitySettings) { output in
+                            coordinator.handleTouchOutput(output)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(theme.surfaceBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+
+                        Text("单指移动/点击 · 双击拖拽 · 双指右键/滚动 · 三指中键")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(theme.secondaryForeground)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    case .douyin:
+                        DouyinControlPanel(
+                            theme: theme,
+                            onAction: coordinator.sendVideoAction
+                        )
+                    }
                 }
                 .padding(20)
 
@@ -68,6 +91,44 @@ struct RemoteView: View {
 
     private var theme: RemoteTheme {
         colorScheme == .dark ? .dark : .light
+    }
+}
+
+private struct DouyinControlPanel: View {
+    let theme: RemoteTheme
+    let onAction: (VideoActionKind) -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Spacer(minLength: 12)
+            HStack(spacing: 12) {
+                actionButton("上一条", .swipeDown)
+                actionButton("下一条", .swipeUp)
+            }
+            HStack(spacing: 12) {
+                actionButton("左滑", .swipeLeft)
+                actionButton("右滑", .swipeRight)
+            }
+            actionButton("双击点赞", .doubleTapLike)
+            HStack(spacing: 12) {
+                actionButton("播放/暂停", .playPause)
+                actionButton("返回", .back)
+            }
+            Spacer(minLength: 12)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func actionButton(_ title: String, _ action: VideoActionKind) -> some View {
+        Button {
+            onAction(action)
+        } label: {
+            Text(title)
+                .font(.headline.weight(.bold))
+                .frame(maxWidth: .infinity)
+                .frame(height: 72)
+        }
+        .buttonStyle(.borderedProminent)
     }
 }
 

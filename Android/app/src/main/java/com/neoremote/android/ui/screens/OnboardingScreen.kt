@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.NetworkWifi
+import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -48,6 +49,8 @@ fun OnboardingScreen(
     state: SessionUiState,
     onRefreshDiscovery: () -> Unit,
     onEnterDemoMode: () -> Unit,
+    isAndroidReceiverEnabled: Boolean,
+    onOpenAndroidReceiverSettings: () -> Unit,
     onConnect: (DesktopEndpoint) -> Unit,
     onManualDraftChange: (String, String) -> Unit,
     onManualConnect: () -> Unit,
@@ -89,12 +92,12 @@ fun OnboardingScreen(
             item {
                 SectionCard(
                     title = "把 Android 变成你的鼠标/触控板",
-                    subtitle = "自动发现、手动兜底、纯原生 Compose + MotionEvent 混合实现",
+                    subtitle = "控制桌面端，也可以让这台 Android 作为被控端。",
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("自动发现")
                         Text("手动连接")
-                        Text("状态回包")
+                        Text("Android 被控")
                     }
                 }
             }
@@ -127,7 +130,7 @@ fun OnboardingScreen(
 
             if (state.discoveredDevices.isNotEmpty()) {
                 item {
-                    Text("附近的 Desktop", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("附近设备", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
                 itemsIndexed(
                     state.discoveredDevices,
@@ -150,8 +153,26 @@ fun OnboardingScreen(
             }
 
             item {
+                val receiverStatus = if (isAndroidReceiverEnabled) {
+                    "已授权：这台 Android 会发布为 NeoRemote 被控端。"
+                } else {
+                    "未授权：打开辅助功能后，其他移动端才能控制这台 Android。"
+                }
                 SectionCard(
-                    title = "手动连接",
+                    title = "本机作为 Android 被控端",
+                    subtitle = receiverStatus,
+                ) {
+                    FilledTonalButton(onClick = onOpenAndroidReceiverSettings) {
+                        Icon(Icons.Outlined.PhoneAndroid, contentDescription = null)
+                        Spacer(modifier = Modifier.padding(horizontal = 6.dp))
+                        Text(if (isAndroidReceiverEnabled) "查看辅助功能授权" else "前往授权")
+                    }
+                }
+            }
+
+            item {
+                SectionCard(
+                    title = "手动连接 Desktop",
                     subtitle = "如果当前网络无法自动发现 Desktop，可直接输入地址和端口。",
                 ) {
                     FilledTonalButton(onClick = { showingManualDialog = true }) {
@@ -164,7 +185,7 @@ fun OnboardingScreen(
 
             item {
                 SectionCard(
-                    title = "ADB 有线调试",
+                    title = "ADB 有线调试 Desktop",
                     subtitle = "USB 调试连接后，通过 adb reverse 把电脑端口映射到手机本机。",
                 ) {
                     FilledTonalButton(onClick = { showingAdbWiredDialog = true }) {

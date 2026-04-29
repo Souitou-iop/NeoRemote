@@ -245,6 +245,12 @@ final class SessionCoordinator: ObservableObject {
         }
     }
 
+    func sendVideoAction(_ action: VideoActionKind) {
+        send(.videoAction(action))
+        haptics.playTap()
+        showHUD(action.displayName)
+    }
+
     private func bindDiscovery() {
         discoveryService.onUpdate = { [weak self] devices in
             guard let self else { return }
@@ -351,6 +357,8 @@ final class SessionCoordinator: ObservableObject {
             case .ended:
                 statusMessage = "\(button.displayName)拖拽已结束"
             }
+        case let .videoAction(action):
+            statusMessage = action.displayName
         case .heartbeat:
             break
         }

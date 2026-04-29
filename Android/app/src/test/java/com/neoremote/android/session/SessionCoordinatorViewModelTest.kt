@@ -81,6 +81,33 @@ class SessionCoordinatorViewModelTest {
     }
 
     @Test
+    fun `start keeps recent device available without auto connecting stale endpoint`() = runTest(dispatcher) {
+        val staleEndpoint = DesktopEndpoint(
+            displayName = "Old Android Tablet",
+            host = "10.46.147.91",
+            port = 51101,
+            source = EndpointSource.MANUAL,
+        )
+        registry.upsertRecent(staleEndpoint)
+        registry.saveLastConnected(staleEndpoint)
+        viewModel = SessionCoordinatorViewModel(
+            registry = registry,
+            discoveryService = discoveryService,
+            transportFactory = { transport },
+            codec = ProtocolCodec(),
+            mainDispatcher = dispatcher,
+        )
+
+        viewModel.start()
+        runCurrent()
+
+        assertThat(viewModel.uiState.value.activeEndpoint).isNull()
+        assertThat(viewModel.uiState.value.status).isEqualTo(SessionStatus.DISCOVERING)
+        assertThat(viewModel.uiState.value.recentDevices).isNotEmpty()
+        assertThat(transport.sentPayloads).isEmpty()
+    }
+
+    @Test
     fun `successful connect switches route to connected and persists recent device`() = runTest(dispatcher) {
         val endpoint = DesktopEndpoint(
             displayName = "Office Desktop",

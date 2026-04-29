@@ -1,0 +1,30 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Remote Control Signal Icon</title>
+  <desc>Minimal blue remote control icon with wireless signal waves on transparent background.</desc>
+
+  <defs>
+    <filter id="softShadow" x="160" y="170" width="704" height="704" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#1478F2" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#softShadow)" fill="#1478F2">
+    <!-- Left signal waves -->
+    <path d="M277.6 674.9C219.7 583.2 219.7 440.8 277.6 349.1"
+          stroke="#1478F2" stroke-width="56" stroke-linecap="round"/>
+    <path d="M350.6 614.4C323.1 555.2 323.1 468.8 350.6 409.6"
+          stroke="#1478F2" stroke-width="56" stroke-linecap="round"/>
+
+    <!-- Right signal waves -->
+    <path d="M746.4 349.1C804.3 440.8 804.3 583.2 746.4 674.9"
+          stroke="#1478F2" stroke-width="56" stroke-linecap="round"/>
+    <path d="M673.4 409.6C700.9 468.8 700.9 555.2 673.4 614.4"
+          stroke="#1478F2" stroke-width="56" stroke-linecap="round"/>
+
+    <!-- Remote body -->
+    <rect x="397" y="295" width="230" height="434" rx="66" fill="#1478F2"/>
+
+    <!-- Bottom button cutout -->
+    <circle cx="512" cy="620" r="47" fill="white"/>
+  </g>
+</svg>

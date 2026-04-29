@@ -51,6 +51,7 @@ import com.neoremote.android.core.model.DesktopEndpoint
 import com.neoremote.android.core.model.SessionUiState
 import com.neoremote.android.core.model.TouchSensitivitySettings
 import com.neoremote.android.core.model.TouchSurfaceOutput
+import com.neoremote.android.core.model.VideoActionKind
 import com.neoremote.android.core.model.displayText
 import com.neoremote.android.ui.components.DeviceCard
 import com.neoremote.android.ui.components.LiquidGlassBottomBar
@@ -67,6 +68,11 @@ private enum class ConnectedTab(
     SETTINGS("Settings"),
 }
 
+private enum class RemoteMode {
+    TOUCHPAD,
+    DOUYIN,
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectedShell(
@@ -79,6 +85,7 @@ fun ConnectedShell(
     onCursorSensitivityChange: (Double) -> Unit,
     onSwipeSensitivityChange: (Double) -> Unit,
     onTouchOutput: (TouchSurfaceOutput) -> Unit,
+    onVideoAction: (VideoActionKind) -> Unit,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(ConnectedTab.REMOTE) }
     val contentBackdrop = rememberLayerBackdrop()
@@ -119,6 +126,7 @@ fun ConnectedShell(
                         state = state,
                         onDisconnect = onDisconnect,
                         onTouchOutput = onTouchOutput,
+                        onVideoAction = onVideoAction,
                         bottomPadding = bottomInsetPadding,
                     )
 
@@ -177,8 +185,10 @@ private fun RemoteScreen(
     state: SessionUiState,
     onDisconnect: () -> Unit,
     onTouchOutput: (TouchSurfaceOutput) -> Unit,
+    onVideoAction: (VideoActionKind) -> Unit,
     bottomPadding: PaddingValues,
 ) {
+    var mode by rememberSaveable { mutableStateOf(RemoteMode.TOUCHPAD) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -209,19 +219,161 @@ private fun RemoteScreen(
             }
         }
 
-        TouchSurfaceHost(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            settings = state.touchSensitivitySettings,
-            onOutput = onTouchOutput,
-        )
+        RemoteModeSwitch(mode = mode, onModeChange = { mode = it })
 
-        Text(
-            text = "单指移动/点击 · 双击拖拽 · 双指右键/滚动 · 三指中键",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        when (mode) {
+            RemoteMode.TOUCHPAD -> {
+                TouchSurfaceHost(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    settings = state.touchSensitivitySettings,
+                    onOutput = onTouchOutput,
+                )
+
+                Text(
+                    text = "单指移动/点击 · 双击拖拽 · 双指右键/滚动 · 三指中键",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            RemoteMode.DOUYIN -> DouyinControlPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                onVideoAction = onVideoAction,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RemoteModeSwitch(
+    mode: RemoteMode,
+    onModeChange: (RemoteMode) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        RemoteModeButton(
+            label = "触控板",
+            selected = mode == RemoteMode.TOUCHPAD,
+            onClick = { onModeChange(RemoteMode.TOUCHPAD) },
+            modifier = Modifier.weight(1f),
         )
+        RemoteModeButton(
+            label = "抖音",
+            selected = mode == RemoteMode.DOUYIN,
+            onClick = { onModeChange(RemoteMode.DOUYIN) },
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun RemoteModeButton(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier.background(
+            color = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f)
+            },
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+        ),
+    ) {
+        Text(
+            text = label,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}
+
+@Composable
+private fun DouyinControlPanel(
+    modifier: Modifier = Modifier,
+    onVideoAction: (VideoActionKind) -> Unit,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            DouyinActionButton(
+                label = "上一条",
+                action = VideoActionKind.SWIPE_DOWN,
+                onVideoAction = onVideoAction,
+                modifier = Modifier.weight(1f),
+            )
+            DouyinActionButton(
+                label = "下一条",
+                action = VideoActionKind.SWIPE_UP,
+                onVideoAction = onVideoAction,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            DouyinActionButton(
+                label = "左滑",
+                action = VideoActionKind.SWIPE_LEFT,
+                onVideoAction = onVideoAction,
+                modifier = Modifier.weight(1f),
+            )
+            DouyinActionButton(
+                label = "右滑",
+                action = VideoActionKind.SWIPE_RIGHT,
+                onVideoAction = onVideoAction,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        DouyinActionButton(
+            label = "双击点赞",
+            action = VideoActionKind.DOUBLE_TAP_LIKE,
+            onVideoAction = onVideoAction,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            DouyinActionButton(
+                label = "播放/暂停",
+                action = VideoActionKind.PLAY_PAUSE,
+                onVideoAction = onVideoAction,
+                modifier = Modifier.weight(1f),
+            )
+            DouyinActionButton(
+                label = "返回",
+                action = VideoActionKind.BACK,
+                onVideoAction = onVideoAction,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DouyinActionButton(
+    label: String,
+    action: VideoActionKind,
+    onVideoAction: (VideoActionKind) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = { onVideoAction(action) },
+        modifier = modifier.height(74.dp),
+    ) {
+        Text(label, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -243,7 +395,7 @@ private fun DevicesScreen(
     ) {
         if (state.discoveredDevices.isNotEmpty()) {
             item {
-                Text("附近的 Desktop", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("附近设备", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             itemsIndexed(
                 state.discoveredDevices,
@@ -301,7 +453,7 @@ private fun SettingsScreen(
             SectionCard(title = "连接策略") {
                 SettingRow(label = "自动发现", value = "Bonjour / LAN")
                 SettingRow(label = "协议编码", value = "JSON v1")
-                SettingRow(label = "恢复策略", value = "启动自动恢复最近桌面端")
+                SettingRow(label = "恢复策略", value = "最近设备手动恢复")
             }
         }
         item {

@@ -16,6 +16,7 @@ import com.neoremote.android.core.model.SessionUiState
 import com.neoremote.android.core.model.TouchSurfaceOutput
 import com.neoremote.android.core.model.TouchSurfaceSemanticEvent
 import com.neoremote.android.core.model.TransportConnectionState
+import com.neoremote.android.core.model.VideoActionKind
 import com.neoremote.android.core.persistence.DeviceRegistry
 import com.neoremote.android.core.persistence.SharedPreferencesStore
 import com.neoremote.android.core.protocol.ProtocolCodec
@@ -69,17 +70,13 @@ class SessionCoordinatorViewModel(
         hasStarted = true
         discoveryService.start()
 
-        val lastConnected = uiState.value.lastConnectedEndpoint
-        if (lastConnected != null) {
-            connect(lastConnected, isRecovery = true)
-        } else {
-            _uiState.update {
-                it.copy(
-                    status = SessionStatus.DISCOVERING,
-                    route = SessionRoute.ONBOARDING,
-                    statusMessage = "正在扫描局域网桌面端",
-                )
-            }
+        _uiState.update {
+            it.copy(
+                status = SessionStatus.DISCOVERING,
+                route = SessionRoute.ONBOARDING,
+                activeEndpoint = null,
+                statusMessage = "正在扫描局域网设备",
+            )
         }
     }
 
@@ -267,6 +264,11 @@ class SessionCoordinatorViewModel(
         }
     }
 
+    fun sendVideoAction(action: VideoActionKind) {
+        send(RemoteCommand.VideoAction(action))
+        showHud(action.hudText)
+    }
+
     private fun bindDiscovery() {
         discoveryService.onUpdate = { devices ->
             scope.launch {
@@ -396,6 +398,8 @@ class SessionCoordinatorViewModel(
                         com.neoremote.android.core.model.DragState.ENDED -> "${command.button.displayText}拖拽已结束"
                     }
 
+                    is RemoteCommand.SystemActionCommand -> it.statusMessage
+                    is RemoteCommand.VideoAction -> command.action.hudText
                     is RemoteCommand.Tap -> it.statusMessage
                     RemoteCommand.Heartbeat -> it.statusMessage
                 },
@@ -486,5 +490,17 @@ class SessionCoordinatorViewModel(
             com.neoremote.android.core.model.MouseButtonKind.PRIMARY -> "左键"
             com.neoremote.android.core.model.MouseButtonKind.SECONDARY -> "右键"
             com.neoremote.android.core.model.MouseButtonKind.MIDDLE -> "中键"
+        }
+
+    private val VideoActionKind.hudText: String
+        get() = when (this) {
+            VideoActionKind.SWIPE_UP -> "下一条"
+            VideoActionKind.SWIPE_DOWN -> "上一条"
+            VideoActionKind.SWIPE_LEFT -> "左滑"
+            VideoActionKind.SWIPE_RIGHT -> "右滑"
+            VideoActionKind.DOUBLE_TAP_LIKE -> "双击点赞"
+            VideoActionKind.PLAY_PAUSE -> "播放/暂停"
+            VideoActionKind.BACK -> "返回"
+            VideoActionKind.UNKNOWN -> "未知视频动作"
         }
 }

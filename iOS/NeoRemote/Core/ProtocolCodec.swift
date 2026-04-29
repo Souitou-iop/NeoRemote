@@ -31,6 +31,7 @@ private struct CommandEnvelope: Codable {
     let deltaY: Double?
     let button: MouseButtonKind?
     let state: DragState?
+    let action: VideoActionKind?
     let clientId: String?
     let displayName: String?
     let platform: String?
@@ -45,6 +46,7 @@ private struct CommandEnvelope: Codable {
             deltaY = nil
             button = nil
             state = nil
+            action = nil
             clientId = payload.clientId
             displayName = payload.displayName
             platform = payload.platform
@@ -56,6 +58,7 @@ private struct CommandEnvelope: Codable {
             deltaY = nil
             button = nil
             state = nil
+            action = nil
             clientId = nil
             displayName = nil
             platform = nil
@@ -67,6 +70,7 @@ private struct CommandEnvelope: Codable {
             deltaY = nil
             button = kind
             state = nil
+            action = nil
             clientId = nil
             displayName = nil
             platform = nil
@@ -78,6 +82,7 @@ private struct CommandEnvelope: Codable {
             self.deltaY = deltaY
             button = nil
             state = nil
+            action = nil
             clientId = nil
             displayName = nil
             platform = nil
@@ -89,6 +94,19 @@ private struct CommandEnvelope: Codable {
             deltaY = nil
             self.button = button
             self.state = state
+            action = nil
+            clientId = nil
+            displayName = nil
+            platform = nil
+        case let .videoAction(action):
+            type = "videoAction"
+            dx = nil
+            dy = nil
+            deltaX = nil
+            deltaY = nil
+            button = nil
+            state = nil
+            self.action = action
             clientId = nil
             displayName = nil
             platform = nil
@@ -100,6 +118,7 @@ private struct CommandEnvelope: Codable {
             deltaY = nil
             button = nil
             state = nil
+            action = nil
             clientId = nil
             displayName = nil
             platform = nil
