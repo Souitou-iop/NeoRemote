@@ -3,7 +3,7 @@
 Windows receiver implementation for NeoRemote.
 
 The first milestone is a tray-first Windows desktop receiver that publishes
-`_neoremote._tcp.`, listens on TCP port `50505`, accepts one mobile controller,
+`_neoremote._tcp.`, listens on TCP port `51101`, accepts one mobile controller,
 and maps `move`, `tap`, `scroll`, and `drag` commands to Windows mouse input.
 
 ## Projects

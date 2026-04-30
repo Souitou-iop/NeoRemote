@@ -150,8 +150,8 @@ Release 页面：https://github.com/Souitou-iop/NeoRemote/releases/tag/v0.1.0-be
 
 | 平台 | 要求 |
 | --- | --- |
-| iOS | macOS、Xcode |
-| Android | JDK 21、Android SDK |
+| iOS | macOS、Xcode、iOS 17.0+ 部署目标 |
+| Android | JDK 21、Android SDK（compileSdk 36、minSdk 26 / Android 8.0+） |
 | macOS | macOS 15+、Swift 6 toolchain / Xcode、辅助功能权限 |
 | Windows | Windows 10/11、Visual Studio 2022、Desktop development with C++、Windows 10/11 SDK |
 
@@ -220,7 +220,7 @@ swift build -c release --package-path MacOS        # Release 构建
 
 1. **自动发现**：控制端与桌面端/Android 被控端在同一局域网，自动扫描发现。
 2. **手动连接**：在控制端输入桌面端 IP 和端口。
-3. **ADB 有线调试**（Android）：`adb forward tcp:51101 tcp:51101`
+3. **ADB 有线调试**（Android）：`adb reverse tcp:51101 tcp:51101`
 
 ## 协议与连接
 
@@ -416,7 +416,7 @@ NeoRemote 是局域网输入控制工具，当前的安全边界如下：
 <summary><strong>ADB 有线调试连接</strong></summary>
 
 ```bash
-adb forward tcp:51101 tcp:51101
+adb reverse tcp:51101 tcp:51101
 ```
 
 然后在控制端手动连接 `127.0.0.1:51101`。
