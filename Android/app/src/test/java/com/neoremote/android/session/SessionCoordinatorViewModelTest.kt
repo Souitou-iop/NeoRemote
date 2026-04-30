@@ -4,11 +4,13 @@ import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.google.common.truth.Truth.assertThat
 import com.neoremote.android.core.discovery.FakeDiscoveryService
 import com.neoremote.android.core.model.DesktopEndpoint
+import com.neoremote.android.core.model.DesktopPlatform
 import com.neoremote.android.core.model.EndpointSource
 import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.model.SessionRoute
 import com.neoremote.android.core.model.SessionStatus
+import com.neoremote.android.core.model.SystemAction
 import com.neoremote.android.core.model.TouchSensitivitySettings
 import com.neoremote.android.core.model.TransportConnectionState
 import com.neoremote.android.core.persistence.DeviceRegistry
@@ -81,6 +83,66 @@ class SessionCoordinatorViewModelTest {
     }
 
     @Test
+    fun `start hides endpoint that matches local Android receiver`() = runTest(dispatcher) {
+        val selfEndpoint = DesktopEndpoint(
+            displayName = "NeoRemote Android This Device",
+            host = "192.168.31.20",
+            port = 51101,
+            platform = DesktopPlatform.ANDROID,
+            source = EndpointSource.DISCOVERED,
+        )
+        val otherEndpoint = DesktopEndpoint(
+            displayName = "NeoRemote Android Tablet",
+            host = "192.168.31.21",
+            port = 51101,
+            platform = DesktopPlatform.ANDROID,
+            source = EndpointSource.DISCOVERED,
+        )
+        discoveryService.cannedResults = listOf(selfEndpoint, otherEndpoint)
+        viewModel = SessionCoordinatorViewModel(
+            registry = registry,
+            discoveryService = discoveryService,
+            transportFactory = { transport },
+            codec = ProtocolCodec(),
+            mainDispatcher = dispatcher,
+            isSelfEndpoint = { it == selfEndpoint },
+        )
+
+        viewModel.start()
+        runCurrent()
+
+        assertThat(viewModel.uiState.value.discoveredDevices).containsExactly(otherEndpoint)
+        assertThat(viewModel.uiState.value.statusMessage).isEqualTo("发现 1 台桌面端")
+    }
+
+    @Test
+    fun `connect rejects local Android receiver endpoint`() = runTest(dispatcher) {
+        val selfEndpoint = DesktopEndpoint(
+            displayName = "NeoRemote Android This Device",
+            host = "192.168.31.20",
+            port = 51101,
+            platform = DesktopPlatform.ANDROID,
+            source = EndpointSource.DISCOVERED,
+        )
+        viewModel = SessionCoordinatorViewModel(
+            registry = registry,
+            discoveryService = discoveryService,
+            transportFactory = { transport },
+            codec = ProtocolCodec(),
+            mainDispatcher = dispatcher,
+            isSelfEndpoint = { it == selfEndpoint },
+        )
+
+        viewModel.connect(selfEndpoint)
+        runCurrent()
+
+        assertThat(viewModel.uiState.value.activeEndpoint).isNull()
+        assertThat(viewModel.uiState.value.status).isEqualTo(SessionStatus.DISCONNECTED)
+        assertThat(viewModel.uiState.value.errorMessage).isEqualTo("不能连接本机 Android 被控端")
+        assertThat(transport.sentPayloads).isEmpty()
+    }
+
+    @Test
     fun `start keeps recent device available without auto connecting stale endpoint`() = runTest(dispatcher) {
         val staleEndpoint = DesktopEndpoint(
             displayName = "Old Android Tablet",
@@ -141,6 +203,26 @@ class SessionCoordinatorViewModelTest {
 
         val payloads = transport.sentPayloads.map { ProtocolCodec().decodeCommand(it) }
         assertThat(payloads).contains(RemoteCommand.Heartbeat)
+        viewModel.disconnect()
+    }
+
+    @Test
+    fun `system action sends command while connected`() = runTest(dispatcher) {
+        val endpoint = DesktopEndpoint(
+            displayName = "Android Tablet",
+            host = "10.0.0.20",
+            port = 51101,
+            source = EndpointSource.MANUAL,
+        )
+
+        viewModel.connect(endpoint)
+        runCurrent()
+        viewModel.sendSystemAction(SystemAction.HOME)
+        runCurrent()
+
+        val payloads = transport.sentPayloads.map { ProtocolCodec().decodeCommand(it) }
+        assertThat(payloads).contains(RemoteCommand.SystemActionCommand(SystemAction.HOME))
+        assertThat(viewModel.uiState.value.lastHudMessage).isEqualTo("桌面")
         viewModel.disconnect()
     }
 

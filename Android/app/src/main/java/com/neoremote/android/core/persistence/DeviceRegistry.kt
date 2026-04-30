@@ -3,6 +3,7 @@ package com.neoremote.android.core.persistence
 import android.content.Context
 import android.content.SharedPreferences
 import com.neoremote.android.core.model.ConnectionFailure
+import com.neoremote.android.core.model.ControlMode
 import com.neoremote.android.core.model.DesktopEndpoint
 import com.neoremote.android.core.model.DesktopPlatform
 import com.neoremote.android.core.model.EndpointSource
@@ -69,6 +70,7 @@ class DeviceRegistry(
         const val KEY_MANUAL_CONNECT_DRAFT = "manual_connect_draft"
         const val KEY_HAPTICS_ENABLED = "haptics_enabled"
         const val KEY_CLIENT_ID = "client_id"
+        const val KEY_CONTROL_MODE = "control_mode"
         const val KEY_CURSOR_SENSITIVITY = "cursor_sensitivity"
         const val KEY_SWIPE_SENSITIVITY = "swipe_sensitivity"
         const val MAX_RECENT_COUNT = 3
@@ -117,6 +119,15 @@ class DeviceRegistry(
 
     fun saveHapticsEnabled(isEnabled: Boolean) {
         store.putString(KEY_HAPTICS_ENABLED, isEnabled.toString())
+    }
+
+    fun loadControlMode(): ControlMode =
+        store.getString(KEY_CONTROL_MODE)
+            ?.let { raw -> runCatching { ControlMode.valueOf(raw) }.getOrNull() }
+            ?: ControlMode.SCREEN_CONTROL
+
+    fun saveControlMode(mode: ControlMode) {
+        store.putString(KEY_CONTROL_MODE, mode.name)
     }
 
     fun loadTouchSensitivitySettings(): TouchSensitivitySettings =

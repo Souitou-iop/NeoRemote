@@ -50,7 +50,10 @@ class MainActivity : ComponentActivity() {
                     onHapticsEnabledChange = viewModel::setHapticsEnabled,
                     onCursorSensitivityChange = viewModel::setCursorSensitivity,
                     onSwipeSensitivityChange = viewModel::setSwipeSensitivity,
+                    onControlModeChange = viewModel::setControlMode,
                     onTouchOutput = viewModel::handleTouchOutput,
+                    onScreenGesture = viewModel::sendScreenGesture,
+                    onSystemAction = viewModel::sendSystemAction,
                     onVideoAction = viewModel::sendVideoAction,
                 )
             }

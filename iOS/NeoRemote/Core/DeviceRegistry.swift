@@ -6,6 +6,7 @@ final class DeviceRegistry {
         static let lastConnected = "last_connected"
         static let hapticsEnabled = "haptics_enabled"
         static let clientID = "client_id"
+        static let controlMode = "control_mode"
         static let cursorSensitivity = "cursor_sensitivity"
         static let swipeSensitivity = "swipe_sensitivity"
     }
@@ -41,6 +42,19 @@ final class DeviceRegistry {
 
     func saveHapticsEnabled(_ isEnabled: Bool) {
         defaults.set(isEnabled, forKey: Keys.hapticsEnabled)
+    }
+
+    func loadControlMode() -> ControlMode {
+        guard let rawValue = defaults.string(forKey: Keys.controlMode),
+              let mode = ControlMode(rawValue: rawValue)
+        else {
+            return .screenControl
+        }
+        return mode
+    }
+
+    func saveControlMode(_ mode: ControlMode) {
+        defaults.set(mode.rawValue, forKey: Keys.controlMode)
     }
 
     func loadTouchSensitivitySettings() -> TouchSensitivitySettings {

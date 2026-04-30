@@ -57,6 +57,50 @@ final class ProtocolCodecTests: XCTestCase {
         XCTAssertEqual(json["action"] as? String, "swipeUp")
     }
 
+    func testEncodeFavoriteVideoAction() throws {
+        let codec = ProtocolCodec()
+
+        let data = try codec.encode(.videoAction(.favorite))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "videoAction")
+        XCTAssertEqual(json["action"] as? String, "favorite")
+    }
+
+    func testEncodeSystemActionUsesCamelCaseEnvelope() throws {
+        let codec = ProtocolCodec()
+
+        let data = try codec.encode(.systemAction(.recents))
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "systemAction")
+        XCTAssertEqual(json["action"] as? String, "recents")
+    }
+
+    func testEncodeScreenGestureIncludesNormalizedCoordinates() throws {
+        let codec = ProtocolCodec()
+
+        let data = try codec.encode(
+            .screenGesture(
+                kind: .swipe,
+                startX: 0.25,
+                startY: 0.75,
+                endX: 0.25,
+                endY: 0.2,
+                durationMs: 240
+            )
+        )
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "screenGesture")
+        XCTAssertEqual(json["kind"] as? String, "swipe")
+        XCTAssertEqual(json["startX"] as? Double, 0.25)
+        XCTAssertEqual(json["startY"] as? Double, 0.75)
+        XCTAssertEqual(json["endX"] as? Double, 0.25)
+        XCTAssertEqual(json["endY"] as? Double, 0.2)
+        XCTAssertEqual(json["durationMs"] as? Int, 240)
+    }
+
     func testEncodeClientHelloIncludesDeviceIdentity() throws {
         let codec = ProtocolCodec()
 

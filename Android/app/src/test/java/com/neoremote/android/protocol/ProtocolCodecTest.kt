@@ -5,6 +5,7 @@ import com.neoremote.android.core.model.DragState
 import com.neoremote.android.core.model.MouseButtonKind
 import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
+import com.neoremote.android.core.model.ScreenGestureKind
 import com.neoremote.android.core.model.SystemAction
 import com.neoremote.android.core.model.VideoActionKind
 import com.neoremote.android.core.protocol.ProtocolCodec
@@ -110,9 +111,47 @@ class ProtocolCodecTest {
     }
 
     @Test
+    fun `encode and decode favorite video action command`() {
+        val encoded = codec.encode(RemoteCommand.VideoAction(VideoActionKind.FAVORITE))
+        val command = codec.decodeCommand(encoded)
+
+        assertThat(encoded.decodeToString()).contains("\"type\":\"videoAction\"")
+        assertThat(encoded.decodeToString()).contains("\"action\":\"favorite\"")
+        assertThat(command).isEqualTo(RemoteCommand.VideoAction(VideoActionKind.FAVORITE))
+    }
+
+    @Test
     fun `decode unknown video action does not throw`() {
         val command = codec.decodeCommand("""{"type":"videoAction","action":"mystery"}""".encodeToByteArray())
 
         assertThat(command).isEqualTo(RemoteCommand.VideoAction(VideoActionKind.UNKNOWN))
+    }
+
+    @Test
+    fun `encode and decode screen gesture command`() {
+        val encoded = codec.encode(
+            RemoteCommand.ScreenGesture(
+                kind = ScreenGestureKind.SWIPE,
+                startX = 0.25,
+                startY = 0.75,
+                endX = 0.25,
+                endY = 0.20,
+                durationMs = 240L,
+            ),
+        )
+        val command = codec.decodeCommand(encoded)
+
+        assertThat(encoded.decodeToString()).contains("\"type\":\"screenGesture\"")
+        assertThat(encoded.decodeToString()).contains("\"kind\":\"swipe\"")
+        assertThat(command).isEqualTo(
+            RemoteCommand.ScreenGesture(
+                kind = ScreenGestureKind.SWIPE,
+                startX = 0.25,
+                startY = 0.75,
+                endX = 0.25,
+                endY = 0.20,
+                durationMs = 240L,
+            ),
+        )
     }
 }

@@ -2,16 +2,8 @@ import SwiftUI
 import UIKit
 
 struct RemoteView: View {
-    private enum Mode: String, CaseIterable, Identifiable {
-        case touchpad = "触控板"
-        case shortVideo = "短视频"
-
-        var id: String { rawValue }
-    }
-
     @ObservedObject var coordinator: SessionCoordinator
     @Environment(\.colorScheme) private var colorScheme
-    @State private var mode: Mode = .touchpad
 
     var body: some View {
         NavigationStack {
@@ -23,29 +15,13 @@ struct RemoteView: View {
                 )
                 .ignoresSafeArea()
 
-                VStack(spacing: 18) {
-                    statusHeader
-
-                    Picker("Remote mode", selection: $mode) {
-                        ForEach(Mode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    switch mode {
-                    case .touchpad:
-                        TouchSurfaceRepresentable(settings: coordinator.touchSensitivitySettings) { output in
-                            coordinator.handleTouchOutput(output)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(theme.surfaceBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-
-                        Text("单指移动/点击 · 双击拖拽 · 双指右键/滚动 · 三指中键")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(theme.secondaryForeground)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(spacing: 0) {
+                    switch coordinator.controlMode {
+                    case .screenControl:
+                        ScreenControlSurface(
+                            theme: theme,
+                            onGesture: coordinator.sendScreenGesture
+                        )
                     case .shortVideo:
                         ShortVideoControlPanel(
                             theme: theme,
@@ -53,7 +29,9 @@ struct RemoteView: View {
                         )
                     }
                 }
-                .padding(20)
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
 
                 if let hud = coordinator.lastHUDMessage {
                     HUDView(text: hud)
@@ -62,8 +40,10 @@ struct RemoteView: View {
             .navigationTitle("Remote")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("断开") {
-                        coordinator.disconnect()
+                    Button(coordinator.controlMode.displayName) {
+                        coordinator.setControlMode(
+                            coordinator.controlMode == .shortVideo ? .screenControl : .shortVideo
+                        )
                     }
                 }
             }
@@ -72,25 +52,69 @@ struct RemoteView: View {
         }
     }
 
-    private var statusHeader: some View {
-        HStack {
-            Text(coordinator.activeEndpoint?.displayName ?? "Desktop")
-                .font(.title2.weight(.bold))
-            Spacer()
-            Text(coordinator.status.rawValue.capitalized)
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .foregroundStyle(theme.statusChipForeground)
-                .background(theme.statusChipBackground)
-                .clipShape(Capsule())
-        }
-        .foregroundStyle(theme.primaryForeground)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private var theme: RemoteTheme {
         colorScheme == .dark ? .dark : .light
+    }
+}
+
+private struct ScreenControlSurface: View {
+    let theme: RemoteTheme
+    let onGesture: (ScreenGestureKind, Double, Double, Double, Double, Int) -> Void
+    @State private var gestureStartDate = Date()
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .fill(theme.surfaceBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 30, style: .continuous)
+                            .strokeBorder(theme.secondaryForeground.opacity(0.22), lineWidth: 1)
+                    )
+
+                VStack(spacing: 8) {
+                    Text("屏幕镜像")
+                        .font(.title3.weight(.bold))
+                    Text("在这里点按、上滑和侧滑，动作会直接映射到被控端")
+                        .font(.footnote.weight(.medium))
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(theme.secondaryForeground)
+                }
+                .foregroundStyle(theme.primaryForeground)
+                .padding(.horizontal, 28)
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        if value.translation == .zero {
+                            gestureStartDate = value.time
+                        }
+                    }
+                    .onEnded { value in
+                        let size = proxy.size
+                        guard size.width > 1, size.height > 1 else { return }
+                        let start = normalized(value.startLocation, size: size)
+                        let end = normalized(value.location, size: size)
+                        let distance = hypot(
+                            value.location.x - value.startLocation.x,
+                            value.location.y - value.startLocation.y
+                        )
+                        let kind: ScreenGestureKind = distance < 18 ? .tap : .swipe
+                        let duration = max(80, Int(value.time.timeIntervalSince(gestureStartDate) * 1_000))
+                        onGesture(kind, start.x, start.y, end.x, end.y, duration)
+                    }
+            )
+        }
+        .frame(maxWidth: .infinity)
+        .frame(maxHeight: .infinity)
+    }
+
+    private func normalized(_ point: CGPoint, size: CGSize) -> (x: Double, y: Double) {
+        (
+            x: Double(point.x / size.width).clamped(to: 0 ... 1),
+            y: Double(point.y / size.height).clamped(to: 0 ... 1)
+        )
     }
 }
 
@@ -100,36 +124,94 @@ private struct ShortVideoControlPanel: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            Spacer(minLength: 12)
             HStack(spacing: 12) {
-                actionButton("上一条", .swipeDown)
-                actionButton("下一条", .swipeUp)
+                actionButton("点赞", .doubleTapLike, style: .like, systemImage: "heart")
+                actionButton("收藏", .favorite, systemImage: "bookmark")
             }
+
+            VStack(spacing: 14) {
+                VStack(spacing: 0) {
+                    rockerButton(title: "上一条", subtitle: "向下滑动", action: .swipeDown)
+                    Divider().overlay(Color.white.opacity(0.26))
+                    rockerButton(title: "下一条", subtitle: "向上滑动", action: .swipeUp)
+                }
+                .background(theme.videoRockerBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+                .shadow(color: theme.videoRockerShadow, radius: 20, y: 10)
+
+                HStack(spacing: 12) {
+                    actionButton("左滑", .swipeLeft, systemImage: "arrow.left")
+                    actionButton("右滑", .swipeRight, systemImage: "arrow.right")
+                }
+            }
+            .frame(maxHeight: .infinity)
+
             HStack(spacing: 12) {
-                actionButton("左滑", .swipeLeft)
-                actionButton("右滑", .swipeRight)
+                actionButton("播放/暂停", .playPause, style: .primary, systemImage: "playpause")
+                actionButton("返回", .back, style: .secondary, systemImage: "chevron.backward")
             }
-            actionButton("双击点赞", .doubleTapLike)
-            HStack(spacing: 12) {
-                actionButton("播放/暂停", .playPause)
-                actionButton("返回", .back)
-            }
-            Spacer(minLength: 12)
         }
+        .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(theme.surfaceBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .strokeBorder(theme.secondaryForeground.opacity(0.16), lineWidth: 1)
+        )
     }
 
-    private func actionButton(_ title: String, _ action: VideoActionKind) -> some View {
+    private func rockerButton(title: String, subtitle: String, action: VideoActionKind) -> some View {
         Button {
             onAction(action)
         } label: {
-            Text(title)
-                .font(.headline.weight(.bold))
-                .frame(maxWidth: .infinity)
-                .frame(height: 72)
+            VStack(spacing: 6) {
+                Image(systemName: "arrow.up.arrow.down")
+                    .font(.title3.weight(.bold))
+                Text(title)
+                    .font(.title3.weight(.bold))
+                Text(subtitle)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.66))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.plain)
     }
+
+    private func actionButton(
+        _ title: String,
+        _ action: VideoActionKind,
+        style: ShortVideoButtonStyle = .secondary,
+        systemImage: String? = nil
+    ) -> some View {
+        Button {
+            onAction(action)
+        } label: {
+            HStack(spacing: 7) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.headline.weight(.bold))
+                }
+                Text(title)
+                    .font(.headline.weight(.bold))
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 72)
+            .foregroundStyle(theme.videoButtonForeground(style))
+            .background(theme.videoButtonBackground(style))
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private enum ShortVideoButtonStyle {
+    case secondary
+    case primary
+    case like
 }
 
 private struct HUDView: View {
@@ -158,6 +240,8 @@ private struct RemoteTheme {
     let secondaryForeground: Color
     let statusChipBackground: Color
     let statusChipForeground: Color
+    let videoRockerBackground: Color
+    let videoRockerShadow: Color
 
     static let dark = RemoteTheme(
         backgroundGradient: [
@@ -168,7 +252,9 @@ private struct RemoteTheme {
         primaryForeground: .white,
         secondaryForeground: .white.opacity(0.72),
         statusChipBackground: Color.white.opacity(0.16),
-        statusChipForeground: .white
+        statusChipForeground: .white,
+        videoRockerBackground: Color(red: 0.12, green: 0.43, blue: 0.60),
+        videoRockerShadow: Color.black.opacity(0.22)
     )
 
     static let light = RemoteTheme(
@@ -180,8 +266,30 @@ private struct RemoteTheme {
         primaryForeground: Color(red: 0.10, green: 0.16, blue: 0.24),
         secondaryForeground: Color(red: 0.28, green: 0.36, blue: 0.46),
         statusChipBackground: Color(red: 0.56, green: 0.66, blue: 0.78).opacity(0.82),
-        statusChipForeground: Color(red: 0.06, green: 0.11, blue: 0.18)
+        statusChipForeground: Color(red: 0.06, green: 0.11, blue: 0.18),
+        videoRockerBackground: Color(red: 0.12, green: 0.43, blue: 0.60),
+        videoRockerShadow: Color(red: 0.12, green: 0.43, blue: 0.60).opacity(0.18)
     )
+
+    func videoButtonBackground(_ style: ShortVideoButtonStyle) -> Color {
+        switch style {
+        case .secondary:
+            return surfaceBackground.opacity(0.92)
+        case .primary:
+            return Color(red: 0.15, green: 0.49, blue: 0.66)
+        case .like:
+            return Color(red: 0.96, green: 0.28, blue: 0.42)
+        }
+    }
+
+    func videoButtonForeground(_ style: ShortVideoButtonStyle) -> Color {
+        switch style {
+        case .secondary:
+            return primaryForeground
+        case .primary, .like:
+            return .white
+        }
+    }
 }
 
 struct TouchSurfaceRepresentable: UIViewRepresentable {

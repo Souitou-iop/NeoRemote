@@ -7,11 +7,15 @@ import androidx.lifecycle.ViewModelProvider
 import com.neoremote.android.core.discovery.AndroidNsdDiscoveryService
 import com.neoremote.android.core.discovery.DiscoveryService
 import com.neoremote.android.core.model.ConnectionFailure
+import com.neoremote.android.core.model.ControlMode
 import com.neoremote.android.core.model.DesktopEndpoint
+import com.neoremote.android.core.model.DesktopPlatform
 import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.model.SessionRoute
 import com.neoremote.android.core.model.SessionStatus
+import com.neoremote.android.core.model.ScreenGestureKind
+import com.neoremote.android.core.model.SystemAction
 import com.neoremote.android.core.model.SessionUiState
 import com.neoremote.android.core.model.TouchSurfaceOutput
 import com.neoremote.android.core.model.TouchSurfaceSemanticEvent
@@ -42,13 +46,15 @@ class SessionCoordinatorViewModel(
     private val transportFactory: () -> RemoteTransport,
     private val codec: ProtocolCodec = ProtocolCodec(),
     mainDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
+    private val isSelfEndpoint: (DesktopEndpoint) -> Boolean = ::isSelfAndroidReceiverEndpoint,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
         SessionUiState(
-            recentDevices = registry.loadRecentDevices(),
-            lastConnectedEndpoint = registry.loadLastConnectedDevice(),
+            recentDevices = registry.loadRecentDevices().filterNot(isSelfEndpoint),
+            lastConnectedEndpoint = registry.loadLastConnectedDevice()?.takeUnless(isSelfEndpoint),
             manualConnectDraft = registry.loadManualDraft(),
             hapticsEnabled = registry.loadHapticsEnabled(),
+            controlMode = registry.loadControlMode(),
             touchSensitivitySettings = registry.loadTouchSensitivitySettings(),
         ),
     )
@@ -133,6 +139,19 @@ class SessionCoordinatorViewModel(
     }
 
     fun connect(endpoint: DesktopEndpoint, isRecovery: Boolean = false) {
+        if (isSelfEndpoint(endpoint)) {
+            _uiState.update {
+                it.copy(
+                    status = SessionStatus.DISCONNECTED,
+                    route = SessionRoute.ONBOARDING,
+                    activeEndpoint = null,
+                    errorMessage = "不能连接本机 Android 被控端",
+                    statusMessage = "已阻止本机自连",
+                )
+            }
+            return
+        }
+
         val generation = ++connectionGeneration
         heartbeatJob?.cancel()
         heartbeatJob = null
@@ -207,6 +226,11 @@ class SessionCoordinatorViewModel(
         )
     }
 
+    fun setControlMode(mode: ControlMode) {
+        registry.saveControlMode(mode)
+        _uiState.update { it.copy(controlMode = mode) }
+    }
+
     fun enterDemoMode() {
         heartbeatJob?.cancel()
         heartbeatJob = null
@@ -269,14 +293,48 @@ class SessionCoordinatorViewModel(
         showHud(action.hudText)
     }
 
+    fun sendSystemAction(action: SystemAction) {
+        send(RemoteCommand.SystemActionCommand(action))
+        showHud(action.hudText)
+    }
+
+    fun sendScreenGesture(
+        kind: ScreenGestureKind,
+        startX: Double,
+        startY: Double,
+        endX: Double,
+        endY: Double,
+        durationMs: Long,
+    ) {
+        send(
+            RemoteCommand.ScreenGesture(
+                kind = kind,
+                startX = startX,
+                startY = startY,
+                endX = endX,
+                endY = endY,
+                durationMs = durationMs,
+            ),
+        )
+        showHud(
+            when (kind) {
+                ScreenGestureKind.TAP -> "点击"
+                ScreenGestureKind.LONG_PRESS -> "长按"
+                ScreenGestureKind.SWIPE -> "滑动"
+                ScreenGestureKind.UNKNOWN -> "未知手势"
+            },
+        )
+    }
+
     private fun bindDiscovery() {
         discoveryService.onUpdate = { devices ->
             scope.launch {
+                val visibleDevices = devices.filterNot(isSelfEndpoint)
                 _uiState.update { current ->
                     when {
-                        current.activeEndpoint == null && devices.isEmpty() -> {
+                        current.activeEndpoint == null && visibleDevices.isEmpty() -> {
                             current.copy(
-                                discoveredDevices = devices,
+                                discoveredDevices = visibleDevices,
                                 status = SessionStatus.DISCOVERING,
                                 statusMessage = "暂未发现桌面端，可手动输入地址",
                             )
@@ -284,13 +342,13 @@ class SessionCoordinatorViewModel(
 
                         current.activeEndpoint == null -> {
                             current.copy(
-                                discoveredDevices = devices,
+                                discoveredDevices = visibleDevices,
                                 status = SessionStatus.DISCONNECTED,
-                                statusMessage = "发现 ${devices.size} 台桌面端",
+                                statusMessage = "发现 ${visibleDevices.size} 台桌面端",
                             )
                         }
 
-                        else -> current.copy(discoveredDevices = devices)
+                        else -> current.copy(discoveredDevices = visibleDevices)
                     }
                 }
             }
@@ -398,8 +456,14 @@ class SessionCoordinatorViewModel(
                         com.neoremote.android.core.model.DragState.ENDED -> "${command.button.displayText}拖拽已结束"
                     }
 
-                    is RemoteCommand.SystemActionCommand -> it.statusMessage
+                    is RemoteCommand.SystemActionCommand -> command.action.hudText
                     is RemoteCommand.VideoAction -> command.action.hudText
+                    is RemoteCommand.ScreenGesture -> when (command.kind) {
+                        ScreenGestureKind.TAP -> "屏幕点击"
+                        ScreenGestureKind.LONG_PRESS -> "屏幕长按"
+                        ScreenGestureKind.SWIPE -> "屏幕滑动"
+                        ScreenGestureKind.UNKNOWN -> it.statusMessage
+                    }
                     is RemoteCommand.Tap -> it.statusMessage
                     RemoteCommand.Heartbeat -> it.statusMessage
                 },
@@ -498,9 +562,29 @@ class SessionCoordinatorViewModel(
             VideoActionKind.SWIPE_DOWN -> "上一条"
             VideoActionKind.SWIPE_LEFT -> "左滑"
             VideoActionKind.SWIPE_RIGHT -> "右滑"
-            VideoActionKind.DOUBLE_TAP_LIKE -> "双击点赞"
+            VideoActionKind.DOUBLE_TAP_LIKE -> "点赞"
+            VideoActionKind.FAVORITE -> "收藏"
             VideoActionKind.PLAY_PAUSE -> "播放/暂停"
             VideoActionKind.BACK -> "返回"
             VideoActionKind.UNKNOWN -> "未知视频动作"
         }
+
+    private val SystemAction.hudText: String
+        get() = when (this) {
+            SystemAction.BACK -> "返回"
+            SystemAction.HOME -> "桌面"
+            SystemAction.RECENTS -> "后台"
+        }
 }
+
+private fun isSelfAndroidReceiverEndpoint(endpoint: DesktopEndpoint): Boolean {
+    if (endpoint.platform != DesktopPlatform.ANDROID) return false
+    val normalizedHost = endpoint.host.trim().trimEnd('.').lowercase()
+    if (normalizedHost in LOOPBACK_HOSTS) return true
+
+    val localReceiverName = "NeoRemote Android ${Build.MODEL.orEmpty()}".trim()
+    return localReceiverName.isNotBlank() &&
+        endpoint.displayName.equals(localReceiverName, ignoreCase = true)
+}
+
+private val LOOPBACK_HOSTS = setOf("localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1")

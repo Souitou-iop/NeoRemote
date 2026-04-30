@@ -4,8 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.neoremote.android.core.model.DesktopEndpoint
+import com.neoremote.android.core.model.ControlMode
+import com.neoremote.android.core.model.ScreenGestureKind
 import com.neoremote.android.core.model.SessionRoute
 import com.neoremote.android.core.model.SessionUiState
+import com.neoremote.android.core.model.SystemAction
+import com.neoremote.android.core.model.TouchSurfaceSemanticEvent
 import com.neoremote.android.core.model.TouchSurfaceOutput
 import com.neoremote.android.core.model.VideoActionKind
 import com.neoremote.android.ui.components.HapticsController
@@ -28,7 +32,10 @@ fun NeoRemoteApp(
     onHapticsEnabledChange: (Boolean) -> Unit,
     onCursorSensitivityChange: (Double) -> Unit = {},
     onSwipeSensitivityChange: (Double) -> Unit = {},
+    onControlModeChange: (ControlMode) -> Unit,
     onTouchOutput: (TouchSurfaceOutput) -> Unit,
+    onScreenGesture: (ScreenGestureKind, Double, Double, Double, Double, Long) -> Unit,
+    onSystemAction: (SystemAction) -> Unit,
     onVideoAction: (VideoActionKind) -> Unit,
 ) {
     val context = LocalContext.current
@@ -56,13 +63,31 @@ fun NeoRemoteApp(
             onHapticsEnabledChange = onHapticsEnabledChange,
             onCursorSensitivityChange = onCursorSensitivityChange,
             onSwipeSensitivityChange = onSwipeSensitivityChange,
+            onControlModeChange = onControlModeChange,
             onTouchOutput = { output ->
                 if (state.hapticsEnabled) {
                     haptics.perform(output.semanticEvent)
                 }
                 onTouchOutput(output)
             },
-            onVideoAction = onVideoAction,
+            onScreenGesture = { kind, startX, startY, endX, endY, durationMs ->
+                if (state.hapticsEnabled) {
+                    haptics.perform(TouchSurfaceSemanticEvent.PRIMARY_TAP)
+                }
+                onScreenGesture(kind, startX, startY, endX, endY, durationMs)
+            },
+            onSystemAction = {
+                if (state.hapticsEnabled) {
+                    haptics.perform(TouchSurfaceSemanticEvent.PRIMARY_TAP)
+                }
+                onSystemAction(it)
+            },
+            onVideoAction = {
+                if (state.hapticsEnabled) {
+                    haptics.perform(TouchSurfaceSemanticEvent.PRIMARY_TAP)
+                }
+                onVideoAction(it)
+            },
         )
     }
 }

@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import com.neoremote.android.core.model.DesktopEndpoint
 import com.neoremote.android.core.model.EndpointSource
 import com.neoremote.android.core.model.ManualConnectDraft
+import com.neoremote.android.core.model.ControlMode
 import com.neoremote.android.core.model.TouchSensitivitySettings
 import com.neoremote.android.core.persistence.DeviceRegistry
 import com.neoremote.android.core.persistence.MemoryKeyValueStore
@@ -129,6 +130,15 @@ class DeviceRegistryTest {
         assertThat(registry.loadTouchSensitivitySettings()).isEqualTo(
             TouchSensitivitySettings(cursorSensitivity = 2.5, swipeSensitivity = 0.5),
         )
+    }
+
+    @Test
+    fun `control mode defaults to screen control and persists updates`() {
+        assertThat(registry.loadControlMode()).isEqualTo(ControlMode.SCREEN_CONTROL)
+
+        registry.saveControlMode(ControlMode.SHORT_VIDEO)
+
+        assertThat(registry.loadControlMode()).isEqualTo(ControlMode.SHORT_VIDEO)
     }
 
     private fun endpointJson(displayName: String, host: String, lastSeenAt: Long) =

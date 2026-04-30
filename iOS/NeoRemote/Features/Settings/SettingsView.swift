@@ -7,7 +7,26 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("连接策略") {
+                Section("默认控制模式") {
+                    Picker(
+                        "启动后进入",
+                        selection: Binding(
+                            get: { coordinator.controlMode },
+                            set: { coordinator.setControlMode($0) }
+                        )
+                    ) {
+                        ForEach(ControlMode.allCases) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    LabeledContent("当前模式") {
+                        Text(coordinator.controlMode.displayName)
+                    }
+                }
+
+                Section("触控反馈") {
                     Toggle(
                         "震动反馈",
                         isOn: Binding(
@@ -15,24 +34,9 @@ struct SettingsView: View {
                             set: { coordinator.setHapticsEnabled($0) }
                         )
                     )
-                    SensitivitySlider(
-                        title: "光标灵敏度",
-                        value: Binding(
-                            get: { coordinator.touchSensitivitySettings.cursorSensitivity },
-                            set: { coordinator.setCursorSensitivity($0) }
-                        ),
-                        range: TouchSensitivitySettings.cursorRange
-                    )
+                }
 
-                    SensitivitySlider(
-                        title: "滑动灵敏度",
-                        value: Binding(
-                            get: { coordinator.touchSensitivitySettings.swipeSensitivity },
-                            set: { coordinator.setSwipeSensitivity($0) }
-                        ),
-                        range: TouchSensitivitySettings.swipeRange
-                    )
-
+                Section("连接策略") {
                     LabeledContent("自动发现") {
                         Text("Bonjour / LAN")
                     }
@@ -45,9 +49,6 @@ struct SettingsView: View {
                 }
 
                 Section("当前会话") {
-                    LabeledContent("状态") {
-                        Text(coordinator.status.rawValue)
-                    }
                     LabeledContent("Desktop") {
                         Text(coordinator.activeEndpoint?.displayName ?? "未连接")
                     }

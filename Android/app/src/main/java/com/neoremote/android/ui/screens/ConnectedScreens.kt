@@ -1,6 +1,9 @@
 package com.neoremote.android.ui.screens
 
+import android.view.MotionEvent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,17 +13,27 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Handyman
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.SwapHoriz
+import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -36,19 +49,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInteropFilter
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.neoremote.android.core.model.ControlMode
 import com.neoremote.android.core.model.DesktopEndpoint
+import com.neoremote.android.core.model.ScreenGestureKind
 import com.neoremote.android.core.model.SessionUiState
+import com.neoremote.android.core.model.SystemAction
 import com.neoremote.android.core.model.TouchSensitivitySettings
 import com.neoremote.android.core.model.TouchSurfaceOutput
 import com.neoremote.android.core.model.VideoActionKind
@@ -58,7 +79,6 @@ import com.neoremote.android.ui.components.LiquidGlassBottomBar
 import com.neoremote.android.ui.components.LiquidGlassTabItem
 import com.neoremote.android.ui.components.SectionCard
 import com.neoremote.android.ui.components.StatusChip
-import com.neoremote.android.ui.components.TouchSurfaceHost
 
 private enum class ConnectedTab(
     val label: String,
@@ -66,11 +86,6 @@ private enum class ConnectedTab(
     REMOTE("Remote"),
     DEVICES("Devices"),
     SETTINGS("Settings"),
-}
-
-private enum class RemoteMode {
-    TOUCHPAD,
-    DOUYIN,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,7 +99,10 @@ fun ConnectedShell(
     onHapticsEnabledChange: (Boolean) -> Unit,
     onCursorSensitivityChange: (Double) -> Unit,
     onSwipeSensitivityChange: (Double) -> Unit,
+    onControlModeChange: (ControlMode) -> Unit,
     onTouchOutput: (TouchSurfaceOutput) -> Unit,
+    onScreenGesture: (ScreenGestureKind, Double, Double, Double, Double, Long) -> Unit,
+    onSystemAction: (SystemAction) -> Unit,
     onVideoAction: (VideoActionKind) -> Unit,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(ConnectedTab.REMOTE) }
@@ -124,8 +142,8 @@ fun ConnectedShell(
                 when (selectedTab) {
                     ConnectedTab.REMOTE -> RemoteScreen(
                         state = state,
-                        onDisconnect = onDisconnect,
-                        onTouchOutput = onTouchOutput,
+                        onControlModeChange = onControlModeChange,
+                        onScreenGesture = onScreenGesture,
                         onVideoAction = onVideoAction,
                         bottomPadding = bottomInsetPadding,
                     )
@@ -133,6 +151,7 @@ fun ConnectedShell(
                     ConnectedTab.DEVICES -> DevicesScreen(
                         state = state,
                         onConnect = onConnect,
+                        onDisconnect = onDisconnect,
                         bottomPadding = bottomInsetPadding,
                     )
 
@@ -143,6 +162,7 @@ fun ConnectedShell(
                         onHapticsEnabledChange = onHapticsEnabledChange,
                         onCursorSensitivityChange = onCursorSensitivityChange,
                         onSwipeSensitivityChange = onSwipeSensitivityChange,
+                        onControlModeChange = onControlModeChange,
                         bottomPadding = bottomInsetPadding,
                     )
                 }
@@ -183,62 +203,41 @@ fun ConnectedShell(
 @Composable
 private fun RemoteScreen(
     state: SessionUiState,
-    onDisconnect: () -> Unit,
-    onTouchOutput: (TouchSurfaceOutput) -> Unit,
+    onControlModeChange: (ControlMode) -> Unit,
+    onScreenGesture: (ScreenGestureKind, Double, Double, Double, Double, Long) -> Unit,
     onVideoAction: (VideoActionKind) -> Unit,
     bottomPadding: PaddingValues,
 ) {
-    var mode by rememberSaveable { mutableStateOf(RemoteMode.TOUCHPAD) }
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(start = 20.dp, top = 20.dp, end = 20.dp)
+            .padding(start = 14.dp, top = 10.dp, end = 14.dp)
             .padding(bottomPadding),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = state.activeEndpoint?.displayName ?: "Desktop",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
+        RemoteModeChip(
+            mode = state.controlMode,
+            onToggle = {
+                onControlModeChange(
+                    if (state.controlMode == ControlMode.SHORT_VIDEO) {
+                        ControlMode.SCREEN_CONTROL
+                    } else {
+                        ControlMode.SHORT_VIDEO
+                    },
                 )
-                Text(
-                    text = state.statusMessage,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            StatusChip(status = state.status)
-            IconButton(onClick = onDisconnect) {
-                Icon(Icons.Outlined.PowerSettingsNew, contentDescription = "断开")
-            }
-        }
+            },
+            modifier = Modifier.align(Alignment.End),
+        )
 
-        RemoteModeSwitch(mode = mode, onModeChange = { mode = it })
+        when (state.controlMode) {
+            ControlMode.SCREEN_CONTROL -> ScreenControlPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                onScreenGesture = onScreenGesture,
+            )
 
-        when (mode) {
-            RemoteMode.TOUCHPAD -> {
-                TouchSurfaceHost(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    settings = state.touchSensitivitySettings,
-                    onOutput = onTouchOutput,
-                )
-
-                Text(
-                    text = "单指移动/点击 · 双击拖拽 · 双指右键/滚动 · 三指中键",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            RemoteMode.DOUYIN -> ShortVideoControlPanel(
+            ControlMode.SHORT_VIDEO -> ShortVideoControlPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
@@ -249,56 +248,103 @@ private fun RemoteScreen(
 }
 
 @Composable
-private fun RemoteModeSwitch(
-    mode: RemoteMode,
-    onModeChange: (RemoteMode) -> Unit,
+private fun RemoteModeChip(
+    mode: ControlMode,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    TextButton(
+        onClick = onToggle,
+        modifier = modifier
+            .height(40.dp)
+            .background(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+            ),
     ) {
-        RemoteModeButton(
-            label = "触控板",
-            selected = mode == RemoteMode.TOUCHPAD,
-            onClick = { onModeChange(RemoteMode.TOUCHPAD) },
-            modifier = Modifier.weight(1f),
-        )
-        RemoteModeButton(
-            label = "短视频",
-            selected = mode == RemoteMode.DOUYIN,
-            onClick = { onModeChange(RemoteMode.DOUYIN) },
-            modifier = Modifier.weight(1f),
+        Text(
+            text = mode.displayName,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            fontWeight = FontWeight.Bold,
         )
     }
 }
 
 @Composable
-private fun RemoteModeButton(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
+private fun ScreenControlPanel(
     modifier: Modifier = Modifier,
+    onScreenGesture: (ScreenGestureKind, Double, Double, Double, Double, Long) -> Unit,
 ) {
-    TextButton(
-        onClick = onClick,
-        modifier = modifier.background(
-            color = if (selected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f)
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    var downPoint by remember { mutableStateOf(Offset.Zero) }
+    var downTime by remember { mutableStateOf(0L) }
+
+    Box(
+        modifier = modifier
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.52f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(30.dp),
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(30.dp),
+            )
+            .onSizeChanged { size = it }
+            .pointerInteropFilter { event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        downPoint = Offset(event.x, event.y)
+                        downTime = event.eventTime
+                        true
+                    }
+
+                    MotionEvent.ACTION_UP -> {
+                        val upPoint = Offset(event.x, event.y)
+                        val elapsed = (event.eventTime - downTime).coerceAtLeast(80L)
+                        val width = size.width.coerceAtLeast(1).toFloat()
+                        val height = size.height.coerceAtLeast(1).toFloat()
+                        val startX = (downPoint.x / width).toDouble().coerceIn(0.0, 1.0)
+                        val startY = (downPoint.y / height).toDouble().coerceIn(0.0, 1.0)
+                        val endX = (upPoint.x / width).toDouble().coerceIn(0.0, 1.0)
+                        val endY = (upPoint.y / height).toDouble().coerceIn(0.0, 1.0)
+                        val distance = kotlin.math.hypot(
+                            (upPoint.x - downPoint.x).toDouble(),
+                            (upPoint.y - downPoint.y).toDouble(),
+                        )
+                        val kind = if (distance < 18.0) {
+                            ScreenGestureKind.TAP
+                        } else {
+                            ScreenGestureKind.SWIPE
+                        }
+                        onScreenGesture(kind, startX, startY, endX, endY, elapsed)
+                        true
+                    }
+
+                    MotionEvent.ACTION_CANCEL -> true
+                    else -> true
+                }
             },
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        ),
     ) {
-        Text(
-            text = label,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = "屏幕镜像",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "直接点按、上滑、侧滑，动作会映射到被控端全面屏手势",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -308,58 +354,119 @@ private fun ShortVideoControlPanel(
     onVideoAction: (VideoActionKind) -> Unit,
 ) {
     Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
+        modifier = modifier
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(30.dp),
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.24f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(30.dp),
+            )
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            ShortVideoActionButton(
-                label = "上一条",
-                action = VideoActionKind.SWIPE_DOWN,
-                onVideoAction = onVideoAction,
-                modifier = Modifier.weight(1f),
-            )
-            ShortVideoActionButton(
-                label = "下一条",
-                action = VideoActionKind.SWIPE_UP,
-                onVideoAction = onVideoAction,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            ShortVideoActionButton(
-                label = "左滑",
-                action = VideoActionKind.SWIPE_LEFT,
-                onVideoAction = onVideoAction,
-                modifier = Modifier.weight(1f),
-            )
-            ShortVideoActionButton(
-                label = "右滑",
-                action = VideoActionKind.SWIPE_RIGHT,
-                onVideoAction = onVideoAction,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        ShortVideoActionButton(
-            label = "双击点赞",
-            action = VideoActionKind.DOUBLE_TAP_LIKE,
-            onVideoAction = onVideoAction,
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth(),
-        )
+        ) {
+            ShortVideoActionButton(
+                label = "点赞",
+                action = VideoActionKind.DOUBLE_TAP_LIKE,
+                onVideoAction = onVideoAction,
+                modifier = Modifier.weight(1f),
+                accent = ShortVideoAccent.LIKE,
+                icon = { Icon(Icons.Outlined.FavoriteBorder, contentDescription = null) },
+            )
+            ShortVideoActionButton(
+                label = "收藏",
+                action = VideoActionKind.FAVORITE,
+                onVideoAction = onVideoAction,
+                modifier = Modifier.weight(1f),
+                icon = { Icon(Icons.Outlined.BookmarkBorder, contentDescription = null) },
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(34.dp),
+                    ),
+            ) {
+                ShortVideoRockerButton(
+                    label = "上一条",
+                    hint = "向下滑动",
+                    action = VideoActionKind.SWIPE_DOWN,
+                    onVideoAction = onVideoAction,
+                    modifier = Modifier.weight(1f),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.28f)),
+                )
+                ShortVideoRockerButton(
+                    label = "下一条",
+                    hint = "向上滑动",
+                    action = VideoActionKind.SWIPE_UP,
+                    onVideoAction = onVideoAction,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                ShortVideoActionButton(
+                    label = "左滑",
+                    action = VideoActionKind.SWIPE_LEFT,
+                    onVideoAction = onVideoAction,
+                    modifier = Modifier.weight(1f),
+                    icon = { Icon(Icons.Outlined.SwapHoriz, contentDescription = null) },
+                )
+                ShortVideoActionButton(
+                    label = "右滑",
+                    action = VideoActionKind.SWIPE_RIGHT,
+                    onVideoAction = onVideoAction,
+                    modifier = Modifier.weight(1f),
+                    icon = { Icon(Icons.Outlined.SwapHoriz, contentDescription = null) },
+                )
+            }
+        }
+
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
             ShortVideoActionButton(
                 label = "播放/暂停",
                 action = VideoActionKind.PLAY_PAUSE,
                 onVideoAction = onVideoAction,
                 modifier = Modifier.weight(1f),
+                accent = ShortVideoAccent.PRIMARY,
+                icon = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
             )
             ShortVideoActionButton(
                 label = "返回",
                 action = VideoActionKind.BACK,
                 onVideoAction = onVideoAction,
                 modifier = Modifier.weight(1f),
+                icon = { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null) },
             )
         }
     }
+}
+
+private enum class ShortVideoAccent {
+    NORMAL,
+    PRIMARY,
+    LIKE,
 }
 
 @Composable
@@ -368,12 +475,70 @@ private fun ShortVideoActionButton(
     action: VideoActionKind,
     onVideoAction: (VideoActionKind) -> Unit,
     modifier: Modifier = Modifier,
+    accent: ShortVideoAccent = ShortVideoAccent.NORMAL,
+    icon: @Composable (() -> Unit)? = null,
 ) {
+    val background = when (accent) {
+        ShortVideoAccent.NORMAL -> MaterialTheme.colorScheme.surface.copy(alpha = 0.82f)
+        ShortVideoAccent.PRIMARY -> MaterialTheme.colorScheme.primary
+        ShortVideoAccent.LIKE -> MaterialTheme.colorScheme.error
+    }
+    val foreground = when (accent) {
+        ShortVideoAccent.NORMAL -> MaterialTheme.colorScheme.onSurface
+        ShortVideoAccent.PRIMARY -> MaterialTheme.colorScheme.onPrimary
+        ShortVideoAccent.LIKE -> MaterialTheme.colorScheme.onError
+    }
     Button(
         onClick = { onVideoAction(action) },
-        modifier = modifier.height(74.dp),
+        modifier = modifier.height(72.dp),
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+            containerColor = background,
+            contentColor = foreground,
+        ),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
     ) {
-        Text(label, fontWeight = FontWeight.Bold)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            icon?.invoke()
+            Text(label, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun ShortVideoRockerButton(
+    label: String,
+    hint: String,
+    action: VideoActionKind,
+    onVideoAction: (VideoActionKind) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    TextButton(
+        onClick = { onVideoAction(action) },
+        modifier = modifier.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                Icons.Outlined.SwapVert,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimary,
+            )
+            Text(
+                text = label,
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = hint,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.66f),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }
 
@@ -381,6 +546,7 @@ private fun ShortVideoActionButton(
 private fun DevicesScreen(
     state: SessionUiState,
     onConnect: (DesktopEndpoint) -> Unit,
+    onDisconnect: () -> Unit,
     bottomPadding: PaddingValues,
 ) {
     LazyColumn(
@@ -393,6 +559,22 @@ private fun DevicesScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
+        item {
+            SectionCard(title = "控制状态") {
+                SettingRow(label = "状态", value = state.status.displayText)
+                SettingRow(label = "当前设备", value = state.activeEndpoint?.displayName ?: "未连接")
+                SettingRow(label = "地址", value = state.activeEndpoint?.addressText ?: "—")
+                SettingRow(label = "控制模式", value = state.controlMode.displayName)
+                Button(
+                    onClick = onDisconnect,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = state.activeEndpoint != null,
+                ) {
+                    Text("断开当前连接")
+                }
+            }
+        }
+
         if (state.discoveredDevices.isNotEmpty()) {
             item {
                 Text("附近设备", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -437,6 +619,7 @@ private fun SettingsScreen(
     onHapticsEnabledChange: (Boolean) -> Unit,
     onCursorSensitivityChange: (Double) -> Unit,
     onSwipeSensitivityChange: (Double) -> Unit,
+    onControlModeChange: (ControlMode) -> Unit,
     bottomPadding: PaddingValues,
 ) {
     LazyColumn(
@@ -449,6 +632,25 @@ private fun SettingsScreen(
         ),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
+        item {
+            SectionCard(title = "默认控制模式") {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ControlModeButton(
+                        label = "屏幕控制",
+                        selected = state.controlMode == ControlMode.SCREEN_CONTROL,
+                        onClick = { onControlModeChange(ControlMode.SCREEN_CONTROL) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    ControlModeButton(
+                        label = "短视频",
+                        selected = state.controlMode == ControlMode.SHORT_VIDEO,
+                        onClick = { onControlModeChange(ControlMode.SHORT_VIDEO) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                SettingRow(label = "启动后进入", value = state.controlMode.displayName)
+            }
+        }
         item {
             SectionCard(title = "连接策略") {
                 SettingRow(label = "自动发现", value = "Bonjour / LAN")
@@ -463,25 +665,6 @@ private fun SettingsScreen(
                     checked = state.hapticsEnabled,
                     onCheckedChange = onHapticsEnabledChange,
                 )
-                SliderSettingRow(
-                    label = "光标灵敏度",
-                    value = state.touchSensitivitySettings.cursorSensitivity,
-                    range = TouchSensitivitySettings.CURSOR_RANGE,
-                    onValueChange = onCursorSensitivityChange,
-                )
-                SliderSettingRow(
-                    label = "滑动灵敏度",
-                    value = state.touchSensitivitySettings.swipeSensitivity,
-                    range = TouchSensitivitySettings.SWIPE_RANGE,
-                    onValueChange = onSwipeSensitivityChange,
-                )
-            }
-        }
-        item {
-            SectionCard(title = "当前会话") {
-                SettingRow(label = "状态", value = state.status.displayText)
-                SettingRow(label = "Desktop", value = state.activeEndpoint?.displayName ?: "未连接")
-                SettingRow(label = "地址", value = state.activeEndpoint?.addressText ?: "—")
             }
         }
         item {
@@ -490,7 +673,7 @@ private fun SettingsScreen(
                     TextButton(onClick = onClearRecent) {
                         Text("清空最近设备")
                     }
-                    Button(onClick = onDisconnect) {
+                    Button(onClick = onDisconnect, enabled = state.activeEndpoint != null) {
                         Text("断开当前连接")
                     }
                 }
@@ -498,6 +681,44 @@ private fun SettingsScreen(
         }
     }
 }
+
+@Composable
+private fun ControlModeButton(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier
+            .height(50.dp)
+            .background(
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.56f)
+                },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+            ),
+    ) {
+        Text(
+            text = label,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
+    }
+}
+
+private val ControlMode.displayName: String
+    get() = when (this) {
+        ControlMode.SCREEN_CONTROL -> "屏幕控制"
+        ControlMode.SHORT_VIDEO -> "短视频"
+    }
 
 @Composable
 private fun SliderSettingRow(

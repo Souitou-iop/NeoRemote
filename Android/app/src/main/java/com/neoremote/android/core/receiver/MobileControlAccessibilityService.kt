@@ -124,6 +124,12 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
                 showTrail = action.showTrail,
                 onFinished = onFinished,
             )
+            is MobileInputAction.LongPressAt -> dispatchPress(
+                position = action.position.toPhysicalPixels(density),
+                durationMs = action.durationMs,
+                showTrail = action.showTrail,
+                onFinished = onFinished,
+            )
             is MobileInputAction.Swipe -> dispatchSwipe(
                 from = action.from,
                 to = action.to,
@@ -157,13 +163,27 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         showTrail: Boolean,
         onFinished: () -> Unit,
     ) {
+        dispatchPress(
+            position = position,
+            durationMs = TAP_DURATION_MS,
+            showTrail = showTrail,
+            onFinished = onFinished,
+        )
+    }
+
+    private fun dispatchPress(
+        position: PointerPosition,
+        durationMs: Long,
+        showTrail: Boolean,
+        onFinished: () -> Unit,
+    ) {
         if (showTrail) {
             trailOverlayView?.recordTap(position)
         }
         val path = Path().apply { moveTo(position.x, position.y) }
         val dispatched = dispatchGesture(
             GestureDescription.Builder()
-                .addStroke(GestureDescription.StrokeDescription(path, 0, TAP_DURATION_MS))
+                .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
                 .build(),
             GestureLogCallback("tap", position, position, onFinished),
             null,

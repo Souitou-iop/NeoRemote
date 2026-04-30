@@ -2,12 +2,14 @@ package com.neoremote.android.core.receiver
 
 import com.neoremote.android.core.model.DragState
 import com.neoremote.android.core.model.RemoteCommand
+import com.neoremote.android.core.model.ScreenGestureKind
 import com.neoremote.android.core.model.SystemAction
 import com.neoremote.android.core.model.VideoActionKind
 import kotlin.math.abs
 import kotlin.math.hypot
 
 private const val TOUCHPAD_MOVE_SWIPE_DURATION_MS = 160L
+private const val DEFAULT_LONG_PRESS_DURATION_MS = 520L
 
 data class PointerPosition(
     val x: Float,
@@ -26,6 +28,11 @@ sealed interface MobileInputAction {
     ) : MobileInputAction
     data class TapAt(
         val position: PointerPosition,
+        val showTrail: Boolean = true,
+    ) : MobileInputAction
+    data class LongPressAt(
+        val position: PointerPosition,
+        val durationMs: Long = DEFAULT_LONG_PRESS_DURATION_MS,
         val showTrail: Boolean = true,
     ) : MobileInputAction
     data class Swipe(
@@ -99,6 +106,7 @@ class MobileInputPlanner(
             is RemoteCommand.Drag -> handleDrag(command)
             is RemoteCommand.SystemActionCommand -> listOf(MobileInputAction.Global(command.action))
             is RemoteCommand.VideoAction -> handleVideoAction(command.action)
+            is RemoteCommand.ScreenGesture -> handleScreenGesture(command)
             is RemoteCommand.ClientHello,
             RemoteCommand.Heartbeat,
             -> emptyList()
@@ -158,6 +166,7 @@ class MobileInputPlanner(
     private fun handleVideoAction(action: VideoActionKind): List<MobileInputAction> {
         val center = PointerPosition(width * 0.5f, height * 0.5f)
         val likePoint = PointerPosition(width * 0.55f, height * 0.5f)
+        val favoritePoint = PointerPosition(width * 0.86f, height * 3f / 5f)
         return when (action) {
             VideoActionKind.SWIPE_UP -> listOf(
                 MobileInputAction.Swipe(
@@ -200,11 +209,42 @@ class MobileInputPlanner(
                 MobileInputAction.TapAt(likePoint, showTrail = false),
             )
 
+            VideoActionKind.FAVORITE -> listOf(MobileInputAction.TapAt(favoritePoint, showTrail = false))
             VideoActionKind.PLAY_PAUSE -> listOf(MobileInputAction.TapAt(center, showTrail = false))
             VideoActionKind.BACK -> listOf(MobileInputAction.Global(SystemAction.BACK))
             VideoActionKind.UNKNOWN -> emptyList()
         }
     }
+
+    private fun handleScreenGesture(command: RemoteCommand.ScreenGesture): List<MobileInputAction> {
+        val start = normalizedPoint(command.startX, command.startY)
+        val end = normalizedPoint(command.endX, command.endY)
+        return when (command.kind) {
+            ScreenGestureKind.TAP -> listOf(MobileInputAction.TapAt(start, showTrail = false))
+            ScreenGestureKind.LONG_PRESS -> listOf(
+                MobileInputAction.LongPressAt(
+                    position = start,
+                    durationMs = command.durationMs.coerceIn(300L, 1_200L),
+                    showTrail = false,
+                ),
+            )
+            ScreenGestureKind.SWIPE -> listOf(
+                MobileInputAction.Swipe(
+                    from = start,
+                    to = end,
+                    durationMs = command.durationMs.coerceIn(80L, 800L),
+                    showTrail = false,
+                ),
+            )
+            ScreenGestureKind.UNKNOWN -> emptyList()
+        }
+    }
+
+    private fun normalizedPoint(x: Double, y: Double): PointerPosition =
+        PointerPosition(
+            x = (x.coerceIn(0.0, 1.0) * width).toFloat(),
+            y = (y.coerceIn(0.0, 1.0) * height).toFloat(),
+        )
 
     private fun PointerPosition.clamped(): PointerPosition =
         PointerPosition(

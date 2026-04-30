@@ -4,6 +4,7 @@ import com.neoremote.android.core.model.DragState
 import com.neoremote.android.core.model.MouseButtonKind
 import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
+import com.neoremote.android.core.model.ScreenGestureKind
 import com.neoremote.android.core.model.SystemAction
 import com.neoremote.android.core.model.VideoActionKind
 import kotlinx.serialization.json.Json
@@ -11,6 +12,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
 class ProtocolCodec {
@@ -57,6 +59,16 @@ class ProtocolCodec {
             is RemoteCommand.VideoAction -> {
                     put("type", "videoAction")
                     put("action", command.action.protocolName)
+            }
+
+            is RemoteCommand.ScreenGesture -> {
+                    put("type", "screenGesture")
+                    put("kind", command.kind.protocolName)
+                    put("startX", command.startX)
+                    put("startY", command.startY)
+                    put("endX", command.endX)
+                    put("endY", command.endY)
+                    put("durationMs", command.durationMs)
             }
 
                 RemoteCommand.Heartbeat -> put("type", "heartbeat")
@@ -114,6 +126,15 @@ class ProtocolCodec {
                 action = payload.string("action").toVideoActionKind(),
             )
 
+            "screenGesture" -> RemoteCommand.ScreenGesture(
+                kind = payload.string("kind").toScreenGestureKind(),
+                startX = payload.double("startX"),
+                startY = payload.double("startY"),
+                endX = payload.double("endX"),
+                endY = payload.double("endY"),
+                durationMs = payload.long("durationMs").takeIf { it > 0L } ?: 180L,
+            )
+
             "heartbeat" -> RemoteCommand.Heartbeat
             else -> throw IllegalArgumentException("未识别的命令类型：${payload.string("type")}")
         }
@@ -148,6 +169,7 @@ private val VideoActionKind.protocolName: String
         VideoActionKind.SWIPE_LEFT -> "swipeLeft"
         VideoActionKind.SWIPE_RIGHT -> "swipeRight"
         VideoActionKind.DOUBLE_TAP_LIKE -> "doubleTapLike"
+        VideoActionKind.FAVORITE -> "favorite"
         VideoActionKind.PLAY_PAUSE -> "playPause"
         VideoActionKind.BACK -> "back"
         VideoActionKind.UNKNOWN -> "unknown"
@@ -159,9 +181,25 @@ private fun String.toVideoActionKind(): VideoActionKind = when (this) {
     "swipeLeft" -> VideoActionKind.SWIPE_LEFT
     "swipeRight" -> VideoActionKind.SWIPE_RIGHT
     "doubleTapLike" -> VideoActionKind.DOUBLE_TAP_LIKE
+    "favorite" -> VideoActionKind.FAVORITE
     "playPause" -> VideoActionKind.PLAY_PAUSE
     "back" -> VideoActionKind.BACK
     else -> VideoActionKind.UNKNOWN
+}
+
+private val ScreenGestureKind.protocolName: String
+    get() = when (this) {
+        ScreenGestureKind.TAP -> "tap"
+        ScreenGestureKind.LONG_PRESS -> "longPress"
+        ScreenGestureKind.SWIPE -> "swipe"
+        ScreenGestureKind.UNKNOWN -> "unknown"
+    }
+
+private fun String.toScreenGestureKind(): ScreenGestureKind = when (this) {
+    "tap" -> ScreenGestureKind.TAP
+    "longPress" -> ScreenGestureKind.LONG_PRESS
+    "swipe" -> ScreenGestureKind.SWIPE
+    else -> ScreenGestureKind.UNKNOWN
 }
 
 private fun kotlinx.serialization.json.JsonObject.string(key: String): String =
@@ -173,3 +211,6 @@ private fun kotlinx.serialization.json.JsonObject.string(key: String): String =
 
 private fun kotlinx.serialization.json.JsonObject.double(key: String): Double =
     this[key]?.jsonPrimitive?.doubleOrNull ?: 0.0
+
+private fun kotlinx.serialization.json.JsonObject.long(key: String): Long =
+    this[key]?.jsonPrimitive?.longOrNull ?: 0L

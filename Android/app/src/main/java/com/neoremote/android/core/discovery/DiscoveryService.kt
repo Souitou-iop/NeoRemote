@@ -22,6 +22,7 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.SocketTimeoutException
+import java.util.Collections
 
 interface DiscoveryService {
     var onUpdate: ((List<DesktopEndpoint>) -> Unit)?
@@ -150,6 +151,10 @@ class AndroidNsdDiscoveryService(
                     lastSeenAt = System.currentTimeMillis(),
                     source = EndpointSource.DISCOVERED,
                 )
+                if (endpoint.isLocalAndroidReceiver()) {
+                    Log.d(TAG, "Ignoring local Android receiver service: ${endpoint.displayName}@$host")
+                    return
+                }
                 remember(endpoint)
             }
         })
@@ -219,17 +224,20 @@ class AndroidNsdDiscoveryService(
         val platform = fields["platform"].toDesktopPlatform() ?: name.inferPlatform()
         val host = packet.address.hostAddress ?: return
         Log.d(TAG, "UDP fallback resolved: name=$name host=$host port=$port platform=$platform")
-        remember(
-            DesktopEndpoint(
-                id = "$name-$host-$port-udp",
-                displayName = name,
-                host = host,
-                port = port,
-                platform = platform,
-                lastSeenAt = System.currentTimeMillis(),
-                source = EndpointSource.DISCOVERED,
-            ),
+        val endpoint = DesktopEndpoint(
+            id = "$name-$host-$port-udp",
+            displayName = name,
+            host = host,
+            port = port,
+            platform = platform,
+            lastSeenAt = System.currentTimeMillis(),
+            source = EndpointSource.DISCOVERED,
         )
+        if (endpoint.isLocalAndroidReceiver()) {
+            Log.d(TAG, "Ignoring local Android receiver UDP response: $name@$host")
+            return
+        }
+        remember(endpoint)
     }
 
     private fun remember(endpoint: DesktopEndpoint) {
@@ -279,6 +287,37 @@ class AndroidNsdDiscoveryService(
         const val UDP_DISCOVERY_RETRY_DELAY_MS = 350L
     }
 }
+
+private fun DesktopEndpoint.isLocalAndroidReceiver(): Boolean {
+    if (platform != DesktopPlatform.ANDROID) return false
+    val normalizedHost = host.normalizeHost()
+    return normalizedHost in localHostAddressNames()
+}
+
+private fun localHostAddressNames(): Set<String> {
+    val addresses = linkedSetOf(
+        "localhost",
+        "127.0.0.1",
+        "::1",
+        "0:0:0:0:0:0:0:1",
+    )
+    runCatching {
+        Collections.list(NetworkInterface.getNetworkInterfaces())
+            .filter { it.isUp }
+            .flatMap { networkInterface -> Collections.list(networkInterface.inetAddresses) }
+            .forEach { address ->
+                address.hostAddress?.normalizeHost()?.takeIf { it.isNotBlank() }?.let(addresses::add)
+                address.hostName.normalizeHost().takeIf { it.isNotBlank() }?.let(addresses::add)
+            }
+    }.onFailure { Log.w("NeoRemoteDiscovery", "Failed to enumerate local addresses", it) }
+    return addresses
+}
+
+private fun String.normalizeHost(): String =
+    trim()
+        .trimEnd('.')
+        .substringBefore('%')
+        .lowercase()
 
 class FakeDiscoveryService(
     var cannedResults: List<DesktopEndpoint> = emptyList(),

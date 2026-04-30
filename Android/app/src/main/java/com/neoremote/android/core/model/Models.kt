@@ -73,8 +73,21 @@ enum class VideoActionKind {
     SWIPE_LEFT,
     SWIPE_RIGHT,
     DOUBLE_TAP_LIKE,
+    FAVORITE,
     PLAY_PAUSE,
     BACK,
+    UNKNOWN,
+}
+
+enum class ControlMode {
+    SCREEN_CONTROL,
+    SHORT_VIDEO,
+}
+
+enum class ScreenGestureKind {
+    TAP,
+    LONG_PRESS,
+    SWIPE,
     UNKNOWN,
 }
 
@@ -98,6 +111,14 @@ sealed interface RemoteCommand {
     ) : RemoteCommand
     data class SystemActionCommand(val action: SystemAction) : RemoteCommand
     data class VideoAction(val action: VideoActionKind) : RemoteCommand
+    data class ScreenGesture(
+        val kind: ScreenGestureKind,
+        val startX: Double,
+        val startY: Double,
+        val endX: Double = startX,
+        val endY: Double = startY,
+        val durationMs: Long = 180L,
+    ) : RemoteCommand
     data object Heartbeat : RemoteCommand
 }
 
@@ -175,6 +196,7 @@ data class SessionUiState(
     val activeEndpoint: DesktopEndpoint? = null,
     val lastConnectedEndpoint: DesktopEndpoint? = null,
     val lastHudMessage: String? = null,
+    val controlMode: ControlMode = ControlMode.SCREEN_CONTROL,
     val hapticsEnabled: Boolean = true,
     val touchSensitivitySettings: TouchSensitivitySettings = TouchSensitivitySettings(),
     val errorMessage: String? = null,

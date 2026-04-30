@@ -31,7 +31,13 @@ private struct CommandEnvelope: Codable {
     let deltaY: Double?
     let button: MouseButtonKind?
     let state: DragState?
-    let action: VideoActionKind?
+    let action: String?
+    let kind: ScreenGestureKind?
+    let startX: Double?
+    let startY: Double?
+    let endX: Double?
+    let endY: Double?
+    let durationMs: Int?
     let clientId: String?
     let displayName: String?
     let platform: String?
@@ -47,6 +53,12 @@ private struct CommandEnvelope: Codable {
             button = nil
             state = nil
             action = nil
+            self.kind = nil
+            startX = nil
+            startY = nil
+            endX = nil
+            endY = nil
+            durationMs = nil
             clientId = payload.clientId
             displayName = payload.displayName
             platform = payload.platform
@@ -59,6 +71,12 @@ private struct CommandEnvelope: Codable {
             button = nil
             state = nil
             action = nil
+            self.kind = nil
+            startX = nil
+            startY = nil
+            endX = nil
+            endY = nil
+            durationMs = nil
             clientId = nil
             displayName = nil
             platform = nil
@@ -71,6 +89,12 @@ private struct CommandEnvelope: Codable {
             button = kind
             state = nil
             action = nil
+            self.kind = nil
+            startX = nil
+            startY = nil
+            endX = nil
+            endY = nil
+            durationMs = nil
             clientId = nil
             displayName = nil
             platform = nil
@@ -83,6 +107,12 @@ private struct CommandEnvelope: Codable {
             button = nil
             state = nil
             action = nil
+            self.kind = nil
+            startX = nil
+            startY = nil
+            endX = nil
+            endY = nil
+            durationMs = nil
             clientId = nil
             displayName = nil
             platform = nil
@@ -95,6 +125,30 @@ private struct CommandEnvelope: Codable {
             self.button = button
             self.state = state
             action = nil
+            self.kind = nil
+            startX = nil
+            startY = nil
+            endX = nil
+            endY = nil
+            durationMs = nil
+            clientId = nil
+            displayName = nil
+            platform = nil
+        case let .systemAction(action):
+            type = "systemAction"
+            dx = nil
+            dy = nil
+            deltaX = nil
+            deltaY = nil
+            button = nil
+            state = nil
+            self.action = action.rawValue
+            self.kind = nil
+            startX = nil
+            startY = nil
+            endX = nil
+            endY = nil
+            durationMs = nil
             clientId = nil
             displayName = nil
             platform = nil
@@ -106,7 +160,31 @@ private struct CommandEnvelope: Codable {
             deltaY = nil
             button = nil
             state = nil
-            self.action = action
+            self.action = action.rawValue
+            self.kind = nil
+            startX = nil
+            startY = nil
+            endX = nil
+            endY = nil
+            durationMs = nil
+            clientId = nil
+            displayName = nil
+            platform = nil
+        case let .screenGesture(kind, startX, startY, endX, endY, durationMs):
+            type = "screenGesture"
+            dx = nil
+            dy = nil
+            deltaX = nil
+            deltaY = nil
+            button = nil
+            state = nil
+            action = nil
+            self.kind = kind
+            self.startX = startX
+            self.startY = startY
+            self.endX = endX
+            self.endY = endY
+            self.durationMs = durationMs
             clientId = nil
             displayName = nil
             platform = nil
@@ -119,6 +197,12 @@ private struct CommandEnvelope: Codable {
             button = nil
             state = nil
             action = nil
+            self.kind = nil
+            startX = nil
+            startY = nil
+            endX = nil
+            endY = nil
+            durationMs = nil
             clientId = nil
             displayName = nil
             platform = nil

@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import com.neoremote.android.core.model.DragState
 import com.neoremote.android.core.model.MouseButtonKind
 import com.neoremote.android.core.model.RemoteCommand
+import com.neoremote.android.core.model.ScreenGestureKind
 import com.neoremote.android.core.model.SystemAction
 import com.neoremote.android.core.model.VideoActionKind
 import com.neoremote.android.core.receiver.MobileInputAction
@@ -139,6 +140,59 @@ class MobileInputPlannerTest {
         assertThat(actions).containsExactly(
             MobileInputAction.TapAt(PointerPosition(220f, 400f), showTrail = false),
             MobileInputAction.TapAt(PointerPosition(220f, 400f), showTrail = false),
+        )
+    }
+
+    @Test
+    fun `video favorite taps right side favorite area`() {
+        val planner = MobileInputPlanner(400, 800)
+
+        val actions = planner.apply(RemoteCommand.VideoAction(VideoActionKind.FAVORITE))
+
+        assertThat(actions).containsExactly(
+            MobileInputAction.TapAt(PointerPosition(344f, 480f), showTrail = false),
+        )
+    }
+
+    @Test
+    fun `screen gesture tap maps normalized coordinates to viewport`() {
+        val planner = MobileInputPlanner(400, 800)
+
+        val actions = planner.apply(
+            RemoteCommand.ScreenGesture(
+                kind = ScreenGestureKind.TAP,
+                startX = 0.25,
+                startY = 0.75,
+            ),
+        )
+
+        assertThat(actions).containsExactly(
+            MobileInputAction.TapAt(PointerPosition(100f, 600f), showTrail = false),
+        )
+    }
+
+    @Test
+    fun `screen gesture swipe maps normalized coordinates to viewport`() {
+        val planner = MobileInputPlanner(400, 800)
+
+        val actions = planner.apply(
+            RemoteCommand.ScreenGesture(
+                kind = ScreenGestureKind.SWIPE,
+                startX = 0.25,
+                startY = 0.75,
+                endX = 0.75,
+                endY = 0.25,
+                durationMs = 260L,
+            ),
+        )
+
+        assertThat(actions).containsExactly(
+            MobileInputAction.Swipe(
+                from = PointerPosition(100f, 600f),
+                to = PointerPosition(300f, 200f),
+                durationMs = 260L,
+                showTrail = false,
+            ),
         )
     }
 }

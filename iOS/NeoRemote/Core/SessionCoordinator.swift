@@ -26,6 +26,7 @@ final class SessionCoordinator: ObservableObject {
     @Published var lastHUDMessage: String?
     @Published var errorMessage: String?
     @Published var isHapticsEnabled: Bool
+    @Published var controlMode: ControlMode
     @Published var touchSensitivitySettings: TouchSensitivitySettings
     @Published var statusMessage: String = "等待连接桌面端"
     @Published var manualConnectDraft = ManualConnectDraft()
@@ -43,6 +44,7 @@ final class SessionCoordinator: ObservableObject {
         self.codec = codec
         self.haptics = haptics
         self.isHapticsEnabled = registry.loadHapticsEnabled()
+        self.controlMode = registry.loadControlMode()
         self.touchSensitivitySettings = registry.loadTouchSensitivitySettings()
 
         self.haptics.isEnabled = self.isHapticsEnabled
@@ -187,6 +189,11 @@ final class SessionCoordinator: ObservableObject {
         )
     }
 
+    func setControlMode(_ mode: ControlMode) {
+        controlMode = mode
+        registry.saveControlMode(mode)
+    }
+
     func enterDemoMode() {
         heartbeatTask?.cancel()
         heartbeatTask = nil
@@ -249,6 +256,43 @@ final class SessionCoordinator: ObservableObject {
         send(.videoAction(action))
         haptics.playTap()
         showHUD(action.displayName)
+    }
+
+    func sendSystemAction(_ action: SystemActionKind) {
+        send(.systemAction(action))
+        haptics.playTap()
+        showHUD(action.displayName)
+    }
+
+    func sendScreenGesture(
+        kind: ScreenGestureKind,
+        startX: Double,
+        startY: Double,
+        endX: Double,
+        endY: Double,
+        durationMs: Int
+    ) {
+        send(
+            .screenGesture(
+                kind: kind,
+                startX: startX,
+                startY: startY,
+                endX: endX,
+                endY: endY,
+                durationMs: durationMs
+            )
+        )
+        haptics.playTap()
+        switch kind {
+        case .tap:
+            showHUD("点击")
+        case .longPress:
+            showHUD("长按")
+        case .swipe:
+            showHUD("滑动")
+        case .unknown:
+            showHUD("未知手势")
+        }
     }
 
     private func bindDiscovery() {
@@ -359,6 +403,19 @@ final class SessionCoordinator: ObservableObject {
             }
         case let .videoAction(action):
             statusMessage = action.displayName
+        case let .systemAction(action):
+            statusMessage = action.displayName
+        case let .screenGesture(kind, _, _, _, _, _):
+            switch kind {
+            case .tap:
+                statusMessage = "屏幕点击"
+            case .longPress:
+                statusMessage = "屏幕长按"
+            case .swipe:
+                statusMessage = "屏幕滑动"
+            case .unknown:
+                break
+            }
         case .heartbeat:
             break
         }

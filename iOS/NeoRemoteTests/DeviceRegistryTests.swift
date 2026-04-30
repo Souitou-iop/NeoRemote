@@ -123,4 +123,12 @@ final class DeviceRegistryTests: XCTestCase {
             TouchSensitivitySettings(cursorSensitivity: 2.5, swipeSensitivity: 0.5)
         )
     }
+
+    func testControlModeDefaultsToScreenControlAndRoundTrips() {
+        XCTAssertEqual(registry.loadControlMode(), .screenControl)
+
+        registry.saveControlMode(.shortVideo)
+
+        XCTAssertEqual(registry.loadControlMode(), .shortVideo)
+    }
 }

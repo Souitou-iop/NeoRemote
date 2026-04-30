@@ -7,8 +7,21 @@ struct DevicesView: View {
         NavigationStack {
             List {
                 if let activeEndpoint = coordinator.activeEndpoint {
-                    Section("当前连接") {
+                    Section("控制状态") {
                         DeviceRow(endpoint: activeEndpoint, detail: "实时控制中")
+                        LabeledContent("状态") {
+                            Text(coordinator.status.rawValue)
+                        }
+                        LabeledContent("控制模式") {
+                            Text(coordinator.controlMode.displayName)
+                        }
+                        LabeledContent("地址") {
+                            Text("\(activeEndpoint.host):\(activeEndpoint.port)")
+                                .monospacedDigit()
+                        }
+                        Button("断开当前连接") {
+                            coordinator.disconnect()
+                        }
                     }
                 }
 

@@ -92,6 +92,7 @@ enum VideoActionKind: String, Codable, CaseIterable {
     case swipeLeft
     case swipeRight
     case doubleTapLike
+    case favorite
     case playPause
     case back
 
@@ -106,13 +107,55 @@ enum VideoActionKind: String, Codable, CaseIterable {
         case .swipeRight:
             return "右滑"
         case .doubleTapLike:
-            return "双击点赞"
+            return "点赞"
+        case .favorite:
+            return "收藏"
         case .playPause:
             return "播放/暂停"
         case .back:
             return "返回"
         }
     }
+}
+
+enum SystemActionKind: String, Codable, CaseIterable {
+    case back
+    case home
+    case recents
+
+    var displayName: String {
+        switch self {
+        case .back:
+            return "返回"
+        case .home:
+            return "桌面"
+        case .recents:
+            return "后台"
+        }
+    }
+}
+
+enum ControlMode: String, Codable, CaseIterable, Identifiable {
+    case screenControl
+    case shortVideo
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .screenControl:
+            return "屏幕控制"
+        case .shortVideo:
+            return "短视频"
+        }
+    }
+}
+
+enum ScreenGestureKind: String, Codable, CaseIterable {
+    case tap
+    case longPress
+    case swipe
+    case unknown
 }
 
 struct ClientHelloPayload: Codable, Equatable {
@@ -127,7 +170,16 @@ enum RemoteCommand: Equatable {
     case tap(kind: MouseButtonKind)
     case scroll(deltaX: Double = 0, deltaY: Double = 0)
     case drag(state: DragState, button: MouseButtonKind, dx: Double, dy: Double)
+    case systemAction(SystemActionKind)
     case videoAction(VideoActionKind)
+    case screenGesture(
+        kind: ScreenGestureKind,
+        startX: Double,
+        startY: Double,
+        endX: Double,
+        endY: Double,
+        durationMs: Int
+    )
     case heartbeat
 }
 
