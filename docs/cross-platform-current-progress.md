@@ -22,10 +22,10 @@
 
 现在的真实状态是：
 
-- iOS 端已经能作为控制端发出远控协议命令
-- macOS 端已经能作为接收端运行并执行基础控制
-- Android 控制端尚未开始
-- Windows 接收端尚未开始
+- iOS 端已经能作为移动控制端发出远控协议命令
+- Android 端已经能作为移动端接收器运行，并支持短视频控制场景
+- macOS 端已经能作为桌面接收端运行并执行基础控制
+- Windows 接收端已具备构建产物链路
 
 后续目标不再只是 “iOS -> MacOS”，而是逐步形成下面这套形态：
 
@@ -134,7 +134,7 @@ Windows 首版定位必须是：
 
 ## 当前跨平台协议基线
 
-Android、MacOS、Windows 后续都需要围绕同一协议基线实现。首版不要自行扩展。
+Android、iOS、MacOS、Windows 后续都需要围绕同一协议基线实现。首版扩展必须保持 JSON v1 兼容。
 
 ### 服务发现
 
@@ -151,6 +151,10 @@ Android、MacOS、Windows 后续都需要围绕同一协议基线实现。首版
 - `tap(kind)`
 - `scroll(deltaY)`
 - `drag(state, dx, dy)`
+- `screenGesture(kind, startX, startY, endX, endY, durationMs)`
+- `videoAction(action)`
+- `videoStateRequest`
+- `systemAction(action)`
 - `heartbeat`
 
 示例：
@@ -162,6 +166,10 @@ Android、MacOS、Windows 后续都需要围绕同一协议基线实现。首版
 { "type": "drag", "state": "started", "dx": 0.0, "dy": 0.0 }
 { "type": "drag", "state": "changed", "dx": 5.0, "dy": -2.0 }
 { "type": "drag", "state": "ended", "dx": 0.0, "dy": 0.0 }
+{ "type": "screenGesture", "kind": "swipe", "startX": 0.5, "startY": 0.8, "endX": 0.5, "endY": 0.2, "durationMs": 220 }
+{ "type": "videoAction", "action": "favorite" }
+{ "type": "videoStateRequest" }
+{ "type": "systemAction", "action": "back" }
 { "type": "heartbeat" }
 ```
 
@@ -169,6 +177,7 @@ Android、MacOS、Windows 后续都需要围绕同一协议基线实现。首版
 
 - `ack`
 - `status(message)`
+- `videoState(targetPackage, likeState, favoriteState)`
 - `heartbeat`
 
 示例：
@@ -176,8 +185,15 @@ Android、MacOS、Windows 后续都需要围绕同一协议基线实现。首版
 ```json
 { "type": "ack" }
 { "type": "status", "message": "已连接 Desktop" }
+{ "type": "videoState", "targetPackage": "com.ss.android.ugc.aweme", "likeState": "active", "favoriteState": "inactive" }
 { "type": "heartbeat" }
 ```
+
+### 短视频控制约束
+
+- `videoAction(doubleTapLike)` 和 `videoAction(favorite)` 在 Android 接收器上通过无障碍服务点击抖音按钮，不再使用坐标回退。
+- Android 接收器会缓存已识别的抖音点赞/收藏节点，命令到达时优先点击缓存节点，缓存失效才扫描当前窗口。
+- `videoStateRequest / videoState` 保留为协议兼容能力；移动控制端不应依赖状态识别改变点赞/收藏按钮颜色，也不应在每次动作后强制刷新状态。
 
 ## 跨平台硬约束
 
@@ -194,7 +210,7 @@ Android、MacOS、Windows 后续都需要围绕同一协议基线实现。首版
 ### 协议约束
 
 - 必须复用当前 JSON v1 协议语义
-- 不要自行新增消息类型
+- 不要自行新增不兼容的消息类型
 - 不要修改现有字段名
 - 不要调整默认端口
 - 不要把心跳、状态消息或 busy 语义改成平台自定义版本

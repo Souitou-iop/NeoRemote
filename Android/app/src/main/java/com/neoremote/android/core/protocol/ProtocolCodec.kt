@@ -6,7 +6,9 @@ import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.model.ScreenGestureKind
 import com.neoremote.android.core.model.SystemAction
+import com.neoremote.android.core.model.ToggleState
 import com.neoremote.android.core.model.VideoActionKind
+import com.neoremote.android.core.model.VideoInteractionState
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
@@ -71,7 +73,31 @@ class ProtocolCodec {
                     put("durationMs", command.durationMs)
             }
 
+                RemoteCommand.RequestVideoState -> put("type", "videoStateRequest")
                 RemoteCommand.Heartbeat -> put("type", "heartbeat")
+            }
+        }
+        return payload.toString().encodeToByteArray()
+    }
+
+    fun encode(message: ProtocolMessage): ByteArray {
+        val payload = buildJsonObject {
+            when (message) {
+                ProtocolMessage.Ack -> put("type", "ack")
+                ProtocolMessage.Heartbeat -> put("type", "heartbeat")
+                is ProtocolMessage.Status -> {
+                    put("type", "status")
+                    put("message", message.message)
+                }
+                is ProtocolMessage.VideoState -> {
+                    put("type", "videoState")
+                    put("targetPackage", message.state.targetPackage)
+                    put("likeState", message.state.likeState.protocolName)
+                    put("favoriteState", message.state.favoriteState.protocolName)
+                }
+                is ProtocolMessage.Unknown -> {
+                    put("type", message.type)
+                }
             }
         }
         return payload.toString().encodeToByteArray()
@@ -82,6 +108,13 @@ class ProtocolCodec {
         return when (payload.string("type")) {
             "ack" -> ProtocolMessage.Ack
             "status" -> ProtocolMessage.Status(payload.string("message"))
+            "videoState" -> ProtocolMessage.VideoState(
+                VideoInteractionState(
+                    targetPackage = payload.string("targetPackage"),
+                    likeState = payload.string("likeState").toToggleState(),
+                    favoriteState = payload.string("favoriteState").toToggleState(),
+                ),
+            )
             "heartbeat" -> ProtocolMessage.Heartbeat
             else -> ProtocolMessage.Unknown(payload.string("type"))
         }
@@ -135,6 +168,7 @@ class ProtocolCodec {
                 durationMs = payload.long("durationMs").takeIf { it > 0L } ?: 180L,
             )
 
+            "videoStateRequest" -> RemoteCommand.RequestVideoState
             "heartbeat" -> RemoteCommand.Heartbeat
             else -> throw IllegalArgumentException("未识别的命令类型：${payload.string("type")}")
         }
@@ -185,6 +219,19 @@ private fun String.toVideoActionKind(): VideoActionKind = when (this) {
     "playPause" -> VideoActionKind.PLAY_PAUSE
     "back" -> VideoActionKind.BACK
     else -> VideoActionKind.UNKNOWN
+}
+
+private val ToggleState.protocolName: String
+    get() = when (this) {
+        ToggleState.ACTIVE -> "active"
+        ToggleState.INACTIVE -> "inactive"
+        ToggleState.UNKNOWN -> "unknown"
+    }
+
+private fun String.toToggleState(): ToggleState = when (this) {
+    "active" -> ToggleState.ACTIVE
+    "inactive" -> ToggleState.INACTIVE
+    else -> ToggleState.UNKNOWN
 }
 
 private val ScreenGestureKind.protocolName: String

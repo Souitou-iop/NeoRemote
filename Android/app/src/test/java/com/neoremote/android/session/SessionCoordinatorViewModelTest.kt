@@ -84,6 +84,39 @@ class SessionCoordinatorViewModelTest {
     }
 
     @Test
+    fun `discovered devices are grouped into desktop and mobile endpoints`() = runTest(dispatcher) {
+        val mac = DesktopEndpoint(
+            displayName = "Mac mini",
+            host = "192.168.1.2",
+            port = 50505,
+            platform = DesktopPlatform.MAC_OS,
+            source = EndpointSource.DISCOVERED,
+        )
+        val android = DesktopEndpoint(
+            displayName = "Android Tablet",
+            host = "192.168.1.3",
+            port = 51101,
+            platform = DesktopPlatform.ANDROID,
+            source = EndpointSource.DISCOVERED,
+        )
+        val legacyDesktop = DesktopEndpoint(
+            displayName = "Legacy Desktop",
+            host = "192.168.1.4",
+            port = 50505,
+            source = EndpointSource.DISCOVERED,
+        )
+        discoveryService.cannedResults = listOf(mac, android, legacyDesktop)
+
+        viewModel.start()
+        runCurrent()
+
+        assertThat(viewModel.uiState.value.discoveredDesktopDevices)
+            .containsExactly(mac, legacyDesktop)
+            .inOrder()
+        assertThat(viewModel.uiState.value.discoveredMobileDevices).containsExactly(android)
+    }
+
+    @Test
     fun `start hides endpoint that matches local Android receiver`() = runTest(dispatcher) {
         val selfEndpoint = DesktopEndpoint(
             displayName = "NeoRemote Android This Device",
@@ -113,7 +146,7 @@ class SessionCoordinatorViewModelTest {
         runCurrent()
 
         assertThat(viewModel.uiState.value.discoveredDevices).containsExactly(otherEndpoint)
-        assertThat(viewModel.uiState.value.statusMessage).isEqualTo("发现 1 台桌面端")
+        assertThat(viewModel.uiState.value.statusMessage).isEqualTo("发现 1 台设备")
     }
 
     @Test

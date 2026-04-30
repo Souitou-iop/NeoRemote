@@ -69,7 +69,7 @@ fun OnboardingScreen(
                         onClick = {
                             onRefreshDiscovery()
                             hiddenRefreshTapCount += 1
-                            if (hiddenRefreshTapCount >= 5) {
+                            if (hiddenRefreshTapCount >= 10) {
                                 hiddenRefreshTapCount = 0
                                 onEnterDemoMode()
                             }
@@ -128,27 +128,27 @@ fun OnboardingScreen(
                 }
             }
 
-            if (state.discoveredDevices.isNotEmpty()) {
+            if (state.discoveredDesktopDevices.isNotEmpty()) {
                 item {
-                    Text("附近设备", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("附近桌面端", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
                 itemsIndexed(
-                    state.discoveredDevices,
-                    key = { index, device -> "discovered-$index-${device.id}-${device.addressText}" },
+                    state.discoveredDesktopDevices,
+                    key = { index, device -> "discovered-desktop-$index-${device.id}-${device.addressText}" },
                 ) { _, device ->
                     DeviceCard(endpoint = device, actionLabel = "连接") { onConnect(device) }
                 }
             }
 
-            if (state.recentDevices.isNotEmpty()) {
+            if (state.discoveredMobileDevices.isNotEmpty()) {
                 item {
-                    Text("最近连接", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("附近移动端", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
                 itemsIndexed(
-                    state.recentDevices,
-                    key = { index, device -> "recent-$index-${device.id}-${device.addressText}" },
+                    state.discoveredMobileDevices,
+                    key = { index, device -> "discovered-mobile-$index-${device.id}-${device.addressText}" },
                 ) { _, device ->
-                    DeviceCard(endpoint = device, actionLabel = "恢复") { onConnect(device) }
+                    DeviceCard(endpoint = device, actionLabel = "连接") { onConnect(device) }
                 }
             }
 

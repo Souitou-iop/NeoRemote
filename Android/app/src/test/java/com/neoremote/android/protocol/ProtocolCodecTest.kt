@@ -7,6 +7,8 @@ import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.model.ScreenGestureKind
 import com.neoremote.android.core.model.SystemAction
+import com.neoremote.android.core.model.ToggleState
+import com.neoremote.android.core.model.VideoInteractionState
 import com.neoremote.android.core.model.VideoActionKind
 import com.neoremote.android.core.protocol.ProtocolCodec
 import org.junit.Test
@@ -28,6 +30,30 @@ class ProtocolCodecTest {
         val message = codec.decodeMessage("""{"type":"status","message":"desktop-ready"}""".encodeToByteArray())
 
         assertThat(message).isEqualTo(ProtocolMessage.Status("desktop-ready"))
+    }
+
+    @Test
+    fun `decode video state message keeps target package and toggle states`() {
+        val message = codec.decodeMessage(
+            """
+            {
+              "type":"videoState",
+              "targetPackage":"com.ss.android.ugc.aweme",
+              "likeState":"active",
+              "favoriteState":"inactive"
+            }
+            """.trimIndent().encodeToByteArray(),
+        )
+
+        assertThat(message).isEqualTo(
+            ProtocolMessage.VideoState(
+                VideoInteractionState(
+                    targetPackage = "com.ss.android.ugc.aweme",
+                    likeState = ToggleState.ACTIVE,
+                    favoriteState = ToggleState.INACTIVE,
+                ),
+            ),
+        )
     }
 
     @Test
@@ -118,6 +144,15 @@ class ProtocolCodecTest {
         assertThat(encoded.decodeToString()).contains("\"type\":\"videoAction\"")
         assertThat(encoded.decodeToString()).contains("\"action\":\"favorite\"")
         assertThat(command).isEqualTo(RemoteCommand.VideoAction(VideoActionKind.FAVORITE))
+    }
+
+    @Test
+    fun `encode and decode video state request command`() {
+        val encoded = codec.encode(RemoteCommand.RequestVideoState)
+        val command = codec.decodeCommand(encoded)
+
+        assertThat(encoded.decodeToString()).contains("\"type\":\"videoStateRequest\"")
+        assertThat(command).isEqualTo(RemoteCommand.RequestVideoState)
     }
 
     @Test

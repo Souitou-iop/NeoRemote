@@ -92,7 +92,7 @@ class SessionCoordinatorViewModel(
         _uiState.update {
             it.copy(
                 status = if (it.activeEndpoint == null) SessionStatus.DISCOVERING else it.status,
-                statusMessage = "重新扫描桌面端",
+                statusMessage = "重新扫描局域网设备",
             )
         }
         discoveryService.refresh()
@@ -342,7 +342,7 @@ class SessionCoordinatorViewModel(
                             current.copy(
                                 discoveredDevices = visibleDevices,
                                 status = SessionStatus.DISCOVERING,
-                                statusMessage = "暂未发现桌面端，可手动输入地址",
+                                statusMessage = "暂未发现设备，可手动输入地址",
                             )
                         }
 
@@ -350,7 +350,7 @@ class SessionCoordinatorViewModel(
                             current.copy(
                                 discoveredDevices = visibleDevices,
                                 status = SessionStatus.DISCONNECTED,
-                                statusMessage = "发现 ${visibleDevices.size} 台桌面端",
+                                statusMessage = "发现 ${visibleDevices.size} 台设备",
                             )
                         }
 
@@ -439,6 +439,8 @@ class SessionCoordinatorViewModel(
                 _uiState.update { it.copy(statusMessage = message.message) }
             }
 
+            is ProtocolMessage.VideoState -> Unit
+
             ProtocolMessage.Heartbeat -> {
                 _uiState.update { it.copy(statusMessage = "桌面端在线") }
             }
@@ -471,6 +473,7 @@ class SessionCoordinatorViewModel(
                         ScreenGestureKind.UNKNOWN -> it.statusMessage
                     }
                     is RemoteCommand.Tap -> it.statusMessage
+                    RemoteCommand.RequestVideoState -> it.statusMessage
                     RemoteCommand.Heartbeat -> it.statusMessage
                 },
             )

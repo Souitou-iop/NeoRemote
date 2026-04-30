@@ -13,19 +13,19 @@ struct OnboardingShellView: View {
                     heroSection
                     connectionStatusSection
 
-                    if !coordinator.discoveredDevices.isEmpty {
+                    if !coordinator.discoveredDesktopDevices.isEmpty {
                         deviceSection(
-                            title: "附近设备",
-                            subtitle: "自动发现到的桌面端或 Android 被控端",
-                            devices: coordinator.discoveredDevices
+                            title: "附近桌面端",
+                            subtitle: "自动发现到的 Desktop 接收端",
+                            devices: coordinator.discoveredDesktopDevices
                         )
                     }
 
-                    if !coordinator.recentDevices.isEmpty {
+                    if !coordinator.discoveredMobileDevices.isEmpty {
                         deviceSection(
-                            title: "最近连接",
-                            subtitle: "下次进入时会优先恢复这些设备",
-                            devices: coordinator.recentDevices
+                            title: "附近移动端",
+                            subtitle: "自动发现到的 Android 被控端",
+                            devices: coordinator.discoveredMobileDevices
                         )
                     }
 
@@ -205,7 +205,7 @@ struct OnboardingShellView: View {
     private func handleRefreshButtonTap() {
         coordinator.refreshDiscovery()
         hiddenRefreshTapCount += 1
-        if hiddenRefreshTapCount >= 5 {
+        if hiddenRefreshTapCount >= 10 {
             hiddenRefreshTapCount = 0
             coordinator.enterDemoMode()
         }

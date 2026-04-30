@@ -108,6 +108,7 @@ class MobileInputPlanner(
             is RemoteCommand.VideoAction -> handleVideoAction(command.action)
             is RemoteCommand.ScreenGesture -> handleScreenGesture(command)
             is RemoteCommand.ClientHello,
+            RemoteCommand.RequestVideoState,
             RemoteCommand.Heartbeat,
             -> emptyList()
         }
@@ -165,8 +166,6 @@ class MobileInputPlanner(
 
     private fun handleVideoAction(action: VideoActionKind): List<MobileInputAction> {
         val center = PointerPosition(width * 0.5f, height * 0.5f)
-        val likePoint = PointerPosition(width * 0.55f, height * 0.5f)
-        val favoritePoint = PointerPosition(width * 0.86f, height * 3f / 5f)
         return when (action) {
             VideoActionKind.SWIPE_UP -> listOf(
                 MobileInputAction.Swipe(
@@ -204,12 +203,8 @@ class MobileInputPlanner(
                 ),
             )
 
-            VideoActionKind.DOUBLE_TAP_LIKE -> listOf(
-                MobileInputAction.TapAt(likePoint, showTrail = false),
-                MobileInputAction.TapAt(likePoint, showTrail = false),
-            )
-
-            VideoActionKind.FAVORITE -> listOf(MobileInputAction.TapAt(favoritePoint, showTrail = false))
+            VideoActionKind.DOUBLE_TAP_LIKE -> emptyList()
+            VideoActionKind.FAVORITE -> emptyList()
             VideoActionKind.PLAY_PAUSE -> listOf(MobileInputAction.TapAt(center, showTrail = false))
             VideoActionKind.BACK -> listOf(MobileInputAction.Global(SystemAction.BACK))
             VideoActionKind.UNKNOWN -> emptyList()

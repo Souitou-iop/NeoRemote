@@ -198,6 +198,116 @@ final class SessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(registry.loadControlMode(), .screenControl)
     }
 
+    func testSwitchingToShortVideoOnAndroidReceiverDoesNotRequestVideoState() async throws {
+        var transports: [ControlledRemoteTransport] = []
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: MockDiscoveryService(),
+            transportFactory: {
+                let transport = ControlledRemoteTransport()
+                transports.append(transport)
+                return transport
+            }
+        )
+        let endpoint = DesktopEndpoint(
+            displayName: "Android Phone",
+            host: "10.0.0.20",
+            port: 51101,
+            platform: .android,
+            source: .manual
+        )
+
+        coordinator.connect(to: endpoint)
+        let transport = try XCTUnwrap(transports.first)
+        transport.emitState(.connected)
+        await settleAsyncUpdates()
+        transport.sentPayloads.removeAll()
+
+        coordinator.setControlMode(.shortVideo)
+        await settleAsyncUpdates()
+
+        let commandTypes = try transport.sentPayloads.map { payload in
+            try XCTUnwrap(JSONSerialization.jsonObject(with: payload) as? [String: Any])["type"] as? String
+        }
+        XCTAssertFalse(commandTypes.contains("videoStateRequest"))
+    }
+
+    func testVideoStateMessageDoesNotChangeInteractionState() async {
+        var transports: [ControlledRemoteTransport] = []
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: MockDiscoveryService(),
+            transportFactory: {
+                let transport = ControlledRemoteTransport()
+                transports.append(transport)
+                return transport
+            }
+        )
+
+        coordinator.connect(
+            to: DesktopEndpoint(
+                displayName: "Android Phone",
+                host: "10.0.0.20",
+                port: 51101,
+                platform: .android,
+                source: .manual
+            )
+        )
+        transports.first?.emitState(.connected)
+        await settleAsyncUpdates()
+        transports.first?.emitMessage(
+            .videoState(
+                VideoInteractionState(
+                    targetPackage: "com.ss.android.ugc.aweme",
+                    likeState: .active,
+                    favoriteState: .inactive
+                )
+            )
+        )
+        await settleAsyncUpdates()
+
+        XCTAssertEqual(coordinator.videoInteractionState.likeState, .unknown)
+        XCTAssertEqual(coordinator.videoInteractionState.favoriteState, .unknown)
+    }
+
+    func testUnknownVideoStateDoesNotOverrideStatusMessage() async {
+        var transports: [ControlledRemoteTransport] = []
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: MockDiscoveryService(),
+            transportFactory: {
+                let transport = ControlledRemoteTransport()
+                transports.append(transport)
+                return transport
+            }
+        )
+
+        coordinator.connect(
+            to: DesktopEndpoint(
+                displayName: "Android Phone",
+                host: "10.0.0.20",
+                port: 51101,
+                platform: .android,
+                source: .manual
+            )
+        )
+        transports.first?.emitState(.connected)
+        await settleAsyncUpdates()
+        let connectedStatus = coordinator.statusMessage
+        transports.first?.emitMessage(
+            .videoState(
+                VideoInteractionState(
+                    targetPackage: "com.ss.android.ugc.aweme",
+                    likeState: .unknown,
+                    favoriteState: .unknown
+                )
+            )
+        )
+        await settleAsyncUpdates()
+
+        XCTAssertEqual(coordinator.statusMessage, connectedStatus)
+    }
+
     func testDefaultControlModePersistsWithoutChangingCurrentMode() {
         let coordinator = SessionCoordinator(
             registry: registry,
@@ -221,7 +331,7 @@ final class SessionCoordinatorTests: XCTestCase {
 private final class ControlledRemoteTransport: RemoteTransporting {
     var onStateChange: ((TransportConnectionState) -> Void)?
     var onMessage: ((ProtocolMessage) -> Void)?
-    private(set) var sentPayloads: [Data] = []
+    var sentPayloads: [Data] = []
 
     func connect(to _: DesktopEndpoint) {}
 

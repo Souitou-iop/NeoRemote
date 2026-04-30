@@ -1,6 +1,7 @@
 package com.neoremote.android.core.receiver
 
 import android.util.Log
+import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.protocol.JsonMessageStreamDecoder
 import com.neoremote.android.core.protocol.ProtocolCodec
@@ -15,8 +16,14 @@ import java.io.IOException
 import java.net.ServerSocket
 import java.net.Socket
 
-fun interface MobileCommandHandler {
-    fun handle(command: RemoteCommand): Boolean
+data class MobileCommandHandleResult(
+    val handled: Boolean,
+    val response: ProtocolMessage? = null,
+    val statusMessage: String? = null,
+)
+
+interface MobileCommandHandler {
+    fun handle(command: RemoteCommand): MobileCommandHandleResult
 }
 
 class MobileReceiverServer(
@@ -89,12 +96,17 @@ class MobileReceiverServer(
                 decoder.append(buffer.copyOf(bytesRead)).forEach { payload ->
                     val command = codec.decodeCommand(payload)
                     Log.d(TAG, "Android mobile receiver decoded command=$command")
-                    val handled = commandHandler.handle(command)
+                    val result = commandHandler.handle(command)
                     val response = when {
-                        command is RemoteCommand.Heartbeat -> """{"type":"heartbeat"}"""
-                        handled -> """{"type":"ack"}"""
-                        else -> """{"type":"status","message":"Android 被控端忽略了该命令"}"""
-                    }.encodeToByteArray()
+                        result.response != null -> codec.encode(result.response)
+                        command is RemoteCommand.Heartbeat -> codec.encode(ProtocolMessage.Heartbeat)
+                        result.handled -> codec.encode(ProtocolMessage.Ack)
+                        else -> codec.encode(
+                            ProtocolMessage.Status(
+                                result.statusMessage ?: "Android 被控端忽略了该命令",
+                            ),
+                        )
+                    }
                     client.getOutputStream().write(response)
                     client.getOutputStream().flush()
                 }

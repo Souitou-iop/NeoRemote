@@ -15,6 +15,14 @@ struct ProtocolCodec {
             return .ack
         case "status":
             return .status(envelope.message ?? "")
+        case "videoState":
+            return .videoState(
+                VideoInteractionState(
+                    targetPackage: envelope.targetPackage ?? "",
+                    likeState: ToggleState(rawValue: envelope.likeState ?? "") ?? .unknown,
+                    favoriteState: ToggleState(rawValue: envelope.favoriteState ?? "") ?? .unknown
+                )
+            )
         case "heartbeat":
             return .heartbeat
         default:
@@ -170,6 +178,24 @@ private struct CommandEnvelope: Codable {
             clientId = nil
             displayName = nil
             platform = nil
+        case .videoStateRequest:
+            type = "videoStateRequest"
+            dx = nil
+            dy = nil
+            deltaX = nil
+            deltaY = nil
+            button = nil
+            state = nil
+            action = nil
+            self.kind = nil
+            startX = nil
+            startY = nil
+            endX = nil
+            endY = nil
+            durationMs = nil
+            clientId = nil
+            displayName = nil
+            platform = nil
         case let .screenGesture(kind, startX, startY, endX, endY, durationMs):
             type = "screenGesture"
             dx = nil
@@ -213,4 +239,7 @@ private struct CommandEnvelope: Codable {
 private struct MessageEnvelope: Codable {
     let type: String
     let message: String?
+    let targetPackage: String?
+    let likeState: String?
+    let favoriteState: String?
 }

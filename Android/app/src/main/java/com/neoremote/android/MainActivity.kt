@@ -43,7 +43,6 @@ class MainActivity : ComponentActivity() {
                     },
                     onConnect = viewModel::connect,
                     onDisconnect = viewModel::disconnect,
-                    onClearRecent = viewModel::clearRecentDevices,
                     onManualDraftChange = viewModel::updateManualDraft,
                     onManualConnect = viewModel::connectUsingManualDraft,
                     onAdbWiredConnect = viewModel::connectUsingAdbWiredDebug,

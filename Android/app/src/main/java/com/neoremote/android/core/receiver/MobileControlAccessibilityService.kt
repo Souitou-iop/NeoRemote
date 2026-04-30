@@ -10,15 +10,18 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.neoremote.android.core.model.DragState
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.model.SystemAction
+import com.neoremote.android.core.model.VideoActionKind
 
 class MobileControlAccessibilityService : AccessibilityService(), MobileCommandHandler {
     private var planner: MobileInputPlanner? = null
@@ -40,6 +43,8 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
     private val windowManager: WindowManager by lazy {
         getSystemService(WindowManager::class.java)
     }
+    private var cachedLikeToggleNode: AccessibilityNodeInfo? = null
+    private var cachedFavoriteToggleNode: AccessibilityNodeInfo? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -59,7 +64,17 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         discoveryPublisher = MobileReceiverDiscoveryPublisher(this).also { it.start() }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        val packageName = event?.packageName?.toString().orEmpty()
+        if (!packageName.startsWith(DOUYIN_PACKAGE_PREFIX)) return
+
+        val source = event?.source ?: return
+        try {
+            updateDouyinToggleCacheFrom(source)
+        } finally {
+            source.recycle()
+        }
+    }
 
     override fun onInterrupt() = Unit
 
@@ -69,12 +84,14 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         discoveryPublisher?.closeScope()
         discoveryPublisher = null
         removeTrailOverlay()
+        clearCachedDouyinToggles()
         planner = null
         super.onDestroy()
     }
 
-    override fun handle(command: RemoteCommand): Boolean {
-        val activePlanner = planner ?: return false
+    override fun handle(command: RemoteCommand): MobileCommandHandleResult {
+        handleSemanticVideoCommand(command)?.let { return it }
+        val activePlanner = planner ?: return MobileCommandHandleResult(handled = false)
         val actions = activePlanner.apply(command)
         Log.d(TAG, "Received command=$command actions=${actions.size}")
         if (actions.isNotEmpty()) {
@@ -98,7 +115,135 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
                 }
             }
         }
-        return shouldAcknowledgeMobileCommand(command, actions)
+        return MobileCommandHandleResult(
+            handled = shouldAcknowledgeMobileCommand(command, actions),
+        )
+    }
+
+    private fun handleSemanticVideoCommand(command: RemoteCommand): MobileCommandHandleResult? =
+        when (command) {
+            is RemoteCommand.VideoAction -> when (command.action) {
+                VideoActionKind.DOUBLE_TAP_LIKE -> clickDouyinToggle(DouyinToggleKind.LIKE)
+                VideoActionKind.FAVORITE -> clickDouyinToggle(DouyinToggleKind.FAVORITE)
+                else -> null
+            }
+
+            else -> null
+        }
+
+    private fun clickDouyinToggle(kind: DouyinToggleKind): MobileCommandHandleResult {
+        val startedAt = SystemClock.elapsedRealtime()
+        if (clickCachedDouyinToggle(kind)) {
+            Log.d(TAG, "Douyin ${kind.logName} clicked path=cache elapsed=${SystemClock.elapsedRealtime() - startedAt}ms")
+            return MobileCommandHandleResult(handled = true)
+        }
+
+        val target = findDouyinToggleNode(kind)
+            ?: return MobileCommandHandleResult(
+                handled = false,
+                statusMessage = kind.notFoundMessage,
+            )
+
+        val clicked = target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        if (clicked) {
+            replaceCachedToggleNode(kind, AccessibilityNodeInfo.obtain(target))
+        }
+        target.recycle()
+        return if (clicked) {
+            Log.d(TAG, "Douyin ${kind.logName} clicked path=scan elapsed=${SystemClock.elapsedRealtime() - startedAt}ms")
+            MobileCommandHandleResult(handled = true)
+        } else {
+            MobileCommandHandleResult(
+                handled = false,
+                statusMessage = kind.clickFailedMessage,
+            )
+        }
+    }
+
+    private fun findDouyinToggleNode(kind: DouyinToggleKind): AccessibilityNodeInfo? {
+        val root = rootInActiveWindow ?: return null
+        var match: AccessibilityNodeInfo? = null
+
+        try {
+            root.visitNodes { node ->
+                if (match != null) return@visitNodes
+                val packageName = node.packageName?.toString().orEmpty()
+                if (!packageName.startsWith(DOUYIN_PACKAGE_PREFIX)) return@visitNodes
+
+                val description = node.contentDescription?.toString().orEmpty()
+                if (description.matchesDouyinToggle(kind)) {
+                    match = node.closestClickableNode()
+                }
+            }
+        } finally {
+            root.recycle()
+        }
+
+        return match
+    }
+
+    private fun updateDouyinToggleCacheFrom(root: AccessibilityNodeInfo) {
+        root.visitNodes { node ->
+            val packageName = node.packageName?.toString().orEmpty()
+            if (!packageName.startsWith(DOUYIN_PACKAGE_PREFIX)) return@visitNodes
+
+            val description = node.contentDescription?.toString().orEmpty()
+            when {
+                description.matchesDouyinToggle(DouyinToggleKind.LIKE) ->
+                    node.closestClickableNode()?.let { replaceCachedToggleNode(DouyinToggleKind.LIKE, it) }
+
+                description.matchesDouyinToggle(DouyinToggleKind.FAVORITE) ->
+                    node.closestClickableNode()?.let { replaceCachedToggleNode(DouyinToggleKind.FAVORITE, it) }
+            }
+        }
+    }
+
+    private fun clickCachedDouyinToggle(kind: DouyinToggleKind): Boolean {
+        val node = cachedToggleNode(kind) ?: return false
+        val isFresh = node.refresh()
+        if (!isFresh || !node.isEnabled || !node.isClickable) {
+            clearCachedToggleNode(kind)
+            return false
+        }
+
+        val clicked = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        if (!clicked) {
+            clearCachedToggleNode(kind)
+        }
+        return clicked
+    }
+
+    private fun cachedToggleNode(kind: DouyinToggleKind): AccessibilityNodeInfo? =
+        when (kind) {
+            DouyinToggleKind.LIKE -> cachedLikeToggleNode
+            DouyinToggleKind.FAVORITE -> cachedFavoriteToggleNode
+        }
+
+    private fun replaceCachedToggleNode(kind: DouyinToggleKind, node: AccessibilityNodeInfo) {
+        clearCachedToggleNode(kind)
+        when (kind) {
+            DouyinToggleKind.LIKE -> cachedLikeToggleNode = node
+            DouyinToggleKind.FAVORITE -> cachedFavoriteToggleNode = node
+        }
+    }
+
+    private fun clearCachedToggleNode(kind: DouyinToggleKind) {
+        when (kind) {
+            DouyinToggleKind.LIKE -> {
+                cachedLikeToggleNode?.recycle()
+                cachedLikeToggleNode = null
+            }
+
+            DouyinToggleKind.FAVORITE -> {
+                cachedFavoriteToggleNode?.recycle()
+                cachedFavoriteToggleNode = null
+            }
+        }
+    }
+
+    private fun clearCachedDouyinToggles() {
+        clearCachedToggleNode(DouyinToggleKind.LIKE)
+        clearCachedToggleNode(DouyinToggleKind.FAVORITE)
     }
 
     private fun drainActionQueue() {
@@ -257,6 +402,7 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         private const val TAP_DURATION_MS = 35L
         private const val ACTION_SEQUENCE_DELAY_MS = 100L
         private const val TAG = "NeoRemoteReceiver"
+        private const val DOUYIN_PACKAGE_PREFIX = "com.ss.android.ugc.aweme"
 
         fun isEnabled(context: Context): Boolean {
             val expected = ComponentName(context, MobileControlAccessibilityService::class.java)
@@ -392,6 +538,57 @@ private class TouchTrailOverlayView(context: Context) : View(context) {
         const val MAX_SEGMENTS = 36
         const val MAX_TAPS = 8
     }
+}
+
+private enum class DouyinToggleKind(
+    val notFoundMessage: String,
+    val clickFailedMessage: String,
+    val logName: String,
+) {
+    LIKE(
+        notFoundMessage = "未找到抖音点赞按钮",
+        clickFailedMessage = "抖音点赞按钮点击失败",
+        logName = "like",
+    ),
+    FAVORITE(
+        notFoundMessage = "未找到抖音收藏按钮",
+        clickFailedMessage = "抖音收藏按钮点击失败",
+        logName = "favorite",
+    ),
+}
+
+private fun String.matchesDouyinToggle(kind: DouyinToggleKind): Boolean =
+    when (kind) {
+        DouyinToggleKind.LIKE -> "已点赞" in this || "未点赞" in this ||
+            ("喜欢" in this && "按钮" in this && "评论" !in this && "分享" !in this)
+
+        DouyinToggleKind.FAVORITE -> "收藏" in this && "按钮" in this
+    }
+
+private fun AccessibilityNodeInfo.visitNodes(visitor: (AccessibilityNodeInfo) -> Unit) {
+    visitor(this)
+    for (index in 0 until childCount) {
+        val child = getChild(index) ?: continue
+        child.visitNodes(visitor)
+        child.recycle()
+    }
+}
+
+private fun AccessibilityNodeInfo.closestClickableNode(): AccessibilityNodeInfo? {
+    var current: AccessibilityNodeInfo? = this
+    var ownsCurrent = false
+    while (current != null) {
+        if (current.isClickable && current.isEnabled) {
+            val result = AccessibilityNodeInfo.obtain(current)
+            if (ownsCurrent) current.recycle()
+            return result
+        }
+        val parent = current.parent
+        if (ownsCurrent) current.recycle()
+        current = parent
+        ownsCurrent = parent != null
+    }
+    return null
 }
 
 fun shouldAcknowledgeMobileCommand(

@@ -95,7 +95,6 @@ fun ConnectedShell(
     onRefreshDiscovery: () -> Unit,
     onConnect: (DesktopEndpoint) -> Unit,
     onDisconnect: () -> Unit,
-    onClearRecent: () -> Unit,
     onHapticsEnabledChange: (Boolean) -> Unit,
     onCursorSensitivityChange: (Double) -> Unit,
     onSwipeSensitivityChange: (Double) -> Unit,
@@ -107,7 +106,11 @@ fun ConnectedShell(
     onVideoAction: (VideoActionKind) -> Unit,
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(ConnectedTab.REMOTE) }
-    val contentBackdrop = rememberLayerBackdrop()
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val contentBackdrop = rememberLayerBackdrop {
+        drawRect(backgroundColor)
+        drawContent()
+    }
     val bottomInsetPadding = PaddingValues(bottom = 120.dp)
     val tabs = listOf(
         LiquidGlassTabItem(label = "Remote", icon = Icons.Outlined.Handyman),
@@ -120,10 +123,26 @@ fun ConnectedShell(
             TopAppBar(
                 title = { Text("NeoRemote") },
                 actions = {
-                    if (selectedTab == ConnectedTab.DEVICES) {
-                        IconButton(onClick = onRefreshDiscovery) {
+                    when (selectedTab) {
+                        ConnectedTab.REMOTE -> RemoteModeChip(
+                            mode = state.controlMode,
+                            onToggle = {
+                                onControlModeChange(
+                                    if (state.controlMode == ControlMode.SHORT_VIDEO) {
+                                        ControlMode.SCREEN_CONTROL
+                                    } else {
+                                        ControlMode.SHORT_VIDEO
+                                    },
+                                )
+                            },
+                            modifier = Modifier.padding(end = 12.dp),
+                        )
+
+                        ConnectedTab.DEVICES -> IconButton(onClick = onRefreshDiscovery) {
                             Icon(Icons.Outlined.Sync, contentDescription = "刷新")
                         }
+
+                        ConnectedTab.SETTINGS -> Unit
                     }
                 },
             )
@@ -143,7 +162,6 @@ fun ConnectedShell(
                 when (selectedTab) {
                     ConnectedTab.REMOTE -> RemoteScreen(
                         state = state,
-                        onControlModeChange = onControlModeChange,
                         onScreenGesture = onScreenGesture,
                         onVideoAction = onVideoAction,
                         bottomPadding = bottomInsetPadding,
@@ -159,7 +177,6 @@ fun ConnectedShell(
                     ConnectedTab.SETTINGS -> SettingsScreen(
                         state = state,
                         onDisconnect = onDisconnect,
-                        onClearRecent = onClearRecent,
                         onHapticsEnabledChange = onHapticsEnabledChange,
                         onCursorSensitivityChange = onCursorSensitivityChange,
                         onSwipeSensitivityChange = onSwipeSensitivityChange,
@@ -204,7 +221,6 @@ fun ConnectedShell(
 @Composable
 private fun RemoteScreen(
     state: SessionUiState,
-    onControlModeChange: (ControlMode) -> Unit,
     onScreenGesture: (ScreenGestureKind, Double, Double, Double, Double, Long) -> Unit,
     onVideoAction: (VideoActionKind) -> Unit,
     bottomPadding: PaddingValues,
@@ -216,20 +232,6 @@ private fun RemoteScreen(
             .padding(bottomPadding),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        RemoteModeChip(
-            mode = state.controlMode,
-            onToggle = {
-                onControlModeChange(
-                    if (state.controlMode == ControlMode.SHORT_VIDEO) {
-                        ControlMode.SCREEN_CONTROL
-                    } else {
-                        ControlMode.SHORT_VIDEO
-                    },
-                )
-            },
-            modifier = Modifier.align(Alignment.End),
-        )
-
         when (state.controlMode) {
             ControlMode.SCREEN_CONTROL -> ScreenControlPanel(
                 modifier = Modifier
@@ -450,7 +452,6 @@ private fun ShortVideoControlPanel(
                 action = VideoActionKind.PLAY_PAUSE,
                 onVideoAction = onVideoAction,
                 modifier = Modifier.weight(1f),
-                accent = ShortVideoAccent.PRIMARY,
                 icon = { PlayPauseIcon() },
             )
             ShortVideoActionButton(
@@ -595,36 +596,36 @@ private fun DevicesScreen(
             }
         }
 
-        if (state.discoveredDevices.isNotEmpty()) {
+        if (state.discoveredDesktopDevices.isNotEmpty()) {
             item {
-                Text("附近设备", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("附近桌面端", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             itemsIndexed(
-                state.discoveredDevices,
-                key = { index, device -> "discovered-$index-${device.id}-${device.addressText}" },
+                state.discoveredDesktopDevices,
+                key = { index, device -> "discovered-desktop-$index-${device.id}-${device.addressText}" },
             ) { _, device ->
                 DeviceCard(endpoint = device, actionLabel = "连接") { onConnect(device) }
             }
         }
 
-        if (state.recentDevices.isNotEmpty()) {
+        if (state.discoveredMobileDevices.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(6.dp))
-                Text("最近连接", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("附近移动端", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             }
             itemsIndexed(
-                state.recentDevices,
-                key = { index, device -> "recent-$index-${device.id}-${device.addressText}" },
+                state.discoveredMobileDevices,
+                key = { index, device -> "discovered-mobile-$index-${device.id}-${device.addressText}" },
             ) { _, device ->
-                DeviceCard(endpoint = device, actionLabel = "恢复") { onConnect(device) }
+                DeviceCard(endpoint = device, actionLabel = "连接") { onConnect(device) }
             }
         }
 
-        if (state.discoveredDevices.isEmpty() && state.recentDevices.isEmpty()) {
+        if (state.discoveredDevices.isEmpty()) {
             item {
                 SectionCard(
                     title = "还没有可用设备",
-                    subtitle = "先在 MacOS 端启动 NeoRemote，并确保与 Android 处在同一局域网。",
+                    subtitle = "先在 Desktop 或移动被控端启动 NeoRemote，并确保设备处在同一局域网。",
                 ) {}
             }
         }
@@ -635,7 +636,6 @@ private fun DevicesScreen(
 private fun SettingsScreen(
     state: SessionUiState,
     onDisconnect: () -> Unit,
-    onClearRecent: () -> Unit,
     onHapticsEnabledChange: (Boolean) -> Unit,
     onCursorSensitivityChange: (Double) -> Unit,
     onSwipeSensitivityChange: (Double) -> Unit,
@@ -675,7 +675,6 @@ private fun SettingsScreen(
             SectionCard(title = "连接策略") {
                 SettingRow(label = "自动发现", value = "Bonjour / LAN")
                 SettingRow(label = "协议编码", value = "JSON v1")
-                SettingRow(label = "恢复策略", value = "最近设备手动恢复")
             }
         }
         item {
@@ -690,9 +689,6 @@ private fun SettingsScreen(
         item {
             SectionCard(title = "维护操作") {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TextButton(onClick = onClearRecent) {
-                        Text("清空最近设备")
-                    }
                     Button(onClick = onDisconnect, enabled = state.activeEndpoint != null) {
                         Text("断开当前连接")
                     }

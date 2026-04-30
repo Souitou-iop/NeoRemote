@@ -118,6 +118,18 @@ enum VideoActionKind: String, Codable, CaseIterable {
     }
 }
 
+enum ToggleState: String, Codable {
+    case active
+    case inactive
+    case unknown
+}
+
+struct VideoInteractionState: Equatable {
+    var targetPackage: String = ""
+    var likeState: ToggleState = .unknown
+    var favoriteState: ToggleState = .unknown
+}
+
 enum SystemActionKind: String, Codable, CaseIterable {
     case back
     case home
@@ -172,6 +184,7 @@ enum RemoteCommand: Equatable {
     case drag(state: DragState, button: MouseButtonKind, dx: Double, dy: Double)
     case systemAction(SystemActionKind)
     case videoAction(VideoActionKind)
+    case videoStateRequest
     case screenGesture(
         kind: ScreenGestureKind,
         startX: Double,
@@ -186,6 +199,7 @@ enum RemoteCommand: Equatable {
 enum ProtocolMessage: Equatable {
     case ack
     case status(String)
+    case videoState(VideoInteractionState)
     case heartbeat
     case unknown(type: String)
 }

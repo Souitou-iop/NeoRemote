@@ -67,6 +67,15 @@ final class ProtocolCodecTests: XCTestCase {
         XCTAssertEqual(json["action"] as? String, "favorite")
     }
 
+    func testEncodeVideoStateRequestUsesDedicatedEnvelope() throws {
+        let codec = ProtocolCodec()
+
+        let data = try codec.encode(.videoStateRequest)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(json["type"] as? String, "videoStateRequest")
+    }
+
     func testEncodeSystemActionUsesCamelCaseEnvelope() throws {
         let codec = ProtocolCodec()
 
@@ -122,6 +131,26 @@ final class ProtocolCodecTests: XCTestCase {
         let message = try codec.decode(data)
 
         XCTAssertEqual(message, .status("desktop-ready"))
+    }
+
+    func testDecodeVideoStateMessage() throws {
+        let codec = ProtocolCodec()
+        let data = """
+        {"type":"videoState","targetPackage":"com.ss.android.ugc.aweme","likeState":"active","favoriteState":"inactive"}
+        """.data(using: .utf8)!
+
+        let message = try codec.decode(data)
+
+        XCTAssertEqual(
+            message,
+            .videoState(
+                VideoInteractionState(
+                    targetPackage: "com.ss.android.ugc.aweme",
+                    likeState: .active,
+                    favoriteState: .inactive
+                )
+            )
+        )
     }
 
     func testDecodeUnknownMessageFallsBackToUnknownCase() throws {

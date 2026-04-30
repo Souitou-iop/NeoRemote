@@ -125,8 +125,18 @@ private struct ShortVideoControlPanel: View {
     var body: some View {
         VStack(spacing: 14) {
             HStack(spacing: 12) {
-                actionButton("点赞", .doubleTapLike, style: .like, systemImage: "heart")
-                actionButton("收藏", .favorite, systemImage: "bookmark")
+                actionButton(
+                    "点赞",
+                    .doubleTapLike,
+                    style: .secondary,
+                    systemImage: "heart"
+                )
+                actionButton(
+                    "收藏",
+                    .favorite,
+                    style: .secondary,
+                    systemImage: "bookmark"
+                )
             }
 
             VStack(spacing: 14) {
@@ -147,7 +157,7 @@ private struct ShortVideoControlPanel: View {
             .frame(maxHeight: .infinity)
 
             HStack(spacing: 12) {
-                actionButton("播放/暂停", .playPause, style: .primary, systemImage: "playpause")
+                actionButton("播放/暂停", .playPause, style: .secondary, systemImage: "playpause")
                 actionButton("返回", .back, style: .secondary, systemImage: "chevron.backward")
             }
         }
@@ -206,12 +216,12 @@ private struct ShortVideoControlPanel: View {
         }
         .buttonStyle(.plain)
     }
+
 }
 
 private enum ShortVideoButtonStyle {
     case secondary
     case primary
-    case like
 }
 
 private struct HUDView: View {
@@ -277,8 +287,6 @@ private struct RemoteTheme {
             return surfaceBackground.opacity(0.92)
         case .primary:
             return Color(red: 0.15, green: 0.49, blue: 0.66)
-        case .like:
-            return Color(red: 0.96, green: 0.28, blue: 0.42)
         }
     }
 
@@ -286,7 +294,7 @@ private struct RemoteTheme {
         switch style {
         case .secondary:
             return primaryForeground
-        case .primary, .like:
+        case .primary:
             return .white
         }
     }

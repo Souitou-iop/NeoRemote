@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,13 +35,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +55,9 @@ import androidx.compose.ui.util.fastCoerceIn
 import androidx.compose.ui.util.fastRoundToInt
 import androidx.compose.ui.util.lerp
 import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCombinedBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
@@ -59,6 +68,7 @@ import com.kyant.backdrop.shadow.Shadow
 import com.kyant.shapes.Capsule
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.min
 import kotlin.math.sign
 
 data class LiquidGlassTabItem(
@@ -90,14 +100,26 @@ fun LiquidGlassBottomBar(
     } else {
         Color(0xFF121212).copy(alpha = 0.42f)
     }
+    val screenWidthDp = LocalConfiguration.current.screenWidthDp
+    val availableBarWidthDp = (screenWidthDp - 40).coerceAtLeast(1)
+    val barWidth = min(availableBarWidthDp, 320).dp
 
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.Center,
+    ) {
     BoxWithConstraints(
-        modifier = modifier,
+        modifier = Modifier
+            .width(barWidth),
         contentAlignment = Alignment.CenterStart,
     ) {
         val density = LocalDensity.current
+        val tabsBackdrop = rememberLayerBackdrop()
+        val contentPaddingPx = with(density) { 8.dp.toPx() }
         val tabWidth = with(density) {
-            (constraints.maxWidth.toFloat() - 8.dp.toPx()) / items.size
+            (constraints.maxWidth.toFloat() - contentPaddingPx) / items.size
         }
 
         val offsetAnimation = remember { Animatable(0f) }
@@ -135,7 +157,7 @@ fun LiquidGlassBottomBar(
                 },
                 onDrag = { _, dragAmount ->
                     updateValue(
-                        (targetValue + dragAmount.x / tabWidth * if (isLtr) 1f else -1f)
+                        (value + dragAmount.x / tabWidth * if (isLtr) 1f else -1f)
                             .fastCoerceIn(0f, items.lastIndex.toFloat()),
                     )
                     animationScope.launch {
@@ -199,13 +221,64 @@ fun LiquidGlassBottomBar(
                 ) {
                     LiquidGlassTab(
                         item = item,
-                        tint = foregroundColor,
+                        tint = if (index == currentIndex) accentColor else foregroundColor,
                         onClick = {
                             currentIndex = index
                             dragAnimation.animateToValue(index.toFloat())
                             onSelectedIndexChange(index)
                         },
                         modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+
+        CompositionLocalProvider(
+            LocalLiquidBottomTabScale provides {
+                lerp(1f, 1.12f, dragAnimation.pressProgress)
+            },
+        ) {
+            Row(
+                modifier = Modifier
+                    .clearAndSetSemantics {}
+                    .alpha(0f)
+                    .layerBackdrop(tabsBackdrop)
+                    .graphicsLayer { translationX = panelOffset }
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { Capsule() },
+                        effects = {
+                            val progress = dragAnimation.pressProgress
+                            vibrancy()
+                            blur(8.dp.toPx())
+                            lens(
+                                24.dp.toPx() * progress,
+                                24.dp.toPx() * progress,
+                            )
+                        },
+                        highlight = {
+                            Highlight.Default.copy(alpha = dragAnimation.pressProgress)
+                        },
+                        onDrawSurface = { drawRect(containerColor) },
+                    )
+                    .then(interactiveHighlight.modifier)
+                    .size(
+                        width = with(density) { constraints.maxWidth.toDp() },
+                        height = 56.dp,
+                    )
+                    .padding(horizontal = 4.dp)
+                    .graphicsLayer(colorFilter = ColorFilter.tint(accentColor)),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                items.forEach { item ->
+                    LiquidGlassTab(
+                        item = item,
+                        tint = accentColor,
+                        onClick = {},
+                        enabled = false,
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(1f),
                     )
                 }
             }
@@ -224,13 +297,16 @@ fun LiquidGlassBottomBar(
                 .then(interactiveHighlight.gestureModifier)
                 .then(dragAnimation.modifier)
                 .drawBackdrop(
-                    backdrop = backdrop,
+                    backdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop),
                     shape = { Capsule() },
                     effects = {
                         val progress = dragAnimation.pressProgress
+                        val velocity = dragAnimation.velocity
+                        val intensity = (progress + abs(velocity) * 3f).fastCoerceIn(0.25f, 1f)
                         lens(
-                            8.dp.toPx() * progress,
-                            10.dp.toPx() * progress,
+                            10.dp.toPx() * intensity,
+                            14.dp.toPx() * intensity,
+                            chromaticAberration = true,
                         )
                     },
                     highlight = {
@@ -267,30 +343,10 @@ fun LiquidGlassBottomBar(
                 )
                 .height(56.dp)
                 .fillMaxWidth(1f / items.size),
-            contentAlignment = Alignment.Center,
-        ) {
-            val overlayIndex = dragAnimation.value.fastRoundToInt().fastCoerceIn(0, items.lastIndex)
-            CompositionLocalProvider(
-                LocalLiquidBottomTabScale provides {
-                    lerp(1f, 1.12f, dragAnimation.pressProgress)
-                },
-            ) {
-                LiquidGlassTab(
-                    item = items[overlayIndex],
-                    tint = accentColor,
-                    onClick = {
-                        currentIndex = overlayIndex
-                        dragAnimation.animateToValue(overlayIndex.toFloat())
-                        onSelectedIndexChange(overlayIndex)
-                    },
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(),
-                )
-            }
-        }
+        ) {}
 
         Box(modifier = Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
     }
 }
 
@@ -300,17 +356,24 @@ private fun LiquidGlassTab(
     tint: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     val scaleProvider = LocalLiquidBottomTabScale.current
     Column(
         modifier = modifier
             .testTag("bottom-tab-${item.label.lowercase()}")
             .clip(Capsule())
-            .clickable(
-                interactionSource = null,
-                indication = null,
-                role = Role.Tab,
-                onClick = onClick,
+            .then(
+                if (enabled) {
+                    Modifier.clickable(
+                        interactionSource = null,
+                        indication = null,
+                        role = Role.Tab,
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
             )
             .graphicsLayer {
                 val scale = scaleProvider()

@@ -28,9 +28,18 @@ final class SessionCoordinator: ObservableObject {
     @Published var isHapticsEnabled: Bool
     @Published var controlMode: ControlMode
     @Published var defaultControlMode: ControlMode
+    @Published var videoInteractionState = VideoInteractionState()
     @Published var touchSensitivitySettings: TouchSensitivitySettings
     @Published var statusMessage: String = "等待连接桌面端"
     @Published var manualConnectDraft = ManualConnectDraft()
+
+    var discoveredDesktopDevices: [DesktopEndpoint] {
+        discoveredDevices.filter { $0.platform != .android }
+    }
+
+    var discoveredMobileDevices: [DesktopEndpoint] {
+        discoveredDevices.filter { $0.platform == .android }
+    }
 
     init(
         registry: DeviceRegistry = DeviceRegistry(),
@@ -72,7 +81,7 @@ final class SessionCoordinator: ObservableObject {
             connect(to: lastConnectedEndpoint, isRecovery: true)
         } else {
             status = .discovering
-            statusMessage = "正在扫描局域网桌面端"
+            statusMessage = "正在扫描局域网设备"
             route = .onboarding
         }
     }
@@ -80,7 +89,7 @@ final class SessionCoordinator: ObservableObject {
     func refreshDiscovery() {
         guard !isInBackground else { return }
         status = activeEndpoint == nil ? .discovering : status
-        statusMessage = "重新扫描桌面端"
+        statusMessage = "重新扫描局域网设备"
         discoveryService.refresh()
     }
 
@@ -152,6 +161,7 @@ final class SessionCoordinator: ObservableObject {
         transport = nil
         activeTransportID = nil
         activeEndpoint = nil
+        videoInteractionState = VideoInteractionState()
         status = .disconnected
         route = .onboarding
         statusMessage = "已断开连接"
@@ -262,7 +272,6 @@ final class SessionCoordinator: ObservableObject {
     func sendVideoAction(_ action: VideoActionKind) {
         send(.videoAction(action))
         haptics.playTap()
-        showHUD(action.displayName)
     }
 
     func sendSystemAction(_ action: SystemActionKind) {
@@ -310,10 +319,10 @@ final class SessionCoordinator: ObservableObject {
                 self.discoveredDevices = devices
                 if self.activeEndpoint == nil, devices.isEmpty {
                     self.status = .discovering
-                    self.statusMessage = "暂未发现桌面端，可手动输入地址"
+                    self.statusMessage = "暂未发现设备，可手动输入地址"
                 } else if self.activeEndpoint == nil {
                     self.status = .disconnected
-                    self.statusMessage = "发现 \(devices.count) 台桌面端"
+                    self.statusMessage = "发现 \(devices.count) 台设备"
                 }
             }
         }
@@ -382,6 +391,8 @@ final class SessionCoordinator: ObservableObject {
             statusMessage = "桌面端已确认连接"
         case let .status(message):
             statusMessage = message
+        case .videoState:
+            break
         case .heartbeat:
             statusMessage = "桌面端在线"
         case let .unknown(type):
@@ -410,6 +421,8 @@ final class SessionCoordinator: ObservableObject {
             }
         case let .videoAction(action):
             statusMessage = action.displayName
+        case .videoStateRequest:
+            break
         case let .systemAction(action):
             statusMessage = action.displayName
         case let .screenGesture(kind, _, _, _, _, _):
@@ -494,4 +507,5 @@ final class SessionCoordinator: ObservableObject {
             }
         }
     }
+
 }

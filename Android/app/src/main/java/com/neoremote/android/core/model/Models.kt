@@ -79,6 +79,18 @@ enum class VideoActionKind {
     UNKNOWN,
 }
 
+enum class ToggleState {
+    ACTIVE,
+    INACTIVE,
+    UNKNOWN,
+}
+
+data class VideoInteractionState(
+    val targetPackage: String = "",
+    val likeState: ToggleState = ToggleState.UNKNOWN,
+    val favoriteState: ToggleState = ToggleState.UNKNOWN,
+)
+
 enum class ControlMode {
     SCREEN_CONTROL,
     SHORT_VIDEO,
@@ -119,12 +131,14 @@ sealed interface RemoteCommand {
         val endY: Double = startY,
         val durationMs: Long = 180L,
     ) : RemoteCommand
+    data object RequestVideoState : RemoteCommand
     data object Heartbeat : RemoteCommand
 }
 
 sealed interface ProtocolMessage {
     data object Ack : ProtocolMessage
     data class Status(val message: String) : ProtocolMessage
+    data class VideoState(val state: VideoInteractionState) : ProtocolMessage
     data object Heartbeat : ProtocolMessage
     data class Unknown(val type: String) : ProtocolMessage
 }
@@ -200,6 +214,7 @@ data class SessionUiState(
     val defaultControlMode: ControlMode = ControlMode.SCREEN_CONTROL,
     val hapticsEnabled: Boolean = true,
     val touchSensitivitySettings: TouchSensitivitySettings = TouchSensitivitySettings(),
+    val videoInteractionState: VideoInteractionState = VideoInteractionState(),
     val errorMessage: String? = null,
     val statusMessage: String = "等待连接桌面端",
     val manualConnectDraft: ManualConnectDraft = ManualConnectDraft(),
@@ -208,6 +223,12 @@ data class SessionUiState(
         get() = status == SessionStatus.DISCOVERING ||
             status == SessionStatus.CONNECTING ||
             status == SessionStatus.RECONNECTING
+
+    val discoveredDesktopDevices: List<DesktopEndpoint>
+        get() = discoveredDevices.filter { it.platform != DesktopPlatform.ANDROID }
+
+    val discoveredMobileDevices: List<DesktopEndpoint>
+        get() = discoveredDevices.filter { it.platform == DesktopPlatform.ANDROID }
 }
 
 val SessionStatus.displayText: String

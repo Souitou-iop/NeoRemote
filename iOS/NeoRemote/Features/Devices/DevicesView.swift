@@ -25,28 +25,28 @@ struct DevicesView: View {
                     }
                 }
 
-                Section("最近连接") {
-                    if coordinator.recentDevices.isEmpty {
-                        Text("还没有已保存的设备。")
+                Section("附近桌面端") {
+                    if coordinator.discoveredDesktopDevices.isEmpty {
+                        Text("当前未发现桌面端。")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(coordinator.recentDevices) { endpoint in
+                        ForEach(coordinator.discoveredDesktopDevices) { endpoint in
                             Button {
                                 coordinator.connect(to: endpoint)
                             } label: {
-                                DeviceRow(endpoint: endpoint, detail: "点击重新连接")
+                                DeviceRow(endpoint: endpoint, detail: "来自局域网扫描")
                             }
                             .buttonStyle(.plain)
                         }
                     }
                 }
 
-                Section("自动发现") {
-                    if coordinator.discoveredDevices.isEmpty {
-                        Text("当前未发现新的设备。")
+                Section("附近移动端") {
+                    if coordinator.discoveredMobileDevices.isEmpty {
+                        Text("当前未发现移动被控端。")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(coordinator.discoveredDevices) { endpoint in
+                        ForEach(coordinator.discoveredMobileDevices) { endpoint in
                             Button {
                                 coordinator.connect(to: endpoint)
                             } label: {

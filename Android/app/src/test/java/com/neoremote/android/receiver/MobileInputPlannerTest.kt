@@ -132,26 +132,21 @@ class MobileInputPlannerTest {
     }
 
     @Test
-    fun `video double tap like emits two center taps`() {
+    fun `video double tap like does not use coordinate fallback`() {
         val planner = MobileInputPlanner(400, 800)
 
         val actions = planner.apply(RemoteCommand.VideoAction(VideoActionKind.DOUBLE_TAP_LIKE))
 
-        assertThat(actions).containsExactly(
-            MobileInputAction.TapAt(PointerPosition(220f, 400f), showTrail = false),
-            MobileInputAction.TapAt(PointerPosition(220f, 400f), showTrail = false),
-        )
+        assertThat(actions).isEmpty()
     }
 
     @Test
-    fun `video favorite taps right side favorite area`() {
+    fun `video favorite does not use coordinate fallback`() {
         val planner = MobileInputPlanner(400, 800)
 
         val actions = planner.apply(RemoteCommand.VideoAction(VideoActionKind.FAVORITE))
 
-        assertThat(actions).containsExactly(
-            MobileInputAction.TapAt(PointerPosition(344f, 480f), showTrail = false),
-        )
+        assertThat(actions).isEmpty()
     }
 
     @Test

@@ -43,9 +43,6 @@ struct SettingsView: View {
                     LabeledContent("协议编码") {
                         Text("JSON v1")
                     }
-                    LabeledContent("恢复策略") {
-                        Text("启动自动恢复最近桌面端")
-                    }
                 }
 
                 Section("当前会话") {
@@ -55,11 +52,6 @@ struct SettingsView: View {
                 }
 
                 Section("维护") {
-                    Button("清空最近设备") {
-                        coordinator.clearRecentDevices()
-                    }
-                    .foregroundStyle(.red)
-
                     Button("断开当前连接") {
                         coordinator.disconnect()
                     }
