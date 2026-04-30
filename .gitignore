@@ -40,3 +40,4 @@ Windows/build/
 # Misc
 *.log
 release/
+output/
