@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icon/NeoRemote%20Exports/NeoRemote-iOS-Default-1024x1024@1x.png" alt="NeoRemote icon" width="120">
+  <img src="resources/brand/icons/NeoRemote%20Exports/NeoRemote-iOS-Default-1024x1024@1x.png" alt="NeoRemote icon" width="120">
 </p>
 
 <h1 align="center">NeoRemote</h1>
@@ -18,13 +18,13 @@
 
 <p align="center">
   <a href="https://github.com/Souitou-iop/NeoRemote/actions/workflows/build-all.yml"><img src="https://img.shields.io/github/actions/workflow/status/Souitou-iop/NeoRemote/build-all.yml?branch=main&label=Build" alt="Build"></a>
-  <a href="https://github.com/Souitou-iop/NeoRemote/releases/tag/v0.1.0-beta.8"><img src="https://img.shields.io/badge/beta-v0.1.0--beta.8-blue" alt="Beta"></a>
+  <a href="https://github.com/Souitou-iop/NeoRemote/releases/tag/vbeta-10"><img src="https://img.shields.io/badge/beta-vbeta--10-blue" alt="Beta"></a>
   <img src="https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20macOS%20%7C%20Windows-brightgreen" alt="Platforms">
   <img src="https://img.shields.io/badge/protocol-JSON%20over%20TCP-orange" alt="Protocol">
 </p>
 
 <p align="center">
-  <a href="https://github.com/Souitou-iop/NeoRemote/releases/tag/v0.1.0-beta.8">Latest beta: v0.1.0-beta.8</a>
+  <a href="https://github.com/Souitou-iop/NeoRemote/releases/tag/vbeta-10">Latest beta: vbeta-10</a>
   ·
   <a href="https://github.com/Souitou-iop/NeoRemote/actions/workflows/build-all.yml">Build all artifacts</a>
   ·
@@ -79,9 +79,10 @@ NeoRemote 当前已经形成两条可用链路：
 - **短视频模式**：连接后可在 Remote 页右上角快速切换到专用视频控制面板，支持上一条、下一条、左滑、右滑、点赞、收藏、播放/暂停、返回。
 - **默认模式独立设置**：Settings 中的默认控制模式只影响下次进入连接页，Remote 右上角切换只改变当前会话。
 - **Android 被控端**：Android 通过辅助功能接收 TCP 指令并执行点击、滑动、短视频动作和系统导航；内置动作队列，避免高频指令互相取消，并限制 Android 设备连接自身。
+- **Android 无障碍精准操作**：Android 被控端支持基于 AccessibilityService 的精准 UI 元素操作（如抖音点赞、收藏按钮），实现超越坐标手势的精确自动化。
 - **桌面端原生注入**：macOS 使用 CoreGraphics，Windows 使用 SendInput，不做远程桌面画面回传。
 - **统一 CI / Beta 发布**：GitHub Actions 可构建 iOS IPA、Android APK、macOS app zip 和 Windows receiver zip，并创建 beta prerelease。
-- **同源品牌资源**：`icon/NeoRemote.icon` 是主图标源，仓库同时保留 iOS / watchOS 导出图标和视觉资产。
+- **同源品牌资源**：`resources/brand/icons/NeoRemote.icon` 是主图标源，仓库同时保留 iOS / watchOS 导出图标和视觉资产。
 
 ## 演示截图
 
@@ -94,17 +95,17 @@ NeoRemote 当前已经形成两条可用链路：
     <th>短视频模式</th>
   </tr>
   <tr>
-    <td><img src="screenshots/neoremote-ios-01-onboarding.png" alt="连接引导" width="260"></td>
-    <td><img src="screenshots/neoremote-ios-03-remote-connected.png" alt="屏幕控制" width="260"></td>
-    <td><img src="screenshots/neoremote-ios-06-short-video-mode.png" alt="短视频模式" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-01-onboarding.png" alt="连接引导" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-03-remote-connected.png" alt="屏幕控制" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-06-short-video-mode.png" alt="短视频模式" width="260"></td>
   </tr>
   <tr>
     <th>设备页</th>
     <th>设置页</th>
   </tr>
   <tr>
-    <td><img src="screenshots/neoremote-ios-05-devices.png" alt="设备页" width="260"></td>
-    <td><img src="screenshots/neoremote-ios-04-settings.png" alt="设置页" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-05-devices.png" alt="设备页" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-04-settings.png" alt="设置页" width="260"></td>
   </tr>
 </table>
 
@@ -115,7 +116,7 @@ NeoRemote 当前已经形成两条可用链路：
     <th>macOS 接收端</th>
   </tr>
   <tr>
-    <td><img src="screenshots/neoremote-macos-receiver.png" alt="macOS 接收端" width="620"></td>
+    <td><img src="resources/screenshots/neoremote-macos-receiver.png" alt="macOS 接收端" width="620"></td>
   </tr>
 </table>
 
@@ -135,9 +136,9 @@ NeoRemote 当前已经形成两条可用链路：
 
 ### 最新 Beta
 
-当前最新 beta 版本：**v0.1.0-beta.8**
+当前最新 beta 版本：**vbeta-10**
 
-Release 页面：https://github.com/Souitou-iop/NeoRemote/releases/tag/v0.1.0-beta.8
+Release 页面：https://github.com/Souitou-iop/NeoRemote/releases/tag/vbeta-10
 
 包含产物：
 
@@ -314,24 +315,26 @@ Android 被控端依赖系统辅助功能：
 ```text
 .
 ├── Android/                         # Android 控制端 + Android 被控端
-│   └── app/src/main/java/...        #   Kotlin / Jetpack Compose
+│   ├── app/src/main/java/...        #   Kotlin / Jetpack Compose
+│   └── vendor/AndroidLiquidGlass/   #   Liquid Glass UI composite-build 依赖
 ├── iOS/                             # iOS 控制端
 │   ├── NeoRemote/Core/              #   会话管理、协议、传输、发现
 │   ├── NeoRemote/Features/          #   Remote、Devices、Settings、Onboarding
 │   └── NeoRemoteTests/              #   单元测试
 ├── MacOS/                           # macOS 桌面接收端
 │   ├── Sources/NeoRemoteMac/        #   Swift Package 结构
-│   └── Tests/                       #   单元测试
+│   ├── Tests/                       #   单元测试
+│   └── script/                      #   构建与运行脚本
 ├── Windows/                         # Windows 桌面接收端
 │   ├── src/NeoRemote.Core/          #   C++ 核心层（协议、输入注入）
 │   ├── src/NeoRemote.Windows/       #   Win32 层（TCP、UDP、Tray）
-│   └── tests/                       #   单元测试
-├── icon/                            # Icon Composer 主图标与导出资源
-├── artwork/                         # 品牌源图形
-├── assets/                          # 展示与宣传资产
-├── screenshots/                     # README 演示截图
+│   ├── tests/                       #   单元测试
+│   └── scripts/                     #   构建脚本
+├── resources/                       # 品牌资产与 README 截图
+│   ├── brand/                       #   Icon Composer 源文件、导出图、品牌图与图标
+│   └── screenshots/                 #   README 演示截图
 ├── scripts/                         # 全端资源同步脚本
-├── docs/                            # PRD、协议、平台交接文档
+├── docs/                            # 项目文档
 └── .github/workflows/               # 四端构建与 beta 发布
 ```
 
@@ -360,12 +363,12 @@ Android release 签名依赖 GitHub Secrets：
 手动触发 `Beta release` workflow 可创建 GitHub prerelease：
 
 ```bash
-gh workflow run beta-release.yml --ref main -f version=v0.1.0-beta.8
+gh workflow run beta-release.yml --ref main -f version=vbeta-10
 ```
 
 ### 图标同步
 
-NeoRemote 的应用图标以 `icon/NeoRemote.icon` 为唯一设计源。调整 Icon Composer 文件后，运行：
+NeoRemote 的应用图标以 `resources/brand/icons/NeoRemote.icon` 为唯一设计源。调整 Icon Composer 文件后，运行：
 
 ```bash
 ./scripts/sync_icons.sh
@@ -493,11 +496,6 @@ NeoRemote 是**输入控制工具**，不是远程桌面。
 
 | 文档 | 内容 |
 | --- | --- |
-| [NeoRemote PRD](docs/NeoRemote_PRD.md) | 产品需求文档 |
-| [iOS/macOS Handoff](docs/ios-macos-handoff.md) | iOS 与 macOS 开发交接 |
-| [Cross-platform Progress](docs/cross-platform-current-progress.md) | 跨平台开发进度 |
-| [Windows Handoff](docs/windows-current-progress-handoff.md) | Windows 开发交接 |
-| [Android Signing](docs/android-signing-preset.md) | Android 签名配置 |
 | [Windows README](Windows/README.md) | Windows 端详细说明 |
 
 ## 许可证

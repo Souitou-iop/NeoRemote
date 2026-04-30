@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icon/NeoRemote%20Exports/NeoRemote-iOS-Default-1024x1024@1x.png" alt="NeoRemote icon" width="120">
+  <img src="resources/brand/icons/NeoRemote%20Exports/NeoRemote-iOS-Default-1024x1024@1x.png" alt="NeoRemote icon" width="120">
 </p>
 
 <h1 align="center">NeoRemote</h1>
@@ -18,13 +18,13 @@
 
 <p align="center">
   <a href="https://github.com/Souitou-iop/NeoRemote/actions/workflows/build-all.yml"><img src="https://img.shields.io/github/actions/workflow/status/Souitou-iop/NeoRemote/build-all.yml?branch=main&label=Build" alt="Build"></a>
-  <a href="https://github.com/Souitou-iop/NeoRemote/releases/tag/v0.1.0-beta.8"><img src="https://img.shields.io/badge/beta-v0.1.0--beta.8-blue" alt="Beta"></a>
+  <a href="https://github.com/Souitou-iop/NeoRemote/releases/tag/vbeta-10"><img src="https://img.shields.io/badge/beta-vbeta--10-blue" alt="Beta"></a>
   <img src="https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20macOS%20%7C%20Windows-brightgreen" alt="Platforms">
   <img src="https://img.shields.io/badge/protocol-JSON%20over%20TCP-orange" alt="Protocol">
 </p>
 
 <p align="center">
-  <a href="https://github.com/Souitou-iop/NeoRemote/releases/tag/v0.1.0-beta.8">Latest beta: v0.1.0-beta.8</a>
+  <a href="https://github.com/Souitou-iop/NeoRemote/releases/tag/vbeta-10">Latest beta: vbeta-10</a>
   ·
   <a href="https://github.com/Souitou-iop/NeoRemote/actions/workflows/build-all.yml">Build all artifacts</a>
   ·
@@ -79,9 +79,10 @@ The project is built with **four native platform implementations** — no Flutte
 - **Short Video Mode**: Switch to a dedicated video control panel from the top-right corner of the Remote page. Supports next, previous, swipe left/right, like, favorite, play/pause, and back.
 - **Independent Default Mode**: The default control mode in Settings only affects the next connection session; the toggle in the Remote top-right corner only changes the current session.
 - **Android Controlled Device**: Android receives TCP commands via AccessibilityService and executes taps, swipes, video actions, and system navigation. A built-in action queue prevents rapid-fire commands from canceling each other, and self-connection is blocked.
+- **Android Accessibility Actions**: The Android controlled device supports accessibility-based tap actions for specific app UI elements (e.g., Douyin/TikTok like and favorite buttons), enabling precise automation beyond coordinate-based gestures.
 - **Native Desktop Injection**: macOS uses CoreGraphics, Windows uses SendInput. No remote screen mirroring.
 - **Unified CI / Beta Release**: GitHub Actions builds iOS IPA, Android APK, macOS app zip, and Windows receiver zip, and can create beta prereleases.
-- **Shared Brand Assets**: `icon/NeoRemote.icon` is the primary icon source. The repository also retains iOS / watchOS export icons and visual assets.
+- **Shared Brand Assets**: `resources/brand/icons/NeoRemote.icon` is the primary icon source. The repository also retains iOS / watchOS export icons and visual assets.
 
 ## Screenshots
 
@@ -94,17 +95,17 @@ Screenshots are from the current iOS simulator build and macOS receiver. The mob
     <th>Short Video Mode</th>
   </tr>
   <tr>
-    <td><img src="screenshots/neoremote-ios-01-onboarding.png" alt="Onboarding" width="260"></td>
-    <td><img src="screenshots/neoremote-ios-03-remote-connected.png" alt="Screen Control" width="260"></td>
-    <td><img src="screenshots/neoremote-ios-06-short-video-mode.png" alt="Short Video Mode" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-01-onboarding.png" alt="Onboarding" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-03-remote-connected.png" alt="Screen Control" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-06-short-video-mode.png" alt="Short Video Mode" width="260"></td>
   </tr>
   <tr>
     <th>Devices</th>
     <th>Settings</th>
   </tr>
   <tr>
-    <td><img src="screenshots/neoremote-ios-05-devices.png" alt="Devices" width="260"></td>
-    <td><img src="screenshots/neoremote-ios-04-settings.png" alt="Settings" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-05-devices.png" alt="Devices" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-04-settings.png" alt="Settings" width="260"></td>
   </tr>
 </table>
 
@@ -115,7 +116,7 @@ Screenshots are from the current iOS simulator build and macOS receiver. The mob
     <th>macOS Receiver</th>
   </tr>
   <tr>
-    <td><img src="screenshots/neoremote-macos-receiver.png" alt="macOS Receiver" width="620"></td>
+    <td><img src="resources/screenshots/neoremote-macos-receiver.png" alt="macOS Receiver" width="620"></td>
   </tr>
 </table>
 
@@ -135,9 +136,9 @@ Screenshots are from the current iOS simulator build and macOS receiver. The mob
 
 ### Latest Beta
 
-Current latest beta: **v0.1.0-beta.8**
+Current latest beta: **vbeta-10**
 
-Release page: https://github.com/Souitou-iop/NeoRemote/releases/tag/v0.1.0-beta.8
+Release page: https://github.com/Souitou-iop/NeoRemote/releases/tag/vbeta-10
 
 Included artifacts:
 
@@ -314,24 +315,26 @@ The controlled device implementation includes:
 ```text
 .
 ├── Android/                         # Android controller + Android controlled device
-│   └── app/src/main/java/...        #   Kotlin / Jetpack Compose
+│   ├── app/src/main/java/...        #   Kotlin / Jetpack Compose
+│   └── vendor/AndroidLiquidGlass/   #   Liquid Glass UI composite-build dependency
 ├── iOS/                             # iOS controller
 │   ├── NeoRemote/Core/              #   Session management, protocol, transport, discovery
 │   ├── NeoRemote/Features/          #   Remote, Devices, Settings, Onboarding
 │   └── NeoRemoteTests/              #   Unit tests
 ├── MacOS/                           # macOS desktop receiver
 │   ├── Sources/NeoRemoteMac/        #   Swift Package structure
-│   └── Tests/                       #   Unit tests
+│   ├── Tests/                       #   Unit tests
+│   └── script/                      #   Build and run script
 ├── Windows/                         # Windows desktop receiver
 │   ├── src/NeoRemote.Core/          #   C++ core (protocol, input injection)
 │   ├── src/NeoRemote.Windows/       #   Win32 layer (TCP, UDP, Tray)
-│   └── tests/                       #   Unit tests
-├── icon/                            # Icon Composer primary icon and export resources
-├── artwork/                         # Brand source graphics
-├── assets/                          # Showcase and promotional assets
-├── screenshots/                     # README demo screenshots
+│   ├── tests/                       #   Unit tests
+│   └── scripts/                     #   Build script
+├── resources/                       # Brand assets and README screenshots
+│   ├── brand/                       #   Icon Composer source, exports, artwork, icons
+│   └── screenshots/                 #   README demo screenshots
 ├── scripts/                         # Cross-platform resource sync scripts
-├── docs/                            # PRD, protocol, platform handoff documents
+├── docs/                            # Project documentation
 └── .github/workflows/               # Four-platform build and beta release
 ```
 
@@ -360,12 +363,12 @@ Android release signing relies on GitHub Secrets:
 Manually trigger the `Beta release` workflow to create a GitHub prerelease:
 
 ```bash
-gh workflow run beta-release.yml --ref main -f version=v0.1.0-beta.8
+gh workflow run beta-release.yml --ref main -f version=vbeta-10
 ```
 
 ### Icon sync
 
-NeoRemote uses `icon/NeoRemote.icon` as the single icon design source. After adjusting the Icon Composer file, run:
+NeoRemote uses `resources/brand/icons/NeoRemote.icon` as the single icon design source. After adjusting the Icon Composer file, run:
 
 ```bash
 ./scripts/sync_icons.sh
@@ -493,11 +496,6 @@ Future protocol extensions should maintain compatibility with existing JSON v1 m
 
 | Document | Content |
 | --- | --- |
-| [NeoRemote PRD](docs/NeoRemote_PRD.md) | Product requirements document |
-| [iOS/macOS Handoff](docs/ios-macos-handoff.md) | iOS and macOS development handoff |
-| [Cross-platform Progress](docs/cross-platform-current-progress.md) | Cross-platform development progress |
-| [Windows Handoff](docs/windows-current-progress-handoff.md) | Windows development handoff |
-| [Android Signing](docs/android-signing-preset.md) | Android signing configuration |
 | [Windows README](Windows/README.md) | Windows receiver details |
 
 ## License

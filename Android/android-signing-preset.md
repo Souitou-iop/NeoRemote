@@ -47,18 +47,18 @@ GRADLE_USER_HOME="$PWD/.gradle-user-home" ./Android/gradlew \
   assembleRelease
 
 cp Android/app/build/outputs/apk/release/app-release-unsigned.apk \
-  release/NeoRemote-android-release-unsigned.apk
+  artifacts/release/NeoRemote-android-release-unsigned.apk
 
 apksigner sign \
   --ks "$HOME/.android/debug.keystore" \
   --ks-key-alias androiddebugkey \
   --ks-pass pass:android \
   --key-pass pass:android \
-  --out release/NeoRemote-android-release-debug-signed.apk \
-  release/NeoRemote-android-release-unsigned.apk
+  --out artifacts/release/NeoRemote-android-release-debug-signed.apk \
+  artifacts/release/NeoRemote-android-release-unsigned.apk
 
 apksigner verify --verbose --print-certs \
-  release/NeoRemote-android-release-debug-signed.apk
+  artifacts/release/NeoRemote-android-release-debug-signed.apk
 ```
 
 本地正式签名使用 release keystore：
@@ -72,11 +72,11 @@ apksigner sign \
   --ks-key-alias "$NEOREMOTE_ANDROID_KEY_ALIAS" \
   --ks-pass "pass:$NEOREMOTE_ANDROID_KEYSTORE_PASSWORD" \
   --key-pass "pass:$NEOREMOTE_ANDROID_KEY_PASSWORD" \
-  --out release/NeoRemote-android-release-signed.apk \
-  release/NeoRemote-android-release-unsigned.apk
+  --out artifacts/release/NeoRemote-android-release-signed.apk \
+  artifacts/release/NeoRemote-android-release-unsigned.apk
 
 apksigner verify --verbose --print-certs \
-  release/NeoRemote-android-release-signed.apk
+  artifacts/release/NeoRemote-android-release-signed.apk
 ```
 
 ## Release keystore 创建规范
@@ -170,7 +170,7 @@ echo "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/NeoRem
 - `unzip -t <apk>` 无错误。
 - `zipinfo -1 <apk> | grep '^lib/'` 只出现 `lib/arm64-v8a/`。
 - 文件名能区分 unsigned、debug-signed、release-signed。
-- `git status` 中不能出现已 stage 的 keystore、`.idsig`、`release/` 产物。
+- `git status` 中不能出现已 stage 的 keystore、`.idsig`、`artifacts/release/` 产物。
 
 ## 禁止事项
 
@@ -179,4 +179,4 @@ echo "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/NeoRem
 - 禁止把 debug 签名包命名成正式签名包。
 - 禁止把 x86、x86_64、armeabi-v7a native library 混入默认 release APK。
 - 禁止跳过 `apksigner verify`。
-- 禁止把 `release/` 目录作为源码提交。
+- 禁止把 `artifacts/release/` 目录作为源码提交。

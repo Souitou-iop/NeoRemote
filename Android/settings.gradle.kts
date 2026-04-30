@@ -17,7 +17,7 @@ dependencyResolutionManagement {
 rootProject.name = "NeoRemoteAndroid"
 include(":app")
 
-includeBuild("../AndroidLiquidGlass") {
+includeBuild("vendor/AndroidLiquidGlass") {
     dependencySubstitution {
         substitute(module("io.github.kyant0:backdrop")).using(project(":backdrop"))
     }
