@@ -197,6 +197,7 @@ data class SessionUiState(
     val lastConnectedEndpoint: DesktopEndpoint? = null,
     val lastHudMessage: String? = null,
     val controlMode: ControlMode = ControlMode.SCREEN_CONTROL,
+    val defaultControlMode: ControlMode = ControlMode.SCREEN_CONTROL,
     val hapticsEnabled: Boolean = true,
     val touchSensitivitySettings: TouchSensitivitySettings = TouchSensitivitySettings(),
     val errorMessage: String? = null,

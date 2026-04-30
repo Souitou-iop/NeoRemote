@@ -184,6 +184,34 @@ final class SessionCoordinatorTests: XCTestCase {
         XCTAssertFalse(transport.sentPayloads.isEmpty)
     }
 
+    func testTemporaryControlModeDoesNotUpdateDefaultControlMode() {
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: MockDiscoveryService(),
+            transportFactory: { MockRemoteTransport() }
+        )
+
+        coordinator.setControlMode(.shortVideo)
+
+        XCTAssertEqual(coordinator.controlMode, .shortVideo)
+        XCTAssertEqual(coordinator.defaultControlMode, .screenControl)
+        XCTAssertEqual(registry.loadControlMode(), .screenControl)
+    }
+
+    func testDefaultControlModePersistsWithoutChangingCurrentMode() {
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: MockDiscoveryService(),
+            transportFactory: { MockRemoteTransport() }
+        )
+
+        coordinator.setDefaultControlMode(.shortVideo)
+
+        XCTAssertEqual(coordinator.controlMode, .screenControl)
+        XCTAssertEqual(coordinator.defaultControlMode, .shortVideo)
+        XCTAssertEqual(registry.loadControlMode(), .shortVideo)
+    }
+
     private func settleAsyncUpdates() async {
         await Task.yield()
         await Task.yield()

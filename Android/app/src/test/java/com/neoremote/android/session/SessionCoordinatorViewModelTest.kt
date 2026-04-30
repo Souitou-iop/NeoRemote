@@ -3,6 +3,7 @@ package com.neoremote.android.session
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.google.common.truth.Truth.assertThat
 import com.neoremote.android.core.discovery.FakeDiscoveryService
+import com.neoremote.android.core.model.ControlMode
 import com.neoremote.android.core.model.DesktopEndpoint
 import com.neoremote.android.core.model.DesktopPlatform
 import com.neoremote.android.core.model.EndpointSource
@@ -255,6 +256,26 @@ class SessionCoordinatorViewModelTest {
         assertThat(registry.loadTouchSensitivitySettings()).isEqualTo(
             TouchSensitivitySettings(cursorSensitivity = 1.8, swipeSensitivity = 0.7),
         )
+    }
+
+    @Test
+    fun `temporary control mode change does not update default control mode`() = runTest(dispatcher) {
+        viewModel.setControlMode(ControlMode.SHORT_VIDEO)
+        runCurrent()
+
+        assertThat(viewModel.uiState.value.controlMode).isEqualTo(ControlMode.SHORT_VIDEO)
+        assertThat(viewModel.uiState.value.defaultControlMode).isEqualTo(ControlMode.SCREEN_CONTROL)
+        assertThat(registry.loadControlMode()).isEqualTo(ControlMode.SCREEN_CONTROL)
+    }
+
+    @Test
+    fun `default control mode change persists without changing current mode`() = runTest(dispatcher) {
+        viewModel.setDefaultControlMode(ControlMode.SHORT_VIDEO)
+        runCurrent()
+
+        assertThat(viewModel.uiState.value.controlMode).isEqualTo(ControlMode.SCREEN_CONTROL)
+        assertThat(viewModel.uiState.value.defaultControlMode).isEqualTo(ControlMode.SHORT_VIDEO)
+        assertThat(registry.loadControlMode()).isEqualTo(ControlMode.SHORT_VIDEO)
     }
 
     @Test

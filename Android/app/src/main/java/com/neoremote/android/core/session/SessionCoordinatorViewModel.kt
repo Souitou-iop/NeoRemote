@@ -48,13 +48,15 @@ class SessionCoordinatorViewModel(
     mainDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
     private val isSelfEndpoint: (DesktopEndpoint) -> Boolean = ::isSelfAndroidReceiverEndpoint,
 ) : ViewModel() {
+    private val initialControlMode = registry.loadControlMode()
     private val _uiState = MutableStateFlow(
         SessionUiState(
             recentDevices = registry.loadRecentDevices().filterNot(isSelfEndpoint),
             lastConnectedEndpoint = registry.loadLastConnectedDevice()?.takeUnless(isSelfEndpoint),
             manualConnectDraft = registry.loadManualDraft(),
             hapticsEnabled = registry.loadHapticsEnabled(),
-            controlMode = registry.loadControlMode(),
+            controlMode = initialControlMode,
+            defaultControlMode = initialControlMode,
             touchSensitivitySettings = registry.loadTouchSensitivitySettings(),
         ),
     )
@@ -227,8 +229,12 @@ class SessionCoordinatorViewModel(
     }
 
     fun setControlMode(mode: ControlMode) {
-        registry.saveControlMode(mode)
         _uiState.update { it.copy(controlMode = mode) }
+    }
+
+    fun setDefaultControlMode(mode: ControlMode) {
+        registry.saveControlMode(mode)
+        _uiState.update { it.copy(defaultControlMode = mode) }
     }
 
     fun enterDemoMode() {

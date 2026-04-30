@@ -33,6 +33,7 @@ fun NeoRemoteApp(
     onCursorSensitivityChange: (Double) -> Unit = {},
     onSwipeSensitivityChange: (Double) -> Unit = {},
     onControlModeChange: (ControlMode) -> Unit,
+    onDefaultControlModeChange: (ControlMode) -> Unit,
     onTouchOutput: (TouchSurfaceOutput) -> Unit,
     onScreenGesture: (ScreenGestureKind, Double, Double, Double, Double, Long) -> Unit,
     onSystemAction: (SystemAction) -> Unit,
@@ -64,6 +65,7 @@ fun NeoRemoteApp(
             onCursorSensitivityChange = onCursorSensitivityChange,
             onSwipeSensitivityChange = onSwipeSensitivityChange,
             onControlModeChange = onControlModeChange,
+            onDefaultControlModeChange = onDefaultControlModeChange,
             onTouchOutput = { output ->
                 if (state.hapticsEnabled) {
                     haptics.perform(output.semanticEvent)

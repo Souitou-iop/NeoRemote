@@ -11,8 +11,8 @@ struct SettingsView: View {
                     Picker(
                         "启动后进入",
                         selection: Binding(
-                            get: { coordinator.controlMode },
-                            set: { coordinator.setControlMode($0) }
+                            get: { coordinator.defaultControlMode },
+                            set: { coordinator.setDefaultControlMode($0) }
                         )
                     ) {
                         ForEach(ControlMode.allCases) { mode in

@@ -100,6 +100,7 @@ fun ConnectedShell(
     onCursorSensitivityChange: (Double) -> Unit,
     onSwipeSensitivityChange: (Double) -> Unit,
     onControlModeChange: (ControlMode) -> Unit,
+    onDefaultControlModeChange: (ControlMode) -> Unit,
     onTouchOutput: (TouchSurfaceOutput) -> Unit,
     onScreenGesture: (ScreenGestureKind, Double, Double, Double, Double, Long) -> Unit,
     onSystemAction: (SystemAction) -> Unit,
@@ -162,7 +163,7 @@ fun ConnectedShell(
                         onHapticsEnabledChange = onHapticsEnabledChange,
                         onCursorSensitivityChange = onCursorSensitivityChange,
                         onSwipeSensitivityChange = onSwipeSensitivityChange,
-                        onControlModeChange = onControlModeChange,
+                        onDefaultControlModeChange = onDefaultControlModeChange,
                         bottomPadding = bottomInsetPadding,
                     )
                 }
@@ -450,7 +451,7 @@ private fun ShortVideoControlPanel(
                 onVideoAction = onVideoAction,
                 modifier = Modifier.weight(1f),
                 accent = ShortVideoAccent.PRIMARY,
-                icon = { Icon(Icons.Outlined.PlayArrow, contentDescription = null) },
+                icon = { PlayPauseIcon() },
             )
             ShortVideoActionButton(
                 label = "返回",
@@ -467,6 +468,25 @@ private enum class ShortVideoAccent {
     NORMAL,
     PRIMARY,
     LIKE,
+}
+
+@Composable
+private fun PlayPauseIcon() {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(0.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.PlayArrow,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+        )
+        Icon(
+            Icons.Outlined.Pause,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+        )
+    }
 }
 
 @Composable
@@ -619,7 +639,7 @@ private fun SettingsScreen(
     onHapticsEnabledChange: (Boolean) -> Unit,
     onCursorSensitivityChange: (Double) -> Unit,
     onSwipeSensitivityChange: (Double) -> Unit,
-    onControlModeChange: (ControlMode) -> Unit,
+    onDefaultControlModeChange: (ControlMode) -> Unit,
     bottomPadding: PaddingValues,
 ) {
     LazyColumn(
@@ -637,18 +657,18 @@ private fun SettingsScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     ControlModeButton(
                         label = "屏幕控制",
-                        selected = state.controlMode == ControlMode.SCREEN_CONTROL,
-                        onClick = { onControlModeChange(ControlMode.SCREEN_CONTROL) },
+                        selected = state.defaultControlMode == ControlMode.SCREEN_CONTROL,
+                        onClick = { onDefaultControlModeChange(ControlMode.SCREEN_CONTROL) },
                         modifier = Modifier.weight(1f),
                     )
                     ControlModeButton(
                         label = "短视频",
-                        selected = state.controlMode == ControlMode.SHORT_VIDEO,
-                        onClick = { onControlModeChange(ControlMode.SHORT_VIDEO) },
+                        selected = state.defaultControlMode == ControlMode.SHORT_VIDEO,
+                        onClick = { onDefaultControlModeChange(ControlMode.SHORT_VIDEO) },
                         modifier = Modifier.weight(1f),
                     )
                 }
-                SettingRow(label = "启动后进入", value = state.controlMode.displayName)
+                SettingRow(label = "启动后进入", value = state.defaultControlMode.displayName)
             }
         }
         item {

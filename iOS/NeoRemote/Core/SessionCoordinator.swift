@@ -27,6 +27,7 @@ final class SessionCoordinator: ObservableObject {
     @Published var errorMessage: String?
     @Published var isHapticsEnabled: Bool
     @Published var controlMode: ControlMode
+    @Published var defaultControlMode: ControlMode
     @Published var touchSensitivitySettings: TouchSensitivitySettings
     @Published var statusMessage: String = "等待连接桌面端"
     @Published var manualConnectDraft = ManualConnectDraft()
@@ -44,7 +45,9 @@ final class SessionCoordinator: ObservableObject {
         self.codec = codec
         self.haptics = haptics
         self.isHapticsEnabled = registry.loadHapticsEnabled()
-        self.controlMode = registry.loadControlMode()
+        let initialControlMode = registry.loadControlMode()
+        self.controlMode = initialControlMode
+        self.defaultControlMode = initialControlMode
         self.touchSensitivitySettings = registry.loadTouchSensitivitySettings()
 
         self.haptics.isEnabled = self.isHapticsEnabled
@@ -191,6 +194,10 @@ final class SessionCoordinator: ObservableObject {
 
     func setControlMode(_ mode: ControlMode) {
         controlMode = mode
+    }
+
+    func setDefaultControlMode(_ mode: ControlMode) {
+        defaultControlMode = mode
         registry.saveControlMode(mode)
     }
 

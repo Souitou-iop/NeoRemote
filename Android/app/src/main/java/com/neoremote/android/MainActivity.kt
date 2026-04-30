@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
                     onCursorSensitivityChange = viewModel::setCursorSensitivity,
                     onSwipeSensitivityChange = viewModel::setSwipeSensitivity,
                     onControlModeChange = viewModel::setControlMode,
+                    onDefaultControlModeChange = viewModel::setDefaultControlMode,
                     onTouchOutput = viewModel::handleTouchOutput,
                     onScreenGesture = viewModel::sendScreenGesture,
                     onSystemAction = viewModel::sendSystemAction,
