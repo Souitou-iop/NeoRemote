@@ -442,6 +442,8 @@ adb reverse tcp:51101 tcp:51101
 
 ### 代码规范
 
+开发前请阅读 [AGENTS.md](AGENTS.md)，了解平台规范、协议规则、安全约束和禁止事项。
+
 - **iOS/macOS**：遵循 Swift API Design Guidelines，使用 Swift 6 concurrency 模型。
 - **Android**：遵循 Kotlin 编码规范，UI 使用 Jetpack Compose。
 - **Windows**：遵循 C++20 标准，使用现代 C++ 特性。
@@ -496,6 +498,9 @@ NeoRemote 是**输入控制工具**，不是远程桌面。
 
 | 文档 | 内容 |
 | --- | --- |
+| [AGENTS.md](AGENTS.md) | Agent 开发指南、平台规范与约束 |
+| [安全审查报告](resources/docs/security-review.md) | 完整安全审计报告 |
+| [Android 签名规范](Android/android-signing-preset.md) | Android 签名工作流与约定 |
 | [Windows README](Windows/README.md) | Windows 端详细说明 |
 
 ## 许可证

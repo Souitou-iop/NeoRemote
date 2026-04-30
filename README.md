@@ -442,6 +442,8 @@ Contributions to NeoRemote are welcome. Here is the basic workflow:
 
 ### Code Standards
 
+Read [AGENTS.md](AGENTS.md) for platform conventions, protocol rules, security constraints, and the "Do NOT" list before contributing.
+
 - **iOS/macOS**: Follow Swift API Design Guidelines, use Swift 6 concurrency model.
 - **Android**: Follow Kotlin coding conventions, use Jetpack Compose for UI.
 - **Windows**: Follow C++20 standard, use modern C++ features.
@@ -496,6 +498,9 @@ Future protocol extensions should maintain compatibility with existing JSON v1 m
 
 | Document | Content |
 | --- | --- |
+| [AGENTS.md](AGENTS.md) | Agent guidelines, platform conventions, and constraints |
+| [Security Review](resources/docs/security-review.md) | Full security audit report |
+| [Android Signing](Android/android-signing-preset.md) | Android signing workflow and conventions |
 | [Windows README](Windows/README.md) | Windows receiver details |
 
 ## License
