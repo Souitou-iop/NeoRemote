@@ -5,7 +5,11 @@
 <h1 align="center">NeoRemote</h1>
 
 <p align="center">
-  四端原生的跨设备输入工具：手机控制桌面端，也可以用 iOS / Android 控制 Android 被控端。
+  <a href="README_CN.md">中文</a> | <strong>English</strong>
+</p>
+
+<p align="center">
+  A cross-device input tool built natively for four platforms: control your desktop from your phone, or control Android devices from iOS / Android.
 </p>
 
 <p align="center">
@@ -29,78 +33,78 @@
 
 ---
 
-## 目录
+## Table of Contents
 
-- [项目概述](#项目概述)
-- [技术栈](#技术栈)
-- [核心能力](#核心能力)
-- [演示截图](#演示截图)
-- [产品进度](#产品进度)
-- [快速开始](#快速开始)
-- [协议与连接](#协议与连接)
-- [Android 被控端](#android-被控端)
-- [仓库结构](#仓库结构)
-- [CI 与发布](#ci-与发布)
-- [安全说明](#安全说明)
-- [故障排除](#故障排除)
-- [贡献指南](#贡献指南)
-- [开发边界](#开发边界)
-- [参考文档](#参考文档)
-- [许可证](#许可证)
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Product Roadmap](#product-roadmap)
+- [Getting Started](#getting-started)
+- [Protocol & Connectivity](#protocol--connectivity)
+- [Android Controlled Device](#android-controlled-device)
+- [Repository Structure](#repository-structure)
+- [CI & Release](#ci--release)
+- [Security](#security)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [Scope & Boundaries](#scope--boundaries)
+- [Reference Documents](#reference-documents)
+- [License](#license)
 
 ---
 
-## 项目概述
+## Overview
 
-NeoRemote 当前已经形成两条可用链路：
+NeoRemote currently provides two working control chains:
 
-- **移动端控制桌面端**：iOS / Android 作为控制端，通过局域网发现 Desktop，发送屏幕点按、滑动和基础输入；macOS / Windows 作为桌面接收端，把命令注入为系统鼠标事件。
-- **移动端控制 Android**：Android 可通过 AccessibilityService 作为被控端发布服务；iOS / Android 控制端连接后可执行屏幕手势、系统返回，以及面向短视频 App 的视频控制动作。
+- **Mobile → Desktop**: iOS / Android act as controllers, discovering desktops on the LAN and sending taps, swipes, and basic input commands. macOS / Windows act as desktop receivers, injecting commands as native system mouse events.
+- **Mobile → Android**: An Android device can publish itself as a controlled target via AccessibilityService. Once connected, iOS / Android controllers can execute screen gestures, system navigation, and video-specific actions.
 
-项目坚持**四端原生实现**，不使用 Flutter、React Native、Electron 等跨端壳，以保证各平台最优的性能和用户体验。
+The project is built with **four native platform implementations** — no Flutter, React Native, or Electron wrappers — to ensure optimal performance and user experience on each platform.
 
-## 技术栈
+## Tech Stack
 
-| 平台 | 技术栈 | 当前角色 |
+| Platform | Stack | Current Role |
 | --- | --- | --- |
-| **iOS** | Swift / SwiftUI / UIKit / Network.framework | 移动控制端，支持屏幕控制与短视频模式 |
-| **Android** | Kotlin / Jetpack Compose / Android NSD / Socket / AccessibilityService | 移动控制端 + Android 被控端 |
-| **macOS** | Swift Package / SwiftUI / AppKit / CoreGraphics | 桌面接收端，支持辅助功能权限检测与鼠标事件注入 |
-| **Windows** | C++20 / Win32 / SendInput | 桌面接收端，支持发现、监听与输入注入 |
+| **iOS** | Swift / SwiftUI / UIKit / Network.framework | Mobile controller with screen control and short video modes |
+| **Android** | Kotlin / Jetpack Compose / Android NSD / Socket / AccessibilityService | Mobile controller + Android controlled device |
+| **macOS** | Swift Package / SwiftUI / AppKit / CoreGraphics | Desktop receiver with accessibility permission detection and mouse event injection |
+| **Windows** | C++20 / Win32 / SendInput | Desktop receiver with discovery, listening, and input injection |
 
-## 核心能力
+## Features
 
-- **自动发现 + 手动连接**：控制端可自动发现同网段的 Desktop 或 Android 被控端，也保留 IP/端口手动兜底。
-- **屏幕控制模式**：移动端用大面积镜像触控区发送点按和全面屏方向手势，让 Android 被控端按屏幕比例执行操作；桌面端仍兼容基础输入命令。
-- **短视频模式**：连接后可在 Remote 页右上角快速切换到专用视频控制面板，支持上一条、下一条、左滑、右滑、点赞、收藏、播放/暂停、返回。
-- **默认模式独立设置**：Settings 中的默认控制模式只影响下次进入连接页，Remote 右上角切换只改变当前会话。
-- **Android 被控端**：Android 通过辅助功能接收 TCP 指令并执行点击、滑动、短视频动作和系统导航；内置动作队列，避免高频指令互相取消，并限制 Android 设备连接自身。
-- **桌面端原生注入**：macOS 使用 CoreGraphics，Windows 使用 SendInput，不做远程桌面画面回传。
-- **统一 CI / Beta 发布**：GitHub Actions 可构建 iOS IPA、Android APK、macOS app zip 和 Windows receiver zip，并创建 beta prerelease。
-- **同源品牌资源**：`icon/NeoRemote.icon` 是主图标源，仓库同时保留 iOS / watchOS 导出图标和视觉资产。
+- **Auto Discovery + Manual Connect**: The controller automatically discovers desktops or Android targets on the same subnet, with IP/port manual connection as a fallback.
+- **Screen Control Mode**: A large mirrored touch surface sends taps and full-screen directional gestures, letting the Android controlled device execute them proportionally; desktop receivers still accept basic input commands.
+- **Short Video Mode**: Switch to a dedicated video control panel from the top-right corner of the Remote page. Supports next, previous, swipe left/right, like, favorite, play/pause, and back.
+- **Independent Default Mode**: The default control mode in Settings only affects the next connection session; the toggle in the Remote top-right corner only changes the current session.
+- **Android Controlled Device**: Android receives TCP commands via AccessibilityService and executes taps, swipes, video actions, and system navigation. A built-in action queue prevents rapid-fire commands from canceling each other, and self-connection is blocked.
+- **Native Desktop Injection**: macOS uses CoreGraphics, Windows uses SendInput. No remote screen mirroring.
+- **Unified CI / Beta Release**: GitHub Actions builds iOS IPA, Android APK, macOS app zip, and Windows receiver zip, and can create beta prereleases.
+- **Shared Brand Assets**: `icon/NeoRemote.icon` is the primary icon source. The repository also retains iOS / watchOS export icons and visual assets.
 
-## 演示截图
+## Screenshots
 
-以下截图来自当前 iOS 模拟器构建和 macOS 接收端。移动端 Remote 页现在以 `屏幕控制 / 短视频` 为主要控制方式。
+Screenshots are from the current iOS simulator build and macOS receiver. The mobile Remote page now uses **Screen Control / Short Video** as the primary control modes.
 
 <table>
   <tr>
-    <th>连接引导</th>
-    <th>屏幕控制</th>
-    <th>短视频模式</th>
+    <th>Onboarding</th>
+    <th>Screen Control</th>
+    <th>Short Video Mode</th>
   </tr>
   <tr>
-    <td><img src="screenshots/neoremote-ios-01-onboarding.png" alt="连接引导" width="260"></td>
-    <td><img src="screenshots/neoremote-ios-03-remote-connected.png" alt="屏幕控制" width="260"></td>
-    <td><img src="screenshots/neoremote-ios-06-short-video-mode.png" alt="短视频模式" width="260"></td>
+    <td><img src="screenshots/neoremote-ios-01-onboarding.png" alt="Onboarding" width="260"></td>
+    <td><img src="screenshots/neoremote-ios-03-remote-connected.png" alt="Screen Control" width="260"></td>
+    <td><img src="screenshots/neoremote-ios-06-short-video-mode.png" alt="Short Video Mode" width="260"></td>
   </tr>
   <tr>
-    <th>设备页</th>
-    <th>设置页</th>
+    <th>Devices</th>
+    <th>Settings</th>
   </tr>
   <tr>
-    <td><img src="screenshots/neoremote-ios-05-devices.png" alt="设备页" width="260"></td>
-    <td><img src="screenshots/neoremote-ios-04-settings.png" alt="设置页" width="260"></td>
+    <td><img src="screenshots/neoremote-ios-05-devices.png" alt="Devices" width="260"></td>
+    <td><img src="screenshots/neoremote-ios-04-settings.png" alt="Settings" width="260"></td>
   </tr>
 </table>
 
@@ -108,70 +112,70 @@ NeoRemote 当前已经形成两条可用链路：
 
 <table>
   <tr>
-    <th>macOS 接收端</th>
+    <th>macOS Receiver</th>
   </tr>
   <tr>
-    <td><img src="screenshots/neoremote-macos-receiver.png" alt="macOS 接收端" width="620"></td>
+    <td><img src="screenshots/neoremote-macos-receiver.png" alt="macOS Receiver" width="620"></td>
   </tr>
 </table>
 
-## 产品进度
+## Product Roadmap
 
-| 阶段 | 目标 | 状态 |
+| Stage | Goal | Status |
 | --- | --- | --- |
-| 移动端控制桌面端 | 手机作为无线输入控制 macOS / Windows | ✅ 可用 |
-| Android 被控端 | Android 作为可发现、可连接、可控制的被控端 | ✅ 可用 |
-| 屏幕控制模式 | 大面积触控区映射 Android 被控端点按和全面屏手势 | ✅ 可用 |
-| 短视频模式 | 独立按钮控制短视频 App 的上下滑、左右滑、点赞、收藏、播放、返回 | ✅ 可用 |
-| 四端构建产物 | iOS、Android、macOS、Windows 统一构建和 beta 发布 | ✅ 可用 |
-| 键盘输入 | 软键盘远程输入到桌面端 | 📋 规划中 |
-| 快捷动作 | 自定义快捷键和手势宏 | 📋 规划中 |
-| 可信设备策略 | 设备信任管理与自动授权 | 📋 规划中 |
-| 多客户端仲裁 | 多台控制端同时连接时的优先级管理 | 📋 规划中 |
+| Mobile → Desktop | Use phone as wireless input to control macOS / Windows | ✅ Available |
+| Android Controlled Device | Android as discoverable, connectable, controllable target | ✅ Available |
+| Screen Control Mode | Large touch surface mapping to Android target taps and full-screen gestures | ✅ Available |
+| Short Video Mode | Dedicated buttons for next/prev, swipe left/right, like, favorite, play/pause, back | ✅ Available |
+| Four-Platform Build Artifacts | Unified build and beta release for iOS, Android, macOS, Windows | ✅ Available |
+| Keyboard Input | Remote soft keyboard input to desktop | 📋 Planned |
+| Quick Actions | Custom hotkeys and gesture macros | 📋 Planned |
+| Trusted Device Policy | Device trust management and auto-authorization | 📋 Planned |
+| Multi-Client Arbitration | Priority management when multiple controllers connect simultaneously | 📋 Planned |
 
-### 最新 Beta
+### Latest Beta
 
-当前最新 beta 版本：**v0.1.0-beta.8**
+Current latest beta: **v0.1.0-beta.8**
 
-Release 页面：https://github.com/Souitou-iop/NeoRemote/releases/tag/v0.1.0-beta.8
+Release page: https://github.com/Souitou-iop/NeoRemote/releases/tag/v0.1.0-beta.8
 
-包含产物：
+Included artifacts:
 
-| 产物 | 说明 |
+| Artifact | Description |
 | --- | --- |
-| `NeoRemote-ios-unsigned.ipa` | unsigned IPA，需要按开发/测试环境自行签名或安装 |
-| `NeoRemote-android-release-unsigned.apk` | unsigned APK；`Build all artifacts` workflow 在配置签名 secrets 时会产出 signed APK |
-| `NeoRemote-macos.zip` | 本地测试用构建，未做 notarization |
-| `NeoRemote-windows-receiver.zip` | Windows 桌面接收端 |
+| `NeoRemote-ios-unsigned.ipa` | Unsigned IPA; requires signing or installation per your dev/test environment |
+| `NeoRemote-android-release-unsigned.apk` | Unsigned APK; signed APK is produced when signing secrets are configured in the `Build all artifacts` workflow |
+| `NeoRemote-macos.zip` | Local testing build, not notarized |
+| `NeoRemote-windows-receiver.zip` | Windows desktop receiver |
 
-## 快速开始
+## Getting Started
 
-### 前提条件
+### Prerequisites
 
-| 平台 | 要求 |
+| Platform | Requirements |
 | --- | --- |
-| iOS | macOS、Xcode、iOS 17.0+ 部署目标 |
-| Android | JDK 21、Android SDK（compileSdk 36、minSdk 26 / Android 8.0+） |
-| macOS | macOS 15+、Swift 6 toolchain / Xcode、辅助功能权限 |
-| Windows | Windows 10/11、Visual Studio 2022、Desktop development with C++、Windows 10/11 SDK |
+| iOS | macOS, Xcode, iOS 17.0+ deployment target |
+| Android | JDK 21, Android SDK (compileSdk 36, minSdk 26 / Android 8.0+) |
+| macOS | macOS 15+, Swift 6 toolchain / Xcode, Accessibility permission |
+| Windows | Windows 10/11, Visual Studio 2022, Desktop development with C++, Windows 10/11 SDK |
 
 ### iOS
 
 ```bash
-# 模拟器构建
+# Simulator build
 xcodebuild build \
   -project iOS/NeoRemote.xcodeproj \
   -scheme NeoRemote \
   -destination 'generic/platform=iOS Simulator'
 
-# 真机构建
+# Device build
 xcodebuild build \
   -project iOS/NeoRemote.xcodeproj \
   -scheme NeoRemote \
   -destination 'id=<DEVICE_ID>' \
   -configuration Debug
 
-# 无签名归档
+# Unsigned archive
 xcodebuild archive \
   -project iOS/NeoRemote.xcodeproj \
   -scheme NeoRemote \
@@ -187,26 +191,26 @@ xcodebuild archive \
 
 ```bash
 cd Android
-./gradlew :app:testDebugUnitTest    # 运行单元测试
-./gradlew :app:assembleDebug        # 构建 debug APK
-./gradlew :app:assembleRelease      # 构建 release APK
+./gradlew :app:testDebugUnitTest    # Run unit tests
+./gradlew :app:assembleDebug        # Build debug APK
+./gradlew :app:assembleRelease      # Build release APK
 
-# 安装 debug APK
+# Install debug APK
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ### macOS
 
-辅助功能权限：**系统设置 → 隐私与安全性 → 辅助功能**
+Accessibility permission: **System Settings → Privacy & Security → Accessibility**
 
 ```bash
-swift test --package-path MacOS                    # 运行测试
-swift build -c release --package-path MacOS        # Release 构建
-./MacOS/script/build_and_run.sh                    # 构建并启动
-./MacOS/script/build_and_run.sh --verify           # 验证启动状态
+swift test --package-path MacOS                    # Run tests
+swift build -c release --package-path MacOS        # Release build
+./MacOS/script/build_and_run.sh                    # Build and launch
+./MacOS/script/build_and_run.sh --verify           # Launch and verify startup
 ```
 
-构建产物：`MacOS/dist/NeoRemoteMac.app`
+Build output: `MacOS/dist/NeoRemoteMac.app`
 
 ### Windows
 
@@ -214,37 +218,37 @@ swift build -c release --package-path MacOS        # Release 构建
 ./Windows/scripts/build_receiver.ps1
 ```
 
-构建产物：`Windows/build/NeoRemote.WindowsReceiver.exe`
+Build output: `Windows/build/NeoRemote.WindowsReceiver.exe`
 
-### 连接方式
+### Connection Methods
 
-1. **自动发现**：控制端与桌面端/Android 被控端在同一局域网，自动扫描发现。
-2. **手动连接**：在控制端输入桌面端 IP 和端口。
-3. **ADB 有线调试**（Android）：`adb reverse tcp:51101 tcp:51101`
+1. **Auto Discovery**: Controller and desktop/Android target on the same LAN are automatically discovered.
+2. **Manual Connect**: Enter the desktop IP and port on the controller.
+3. **ADB Wired Debug** (Android): `adb reverse tcp:51101 tcp:51101`
 
-## 协议与连接
+## Protocol & Connectivity
 
-NeoRemote 当前协议是 **JSON over TCP**。控制端发送命令，被控端或桌面端返回 `ack / status / heartbeat`。
+NeoRemote uses **JSON over TCP**. The controller sends commands, and the target or desktop returns `ack / status / heartbeat`.
 
-### 发现方式
+### Discovery Methods
 
-| 方式 | 说明 |
+| Method | Description |
 | --- | --- |
-| Bonjour / DNS-SD | 服务类型 `_neoremote._tcp.` |
-| UDP fallback | 端口 `51101`，请求 `NEOREMOTE_DISCOVER_V1`，响应前缀 `NEOREMOTE_DESKTOP_V1` |
+| Bonjour / DNS-SD | Service type `_neoremote._tcp.` |
+| UDP fallback | Port `51101`, request `NEOREMOTE_DISCOVER_V1`, response prefix `NEOREMOTE_DESKTOP_V1` |
 
-Android 被控端启用辅助功能后，会发布为可发现设备；控制端会把它识别为 Android endpoint。Android 控制端会过滤自身设备，避免出现"自己控制自己"的误连接。
+When the Android controlled device has AccessibilityService enabled, it publishes as a discoverable device. Controllers identify it as an Android endpoint. The Android controller filters out its own device to prevent self-connection.
 
-### 默认端口
+### Default Ports
 
-| 目标 | 默认端口 |
+| Target | Default Port |
 | --- | --- |
-| macOS 桌面接收端 | `50505` |
-| Windows 桌面接收端 | `51101` |
-| Android 被控端 | `51101` |
-| Android ADB 有线调试 | `127.0.0.1:51101` |
+| macOS desktop receiver | `50505` |
+| Windows desktop receiver | `51101` |
+| Android controlled device | `51101` |
+| Android ADB wired debug | `127.0.0.1:51101` |
 
-### 控制命令
+### Control Commands
 
 ```json
 { "type": "clientHello", "clientId": "...", "displayName": "iPhone", "platform": "ios" }
@@ -259,190 +263,190 @@ Android 被控端启用辅助功能后，会发布为可发现设备；控制端
 ```
 
 <details>
-<summary><strong>videoAction 支持列表</strong></summary>
+<summary><strong>Supported videoAction values</strong></summary>
 
-| action | 行为 |
+| action | Behavior |
 | --- | --- |
-| `swipeUp` | 下一条 |
-| `swipeDown` | 上一条 |
-| `swipeLeft` | 左滑 |
-| `swipeRight` | 右滑 |
-| `doubleTapLike` | 点赞 |
-| `favorite` | 收藏 |
-| `playPause` | 播放/暂停 |
-| `back` | 返回 |
+| `swipeUp` | Next video |
+| `swipeDown` | Previous video |
+| `swipeLeft` | Swipe left |
+| `swipeRight` | Swipe right |
+| `doubleTapLike` | Like |
+| `favorite` | Favorite |
+| `playPause` | Play / Pause |
+| `back` | Back |
 
 </details>
 
 <details>
-<summary><strong>回包格式</strong></summary>
+<summary><strong>Response format</strong></summary>
 
 ```json
 { "type": "ack" }
-{ "type": "status", "message": "Android 被控端已连接" }
+{ "type": "status", "message": "Android controlled device connected" }
 { "type": "heartbeat" }
 ```
 
 </details>
 
-## Android 被控端
+## Android Controlled Device
 
-Android 被控端依赖系统辅助功能：
+The Android controlled device relies on the system AccessibilityService:
 
-1. 安装 Android app。
-2. 打开系统辅助功能设置。
-3. 启用 NeoRemote 辅助服务。
-4. 保持 Android 和控制端在同一局域网，或使用 ADB forward 做有线调试。
-5. iOS / Android 控制端发现并连接该 Android 设备后，即可执行屏幕控制或短视频模式命令。
+1. Install the Android app.
+2. Open system Accessibility settings.
+3. Enable the NeoRemote accessibility service.
+4. Keep the Android device and controller on the same LAN, or use ADB wired debug.
+5. Once an iOS / Android controller discovers and connects to the Android device, screen control or short video mode commands can be executed.
 
-被控端实现包含：
+The controlled device implementation includes:
 
-| 组件 | 职责 |
+| Component | Responsibility |
 | --- | --- |
-| TCP receiver | 接收 JSON 命令并返回状态 |
-| Android NSD / UDP responder | 让控制端发现 Android 被控端 |
-| Accessibility gesture injection | 执行点击、滑动和系统导航 |
-| Screen gesture planner | 按被控端屏幕尺寸规划点按和上下左右滑动，控制端不依赖光标位置 |
-| Action queue | 连续视频动作按完成回调串行执行，减少 Accessibility 手势互相取消 |
+| TCP receiver | Receives JSON commands and returns status |
+| Android NSD / UDP responder | Makes the Android controlled device discoverable by controllers |
+| Accessibility gesture injection | Executes taps, swipes, and system navigation |
+| Screen gesture planner | Plans taps and directional swipes based on the controlled device screen size; the controller does not depend on cursor position |
+| Action queue | Executes consecutive video actions serially via completion callbacks, reducing Accessibility gesture conflicts |
 
-## 仓库结构
+## Repository Structure
 
 ```text
 .
-├── Android/                         # Android 控制端 + Android 被控端
+├── Android/                         # Android controller + Android controlled device
 │   └── app/src/main/java/...        #   Kotlin / Jetpack Compose
-├── iOS/                             # iOS 控制端
-│   ├── NeoRemote/Core/              #   会话管理、协议、传输、发现
-│   ├── NeoRemote/Features/          #   Remote、Devices、Settings、Onboarding
-│   └── NeoRemoteTests/              #   单元测试
-├── MacOS/                           # macOS 桌面接收端
-│   ├── Sources/NeoRemoteMac/        #   Swift Package 结构
-│   └── Tests/                       #   单元测试
-├── Windows/                         # Windows 桌面接收端
-│   ├── src/NeoRemote.Core/          #   C++ 核心层（协议、输入注入）
-│   ├── src/NeoRemote.Windows/       #   Win32 层（TCP、UDP、Tray）
-│   └── tests/                       #   单元测试
-├── icon/                            # Icon Composer 主图标与导出资源
-├── artwork/                         # 品牌源图形
-├── assets/                          # 展示与宣传资产
-├── screenshots/                     # README 演示截图
-├── scripts/                         # 全端资源同步脚本
-├── docs/                            # PRD、协议、平台交接文档
-└── .github/workflows/               # 四端构建与 beta 发布
+├── iOS/                             # iOS controller
+│   ├── NeoRemote/Core/              #   Session management, protocol, transport, discovery
+│   ├── NeoRemote/Features/          #   Remote, Devices, Settings, Onboarding
+│   └── NeoRemoteTests/              #   Unit tests
+├── MacOS/                           # macOS desktop receiver
+│   ├── Sources/NeoRemoteMac/        #   Swift Package structure
+│   └── Tests/                       #   Unit tests
+├── Windows/                         # Windows desktop receiver
+│   ├── src/NeoRemote.Core/          #   C++ core (protocol, input injection)
+│   ├── src/NeoRemote.Windows/       #   Win32 layer (TCP, UDP, Tray)
+│   └── tests/                       #   Unit tests
+├── icon/                            # Icon Composer primary icon and export resources
+├── artwork/                         # Brand source graphics
+├── assets/                          # Showcase and promotional assets
+├── screenshots/                     # README demo screenshots
+├── scripts/                         # Cross-platform resource sync scripts
+├── docs/                            # PRD, protocol, platform handoff documents
+└── .github/workflows/               # Four-platform build and beta release
 ```
 
-## CI 与发布
+## CI & Release
 
 ### Build all artifacts
 
-推送到 `main` 或手动触发 `Build all artifacts` 后会构建：
+Pushing to `main` or manually triggering `Build all artifacts` builds:
 
-- **iOS**：`NeoRemote-unsigned-ipa`
-- **Android**：`NeoRemote-android-apk`（签名依赖 Secrets 时产出 signed APK）
-- **macOS**：`NeoRemoteMac`
-- **Windows**：`NeoRemoteWindowsReceiver`
+- **iOS**: `NeoRemote-unsigned-ipa`
+- **Android**: `NeoRemote-android-apk` (signed APK produced when signing secrets are configured)
+- **macOS**: `NeoRemoteMac`
+- **Windows**: `NeoRemoteWindowsReceiver`
 
-Android release 签名依赖 GitHub Secrets：
+Android release signing relies on GitHub Secrets:
 
-| Secret 名称 | 用途 |
+| Secret Name | Purpose |
 | --- | --- |
-| `ANDROID_RELEASE_KEYSTORE_BASE64` | Base64 编码的 keystore 文件 |
-| `ANDROID_RELEASE_KEYSTORE_PASSWORD` | Keystore 密码 |
-| `ANDROID_RELEASE_KEY_ALIAS` | Key 别名 |
-| `ANDROID_RELEASE_KEY_PASSWORD` | Key 密码 |
+| `ANDROID_RELEASE_KEYSTORE_BASE64` | Base64-encoded keystore file |
+| `ANDROID_RELEASE_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_RELEASE_KEY_ALIAS` | Key alias |
+| `ANDROID_RELEASE_KEY_PASSWORD` | Key password |
 
 ### Beta release
 
-手动触发 `Beta release` workflow 可创建 GitHub prerelease：
+Manually trigger the `Beta release` workflow to create a GitHub prerelease:
 
 ```bash
 gh workflow run beta-release.yml --ref main -f version=v0.1.0-beta.8
 ```
 
-### 图标同步
+### Icon sync
 
-NeoRemote 的应用图标以 `icon/NeoRemote.icon` 为唯一设计源。调整 Icon Composer 文件后，运行：
+NeoRemote uses `icon/NeoRemote.icon` as the single icon design source. After adjusting the Icon Composer file, run:
 
 ```bash
 ./scripts/sync_icons.sh
 ```
 
-脚本会同步到 iOS（Xcode 资源）、macOS（`AppIcon.icns`）、Android（`mipmap-*`）、Windows（`NeoRemote.ico`）。
+This syncs to iOS (Xcode assets), macOS (`AppIcon.icns`), Android (`mipmap-*`), and Windows (`NeoRemote.ico`).
 
-## 安全说明
+## Security
 
-NeoRemote 是局域网输入控制工具，当前的安全边界如下：
+NeoRemote is a LAN-based input control tool. The current security boundaries are:
 
-- **传输层**：当前使用明文 JSON over TCP，无 TLS 加密。建议仅在受信任的家庭或办公局域网内使用。
-- **发现协议**：UDP 发现和 Bonjour 均为明文，恶意设备可以伪造发现响应。请确保局域网环境可信。
-- **连接授权**：macOS 端支持连接审批（approve/reject）；Windows 端和 Android 被控端的授权机制正在完善中。
-- **Android 辅助功能**：授予辅助功能权限意味着 app 可以执行任何屏幕操作，请仅在明确了解风险后启用。
+- **Transport layer**: Uses plaintext JSON over TCP, with no TLS encryption. Use only on trusted home or office LANs.
+- **Discovery protocol**: UDP discovery and Bonjour are both plaintext; malicious devices can spoof discovery responses. Ensure the LAN environment is trusted.
+- **Connection authorization**: macOS supports connection approval (approve/reject); Windows and Android controlled device authorization is being improved.
+- **Android Accessibility**: Granting Accessibility permission means the app can perform any screen operation. Enable only after understanding the risks.
 
-后续计划：
+Future plans:
 
-- 可选 TLS 传输支持
-- 基于预共享密钥（PSK）的连接认证
-- UDP 发现协议签名校验
+- Optional TLS transport support
+- Pre-shared key (PSK) connection authentication
+- UDP discovery protocol signature verification
 
-## 故障排除
+## Troubleshooting
 
 <details>
-<summary><strong>控制端发现不到桌面端</strong></summary>
+<summary><strong>Controller cannot discover desktop</strong></summary>
 
-1. 确认控制端和桌面端在同一局域网（同一子网）。
-2. 检查桌面端是否已启动监听（macOS：菜单栏图标显示为 ⚡；Windows：检查托盘图标状态）。
-3. 尝试使用手动连接方式，直接输入桌面端 IP 和端口。
-4. 检查防火墙是否放行了对应端口（macOS: 50505，Windows: 51101）。
+1. Confirm the controller and desktop are on the same LAN (same subnet).
+2. Check that the desktop is running and listening (macOS: menu bar icon shows ⚡; Windows: check tray icon status).
+3. Try manual connection by entering the desktop IP and port directly.
+4. Check that the firewall allows the corresponding port (macOS: 50505, Windows: 51101).
 
 </details>
 
 <details>
-<summary><strong>macOS 端连接后无法控制鼠标</strong></summary>
+<summary><strong>macOS: connected but cannot control mouse</strong></summary>
 
-需要授予辅助功能权限：**系统设置 → 隐私与安全性 → 辅助功能**，勾选 NeoRemote。授权后重启应用。
-
-</details>
-
-<details>
-<summary><strong>Android 被控端无法执行手势</strong></summary>
-
-1. 确认已在系统辅助功能设置中启用 NeoRemote 辅助服务。
-2. 部分 Android 厂商对后台辅助功能有限制，需在电池优化中将 NeoRemote 设为"不受限"。
-3. 确认 Android 被控端屏幕处于亮屏状态。
+Accessibility permission is required: **System Settings → Privacy & Security → Accessibility**, check NeoRemote. Restart the app after authorization.
 
 </details>
 
 <details>
-<summary><strong>ADB 有线调试连接</strong></summary>
+<summary><strong>Android controlled device: gestures not executing</strong></summary>
+
+1. Confirm the NeoRemote accessibility service is enabled in system Accessibility settings.
+2. Some Android OEMs restrict background accessibility services. Set NeoRemote to "Unrestricted" in battery optimization settings.
+3. Confirm the Android controlled device screen is on.
+
+</details>
+
+<details>
+<summary><strong>ADB wired debug connection</strong></summary>
 
 ```bash
 adb reverse tcp:51101 tcp:51101
 ```
 
-然后在控制端手动连接 `127.0.0.1:51101`。
+Then manually connect to `127.0.0.1:51101` from the controller.
 
 </details>
 
-## 贡献指南
+## Contributing
 
-欢迎对 NeoRemote 做出贡献。以下是参与开发的基本流程：
+Contributions to NeoRemote are welcome. Here is the basic workflow:
 
-### 开发环境
+### Development Environment
 
-1. Fork 并 clone 本仓库。
-2. 按 [快速开始](#快速开始) 中对应平台的要求配置开发环境。
-3. 创建功能分支：`git checkout -b feature/your-feature`
+1. Fork and clone this repository.
+2. Set up the development environment for the target platform per [Getting Started](#getting-started).
+3. Create a feature branch: `git checkout -b feature/your-feature`
 
-### 代码规范
+### Code Standards
 
-- **iOS/macOS**：遵循 Swift API Design Guidelines，使用 Swift 6 concurrency 模型。
-- **Android**：遵循 Kotlin 编码规范，UI 使用 Jetpack Compose。
-- **Windows**：遵循 C++20 标准，使用现代 C++ 特性。
-- **提交信息**：使用清晰的提交描述，说明变更内容和原因。
+- **iOS/macOS**: Follow Swift API Design Guidelines, use Swift 6 concurrency model.
+- **Android**: Follow Kotlin coding conventions, use Jetpack Compose for UI.
+- **Windows**: Follow C++20 standard, use modern C++ features.
+- **Commit messages**: Use clear descriptions explaining what changed and why.
 
-### 测试
+### Testing
 
-提交代码前，请确保相关平台的测试通过：
+Before submitting code, ensure the relevant platform tests pass:
 
 ```bash
 # iOS
@@ -455,49 +459,49 @@ cd Android && ./gradlew :app:testDebugUnitTest
 swift test --package-path MacOS
 ```
 
-### 提交流程
+### Submission Process
 
-1. 确保代码通过所有测试。
-2. 更新相关文档（如果适用）。
-3. 提交 Pull Request，说明变更内容和动机。
-4. 等待 CI 构建通过和代码审查。
+1. Ensure all tests pass.
+2. Update relevant documentation (if applicable).
+3. Submit a Pull Request with a description of changes and motivation.
+4. Wait for CI build to pass and for code review.
 
-### 协议扩展
+### Protocol Extension
 
-扩展协议时，请保持现有 JSON v1 消息兼容。新增命令类型应：
+When extending the protocol, maintain compatibility with existing JSON v1 messages. New command types should:
 
-1. 在 `RemoteCommand` 枚举（iOS/macOS）、`RemoteCommand` 类型（Android）、`RemoteCommandType` 枚举（Windows）中同步添加。
-2. 在 `ProtocolCodec` 中同步实现编码/解码。
-3. 更新 README 中的协议文档。
+1. Be added simultaneously to `RemoteCommand` enum (iOS/macOS), `RemoteCommand` type (Android), and `RemoteCommandType` enum (Windows).
+2. Have encoding/decoding implemented in `ProtocolCodec`.
+3. Be documented in the README protocol section.
 
-## 开发边界
+## Scope & Boundaries
 
-NeoRemote 是**输入控制工具**，不是远程桌面。
+NeoRemote is an **input control tool**, not a remote desktop.
 
-当前默认不做：
+Currently out of scope by default:
 
-- 屏幕画面回传
-- 文件传输
-- App 内数据读写
-- iPhone 作为系统级被控端
-- 复杂账号体系或端到端加密
-- 多客户端同时控制同一目标的完整仲裁策略
+- Screen mirroring / video streaming
+- File transfer
+- In-app data read/write
+- iPhone as a system-level controlled device
+- Complex account systems or end-to-end encryption
+- Multi-client simultaneous control arbitration
 
-后续扩展协议时，应保持现有 JSON v1 消息兼容，再新增能力。
+Future protocol extensions should maintain compatibility with existing JSON v1 messages before adding new capabilities.
 
-## 参考文档
+## Reference Documents
 
-| 文档 | 内容 |
+| Document | Content |
 | --- | --- |
-| [NeoRemote PRD](docs/NeoRemote_PRD.md) | 产品需求文档 |
-| [iOS/macOS Handoff](docs/ios-macos-handoff.md) | iOS 与 macOS 开发交接 |
-| [Cross-platform Progress](docs/cross-platform-current-progress.md) | 跨平台开发进度 |
-| [Windows Handoff](docs/windows-current-progress-handoff.md) | Windows 开发交接 |
-| [Android Signing](docs/android-signing-preset.md) | Android 签名配置 |
-| [Windows README](Windows/README.md) | Windows 端详细说明 |
+| [NeoRemote PRD](docs/NeoRemote_PRD.md) | Product requirements document |
+| [iOS/macOS Handoff](docs/ios-macos-handoff.md) | iOS and macOS development handoff |
+| [Cross-platform Progress](docs/cross-platform-current-progress.md) | Cross-platform development progress |
+| [Windows Handoff](docs/windows-current-progress-handoff.md) | Windows development handoff |
+| [Android Signing](docs/android-signing-preset.md) | Android signing configuration |
+| [Windows README](Windows/README.md) | Windows receiver details |
 
-## 许可证
+## License
 
-本项目采用 [MIT 许可证](LICENSE)。
+This project is licensed under the [MIT License](LICENSE).
 
-如有疑问或建议，请通过 [Issues](https://github.com/Souitou-iop/NeoRemote/issues) 反馈。
+For questions or suggestions, please use [Issues](https://github.com/Souitou-iop/NeoRemote/issues).
