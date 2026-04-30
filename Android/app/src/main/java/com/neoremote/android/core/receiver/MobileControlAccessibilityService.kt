@@ -28,7 +28,15 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
     private var density: Float = 1f
     private val mainHandler = Handler(Looper.getMainLooper())
     private val pendingActions = ArrayDeque<MobileInputAction>()
+    private val moveGestureAccumulator = MobileMoveGestureAccumulator()
     private var actionInFlight = false
+    private val flushMoveGestureRunnable = Runnable {
+        val flushedActions = moveGestureAccumulator.flush()
+        if (flushedActions.isNotEmpty()) {
+            pendingActions.addAll(flushedActions)
+            drainActionQueue()
+        }
+    }
     private val windowManager: WindowManager by lazy {
         getSystemService(WindowManager::class.java)
     }
@@ -71,8 +79,23 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         Log.d(TAG, "Received command=$command actions=${actions.size}")
         if (actions.isNotEmpty()) {
             mainHandler.post {
-                pendingActions.addAll(actions)
-                drainActionQueue()
+                val queueableActions = actions.flatMap { action ->
+                    if (action is MobileInputAction.MovePointer) {
+                        mainHandler.removeCallbacks(flushMoveGestureRunnable)
+                        moveGestureAccumulator.accept(action)
+                    } else {
+                        val flushedAndCurrent = moveGestureAccumulator.accept(action)
+                        mainHandler.removeCallbacks(flushMoveGestureRunnable)
+                        flushedAndCurrent
+                    }
+                }
+                if (actions.any { it is MobileInputAction.MovePointer }) {
+                    mainHandler.postDelayed(flushMoveGestureRunnable, MOVE_FLUSH_DELAY_MS)
+                }
+                if (queueableActions.isNotEmpty()) {
+                    pendingActions.addAll(queueableActions)
+                    drainActionQueue()
+                }
             }
         }
         return shouldAcknowledgeMobileCommand(command, actions)
@@ -210,6 +233,7 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
 
     companion object {
         private const val MOVE_DURATION_MS = 45L
+        private const val MOVE_FLUSH_DELAY_MS = 70L
         private const val TAP_DURATION_MS = 35L
         private const val ACTION_SEQUENCE_DELAY_MS = 100L
         private const val TAG = "NeoRemoteReceiver"

@@ -5,6 +5,9 @@ import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.model.SystemAction
 import com.neoremote.android.core.model.VideoActionKind
 import kotlin.math.abs
+import kotlin.math.hypot
+
+private const val TOUCHPAD_MOVE_SWIPE_DURATION_MS = 160L
 
 data class PointerPosition(
     val x: Float,
@@ -32,6 +35,46 @@ sealed interface MobileInputAction {
         val showTrail: Boolean = true,
     ) : MobileInputAction
     data class Global(val action: SystemAction) : MobileInputAction
+}
+
+class MobileMoveGestureAccumulator(
+    private val minDistance: Float = 8f,
+    private val durationMs: Long = TOUCHPAD_MOVE_SWIPE_DURATION_MS,
+) {
+    private var pendingFrom: PointerPosition? = null
+    private var pendingTo: PointerPosition? = null
+
+    fun accept(action: MobileInputAction): List<MobileInputAction> =
+        when (action) {
+            is MobileInputAction.MovePointer -> {
+                if (pendingFrom == null) {
+                    pendingFrom = action.from
+                }
+                pendingTo = action.to
+                emptyList()
+            }
+
+            else -> flush() + action
+        }
+
+    fun flush(): List<MobileInputAction> {
+        val from = pendingFrom
+        val to = pendingTo
+        pendingFrom = null
+        pendingTo = null
+
+        if (from == null || to == null) return emptyList()
+        val distance = hypot(to.x - from.x, to.y - from.y)
+        if (distance < minDistance) return emptyList()
+
+        return listOf(
+            MobileInputAction.Swipe(
+                from = from,
+                to = to,
+                durationMs = durationMs,
+            ),
+        )
+    }
 }
 
 class MobileInputPlanner(
