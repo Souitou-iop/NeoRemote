@@ -29,7 +29,7 @@ NeoRemote 当前已经形成两条可用链路：
 
 | 平台 | 技术栈 | 当前角色 |
 | --- | --- | --- |
-| iOS | Swift / SwiftUI / UIKit / Network.framework | 移动控制端，支持触控板模式与抖音模式 |
+| iOS | Swift / SwiftUI / UIKit / Network.framework | 移动控制端，支持触控板模式与短视频模式 |
 | Android | Kotlin / Jetpack Compose / Android NSD / Socket / AccessibilityService | 移动控制端 + Android 被控端 |
 | macOS | Swift Package / SwiftUI / AppKit / CoreGraphics | 桌面接收端，支持辅助功能权限检测与鼠标事件注入 |
 | Windows | C++20 / Win32 / SendInput | 桌面接收端，支持发现、监听与输入注入 |
@@ -38,7 +38,7 @@ NeoRemote 当前已经形成两条可用链路：
 
 - **自动发现 + 手动连接**：控制端可自动发现同网段的 Desktop 或 Android 被控端，也保留 IP/端口手动兜底。
 - **触控板模式**：移动端发送 `move / tap / scroll / drag`，用于控制 macOS、Windows 或 Android 被控端。
-- **抖音模式**：连接后可在 Remote 页切换到专用视频控制面板，支持上一条、下一条、左滑、右滑、双击点赞、播放/暂停、返回。
+- **短视频模式**：连接后可在 Remote 页切换到专用视频控制面板，支持上一条、下一条、左滑、右滑、双击点赞、播放/暂停、返回。
 - **Android 被控端**：Android 通过辅助功能接收 TCP 指令并执行点击、滑动、短视频动作和系统导航；内置动作队列，避免高频指令互相取消。
 - **桌面端原生注入**：macOS 使用 CoreGraphics，Windows 使用 SendInput，不做远程桌面画面回传。
 - **统一 CI / Beta 发布**：GitHub Actions 可构建 iOS IPA、Android APK、macOS app zip 和 Windows receiver zip，并创建 beta prerelease。
@@ -83,16 +83,18 @@ https://github.com/Souitou-iop/NeoRemote/releases/tag/v0.1.0-beta.8
 
 ## 演示截图
 
-以下截图来自 iOS 控制端和 macOS 接收端。移动端实际 Remote 页现在已支持 `触控板 / 抖音` 模式切换。
+以下截图来自 iOS 控制端和 macOS 接收端。移动端实际 Remote 页现在已支持 `触控板 / 短视频` 模式切换。
 
 <table>
   <tr>
     <th>连接引导</th>
     <th>已连接控制面</th>
+    <th>短视频模式</th>
   </tr>
   <tr>
     <td><img src="screenshots/neoremote-ios-01-onboarding.png" alt="连接引导" width="260"></td>
     <td><img src="screenshots/neoremote-ios-03-remote-connected.jpg" alt="已连接控制面" width="260"></td>
+    <td><img src="screenshots/neoremote-ios-06-short-video-mode.png" alt="短视频模式" width="260"></td>
   </tr>
   <tr>
     <th>设备页</th>
@@ -200,7 +202,7 @@ Android 被控端依赖系统辅助功能：
 2. 打开系统辅助功能设置。
 3. 启用 NeoRemote 辅助服务。
 4. 保持 Android 和控制端在同一局域网，或使用 ADB forward 做有线调试。
-5. iOS / Android 控制端发现并连接该 Android 设备后，即可执行触控板或抖音模式命令。
+5. iOS / Android 控制端发现并连接该 Android 设备后，即可执行触控板或短视频模式命令。
 
 被控端实现包含：
 

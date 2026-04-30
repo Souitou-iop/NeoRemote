@@ -4,7 +4,7 @@ import UIKit
 struct RemoteView: View {
     private enum Mode: String, CaseIterable, Identifiable {
         case touchpad = "触控板"
-        case douyin = "抖音"
+        case shortVideo = "短视频"
 
         var id: String { rawValue }
     }
@@ -46,8 +46,8 @@ struct RemoteView: View {
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(theme.secondaryForeground)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                    case .douyin:
-                        DouyinControlPanel(
+                    case .shortVideo:
+                        ShortVideoControlPanel(
                             theme: theme,
                             onAction: coordinator.sendVideoAction
                         )
@@ -94,7 +94,7 @@ struct RemoteView: View {
     }
 }
 
-private struct DouyinControlPanel: View {
+private struct ShortVideoControlPanel: View {
     let theme: RemoteTheme
     let onAction: (VideoActionKind) -> Void
 

@@ -238,7 +238,7 @@ private fun RemoteScreen(
                 )
             }
 
-            RemoteMode.DOUYIN -> DouyinControlPanel(
+            RemoteMode.DOUYIN -> ShortVideoControlPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
@@ -264,7 +264,7 @@ private fun RemoteModeSwitch(
             modifier = Modifier.weight(1f),
         )
         RemoteModeButton(
-            label = "抖音",
+            label = "短视频",
             selected = mode == RemoteMode.DOUYIN,
             onClick = { onModeChange(RemoteMode.DOUYIN) },
             modifier = Modifier.weight(1f),
@@ -303,7 +303,7 @@ private fun RemoteModeButton(
 }
 
 @Composable
-private fun DouyinControlPanel(
+private fun ShortVideoControlPanel(
     modifier: Modifier = Modifier,
     onVideoAction: (VideoActionKind) -> Unit,
 ) {
@@ -312,13 +312,13 @@ private fun DouyinControlPanel(
         verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            DouyinActionButton(
+            ShortVideoActionButton(
                 label = "上一条",
                 action = VideoActionKind.SWIPE_DOWN,
                 onVideoAction = onVideoAction,
                 modifier = Modifier.weight(1f),
             )
-            DouyinActionButton(
+            ShortVideoActionButton(
                 label = "下一条",
                 action = VideoActionKind.SWIPE_UP,
                 onVideoAction = onVideoAction,
@@ -326,33 +326,33 @@ private fun DouyinControlPanel(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            DouyinActionButton(
+            ShortVideoActionButton(
                 label = "左滑",
                 action = VideoActionKind.SWIPE_LEFT,
                 onVideoAction = onVideoAction,
                 modifier = Modifier.weight(1f),
             )
-            DouyinActionButton(
+            ShortVideoActionButton(
                 label = "右滑",
                 action = VideoActionKind.SWIPE_RIGHT,
                 onVideoAction = onVideoAction,
                 modifier = Modifier.weight(1f),
             )
         }
-        DouyinActionButton(
+        ShortVideoActionButton(
             label = "双击点赞",
             action = VideoActionKind.DOUBLE_TAP_LIKE,
             onVideoAction = onVideoAction,
             modifier = Modifier.fillMaxWidth(),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            DouyinActionButton(
+            ShortVideoActionButton(
                 label = "播放/暂停",
                 action = VideoActionKind.PLAY_PAUSE,
                 onVideoAction = onVideoAction,
                 modifier = Modifier.weight(1f),
             )
-            DouyinActionButton(
+            ShortVideoActionButton(
                 label = "返回",
                 action = VideoActionKind.BACK,
                 onVideoAction = onVideoAction,
@@ -363,7 +363,7 @@ private fun DouyinControlPanel(
 }
 
 @Composable
-private fun DouyinActionButton(
+private fun ShortVideoActionButton(
     label: String,
     action: VideoActionKind,
     onVideoAction: (VideoActionKind) -> Unit,
