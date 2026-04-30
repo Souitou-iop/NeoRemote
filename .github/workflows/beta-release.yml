@@ -61,8 +61,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  android-unsigned-apk:
-    name: Android unsigned release APK
+  android-release-apk:
+    name: Android signed release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -82,19 +82,58 @@ jobs:
         working-directory: Android
         run: ./gradlew assembleRelease
 
+      - name: Decode release keystore
+        env:
+          ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_RELEASE_KEYSTORE_BASE64" ]; then
+            echo "ANDROID_RELEASE_KEYSTORE_BASE64 is required for beta release signing." >&2
+            exit 1
+          fi
+          echo "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/NeoRemote-release.jks"
+          chmod 600 "$RUNNER_TEMP/NeoRemote-release.jks"
+
+      - name: Sign APK
+        env:
+          ANDROID_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEYSTORE_PASSWORD }}
+          ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+          ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for secret_name in \
+            ANDROID_RELEASE_KEYSTORE_PASSWORD \
+            ANDROID_RELEASE_KEY_ALIAS \
+            ANDROID_RELEASE_KEY_PASSWORD
+          do
+            if [ -z "${!secret_name}" ]; then
+              echo "$secret_name is required for beta release signing." >&2
+              exit 1
+            fi
+          done
+
+          APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          mkdir -p artifacts
+          "$APKSIGNER" sign \
+            --ks "$RUNNER_TEMP/NeoRemote-release.jks" \
+            --ks-key-alias "$ANDROID_RELEASE_KEY_ALIAS" \
+            --ks-pass "pass:$ANDROID_RELEASE_KEYSTORE_PASSWORD" \
+            --key-pass "pass:$ANDROID_RELEASE_KEY_PASSWORD" \
+            --out artifacts/NeoRemote-android-release-signed.apk \
+            Android/app/build/outputs/apk/release/app-release-unsigned.apk
+          "$APKSIGNER" verify --verbose --print-certs \
+            artifacts/NeoRemote-android-release-signed.apk
+
       - name: Package APK
         run: |
           set -euo pipefail
-          mkdir -p artifacts
-          cp Android/app/build/outputs/apk/release/app-release-unsigned.apk \
-            artifacts/NeoRemote-android-release-unsigned.apk
-          unzip -t artifacts/NeoRemote-android-release-unsigned.apk
+          unzip -t artifacts/NeoRemote-android-release-signed.apk
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v7.0.1
         with:
           name: beta-android
-          path: artifacts/NeoRemote-android-release-unsigned.apk
+          path: artifacts/NeoRemote-android-release-signed.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -234,7 +273,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - ios-unsigned-ipa
-      - android-unsigned-apk
+      - android-release-apk
       - macos-app
       - windows-receiver
 
@@ -268,12 +307,13 @@ jobs:
 
           Artifacts:
           - iOS unsigned IPA
-          - Android unsigned release APK
+          - Android signed release APK
           - macOS app zip
           - Windows receiver zip
 
           Notes:
-          - iOS and Android artifacts are unsigned or not store-signed beta builds.
+          - iOS artifact is unsigned and requires signing or installation per your dev/test environment.
+          - Android artifact is signed with the NeoRemote release keystore.
           - macOS app is ad-hoc signed for local testing.
           NOTES
 
