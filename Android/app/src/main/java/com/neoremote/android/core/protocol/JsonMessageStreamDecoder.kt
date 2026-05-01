@@ -6,6 +6,10 @@ class JsonMessageStreamDecoder {
     fun append(data: ByteArray): List<ByteArray> {
         if (data.isEmpty()) return emptyList()
         buffer += data
+        check(buffer.size <= MAX_BUFFER_SIZE_BYTES) {
+            buffer = ByteArray(0)
+            "JSON message exceeded 1MB limit"
+        }
 
         val payloads = mutableListOf<ByteArray>()
         var inString = false
@@ -57,5 +61,8 @@ class JsonMessageStreamDecoder {
 
         return payloads
     }
-}
 
+    companion object {
+        const val MAX_BUFFER_SIZE_BYTES = 1_048_576
+    }
+}

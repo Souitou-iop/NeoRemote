@@ -5,6 +5,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <thread>
+#include <vector>
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -214,7 +215,15 @@ void TcpRemoteServer::ReceiveLoop(std::string clientId)
             break;
         }
 
-        for (const auto& payload : decoder.Append(std::string_view(buffer.data(), static_cast<size_t>(received)))) {
+        std::vector<std::string> payloads;
+        try {
+            payloads = decoder.Append(std::string_view(buffer.data(), static_cast<size_t>(received)));
+        } catch (const Core::JsonMessageStreamDecoderError& error) {
+            Emit(Core::RemoteServerEvent::ClientRejected(endpoint, error.what()));
+            break;
+        }
+
+        for (const auto& payload : payloads) {
             try {
                 Emit(Core::RemoteServerEvent::Command(clientId, codec_.DecodeCommand(payload)));
             } catch (const std::exception& error) {

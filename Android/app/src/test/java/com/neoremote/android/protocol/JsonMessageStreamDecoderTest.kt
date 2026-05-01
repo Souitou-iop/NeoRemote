@@ -2,6 +2,7 @@ package com.neoremote.android.protocol
 
 import com.google.common.truth.Truth.assertThat
 import com.neoremote.android.core.protocol.JsonMessageStreamDecoder
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class JsonMessageStreamDecoderTest {
@@ -29,5 +30,14 @@ class JsonMessageStreamDecoderTest {
         assertThat(first).isEmpty()
         assertThat(second.single().decodeToString()).isEqualTo("""{"type":"status","message":"hello"}""")
     }
-}
 
+    @Test
+    fun `append rejects oversized partial payload`() {
+        val decoder = JsonMessageStreamDecoder()
+        val oversizedPayload = ByteArray(JsonMessageStreamDecoder.MAX_BUFFER_SIZE_BYTES + 1) { '{'.code.toByte() }
+
+        assertThrows(IllegalStateException::class.java) {
+            decoder.append(oversizedPayload)
+        }
+    }
+}

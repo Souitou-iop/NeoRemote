@@ -167,7 +167,7 @@ final class ProtocolCodecTests: XCTestCase {
     func testJsonStreamDecoderSplitsBackToBackMessages() throws {
         var decoder = JsonMessageStreamDecoder()
 
-        let payloads = decoder.append(#"{"type":"ack"}{"type":"heartbeat"}"#.data(using: .utf8)!)
+        let payloads = try decoder.append(#"{"type":"ack"}{"type":"heartbeat"}"#.data(using: .utf8)!)
 
         XCTAssertEqual(payloads.count, 2)
         XCTAssertEqual(String(data: try XCTUnwrap(payloads.first), encoding: .utf8), #"{"type":"ack"}"#)
@@ -177,10 +177,19 @@ final class ProtocolCodecTests: XCTestCase {
     func testJsonStreamDecoderWaitsForPartialPayload() {
         var decoder = JsonMessageStreamDecoder()
 
-        let firstChunk = decoder.append(#"{"type":"status","#.data(using: .utf8)!)
-        let secondChunk = decoder.append(#""message":"desktop-ready"}"#.data(using: .utf8)!)
+        let firstChunk = try! decoder.append(#"{"type":"status","#.data(using: .utf8)!)
+        let secondChunk = try! decoder.append(#""message":"desktop-ready"}"#.data(using: .utf8)!)
 
         XCTAssertTrue(firstChunk.isEmpty)
         XCTAssertEqual(secondChunk.count, 1)
+    }
+
+    func testJsonStreamDecoderRejectsOversizedPartialPayload() {
+        var decoder = JsonMessageStreamDecoder()
+        let oversizedPayload = Data(repeating: UInt8(ascii: "{"), count: JsonMessageStreamDecoder.maxBufferSize + 1)
+
+        XCTAssertThrowsError(try decoder.append(oversizedPayload)) { error in
+            XCTAssertEqual(error as? JsonMessageStreamDecoderError, .bufferLimitExceeded)
+        }
     }
 }

@@ -1,6 +1,7 @@
 package com.neoremote.android.core.receiver
 
 import android.util.Log
+import com.neoremote.android.BuildConfig
 import com.neoremote.android.core.model.ProtocolMessage
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.protocol.JsonMessageStreamDecoder
@@ -46,7 +47,7 @@ class MobileReceiverServer(
                     Log.i(TAG, "Android mobile receiver listening on TCP $port")
                     while (isActive) {
                         val client = server.accept()
-                        Log.i(TAG, "Android mobile receiver accepted ${client.remoteSocketAddress}")
+                        debugLog { "Android mobile receiver accepted ${client.remoteSocketAddress}" }
                         replaceActiveClient(client)
                         launch { handleClient(client) }
                     }
@@ -95,7 +96,7 @@ class MobileReceiverServer(
                 if (bytesRead == 0) continue
                 decoder.append(buffer.copyOf(bytesRead)).forEach { payload ->
                     val command = codec.decodeCommand(payload)
-                    Log.d(TAG, "Android mobile receiver decoded command=$command")
+                    debugLog { "Android mobile receiver decoded command=$command" }
                     val result = commandHandler.handle(command)
                     val response = when {
                         result.response != null -> codec.encode(result.response)
@@ -124,5 +125,11 @@ class MobileReceiverServer(
     companion object {
         const val DEFAULT_PORT = 51101
         private const val TAG = "NeoRemoteReceiver"
+    }
+}
+
+private inline fun debugLog(message: () -> String) {
+    if (BuildConfig.DEBUG) {
+        Log.d("NeoRemoteReceiver", message())
     }
 }

@@ -32,8 +32,7 @@ NeoRemote is a **cross-device input control tool** — not a remote desktop. It 
 │   ├── src/NeoRemote.Core/    #   Protocol, input injection (platform-independent)
 │   ├── src/NeoRemote.Windows/ #   TCP, UDP, Tray, Win32 specifics
 │   └── tests/                 #   Unit tests
-├── resources/                 # Brand assets, screenshots, docs
-├── scripts/                   # Cross-platform tooling (icon sync)
+├── resources/                 # Brand assets, screenshots, docs, resource tooling
 └── .github/workflows/         # CI: build-all.yml, beta-release.yml
 ```
 
@@ -247,10 +246,10 @@ Keep the first line under 72 characters. Use the body for context if needed.
 
 ## Icon Sync
 
-The single source of truth for app icons is `resources/brand/icons/NeoRemote.icon` (Icon Composer format). After editing, run:
+The single source of truth for app icons is `resources/icons/NeoRemote.icon` (Icon Composer format). After editing, run:
 
 ```bash
-./scripts/sync_icons.sh
+./resources/scripts/sync_icons.sh
 ```
 
 This syncs to iOS (Xcode assets), macOS (`AppIcon.icns`), Android (`mipmap-*`), and Windows (`NeoRemote.ico`).

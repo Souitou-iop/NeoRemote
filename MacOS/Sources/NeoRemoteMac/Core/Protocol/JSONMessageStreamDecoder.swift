@@ -1,10 +1,24 @@
 import Foundation
 
+enum JSONMessageStreamDecoderError: Error, LocalizedError, Equatable {
+    case bufferLimitExceeded
+
+    var errorDescription: String? {
+        "JSON 消息超过 1MB 上限，已断开连接。"
+    }
+}
+
 struct JSONMessageStreamDecoder {
+    static let maxBufferSize = 1_048_576
+
     private var buffer = Data()
 
-    mutating func append(_ data: Data) -> [Data] {
+    mutating func append(_ data: Data) throws -> [Data] {
         buffer.append(data)
+        guard buffer.count <= Self.maxBufferSize else {
+            buffer.removeAll(keepingCapacity: false)
+            throw JSONMessageStreamDecoderError.bufferLimitExceeded
+        }
 
         var payloads: [Data] = []
         var inString = false

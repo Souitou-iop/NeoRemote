@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/brand/icons/NeoRemote%20Exports/NeoRemote-iOS-Default-1024x1024@1x.png" alt="NeoRemote icon" width="120">
+  <img src="resources/icons/NeoRemote%20Exports/NeoRemote-iOS-Default-1024x1024@1x.png" alt="NeoRemote icon" width="120">
 </p>
 
 <h1 align="center">NeoRemote</h1>
@@ -82,7 +82,7 @@ The project is built with **four native platform implementations** — no Flutte
 - **Android Accessibility Actions**: The Android controlled device supports accessibility-based tap actions for specific app UI elements (e.g., Douyin/TikTok like and favorite buttons), enabling precise automation beyond coordinate-based gestures.
 - **Native Desktop Injection**: macOS uses CoreGraphics, Windows uses SendInput. No remote screen mirroring.
 - **Unified CI / Beta Release**: GitHub Actions builds iOS IPA, Android APK, macOS app zip, and Windows receiver zip, and can create beta prereleases.
-- **Shared Brand Assets**: `resources/brand/icons/NeoRemote.icon` is the primary icon source. The repository also retains iOS / watchOS export icons and visual assets.
+- **Shared Brand Assets**: `resources/icons/NeoRemote.icon` is the primary icon source. The repository also retains iOS / watchOS export icons and visual assets.
 
 ## Screenshots
 
@@ -91,19 +91,21 @@ Screenshots are from the current iOS simulator build and macOS receiver. The mob
 <table>
   <tr>
     <th>Onboarding</th>
+    <th>Manual Connect</th>
     <th>Screen Control</th>
-    <th>Short Video Mode</th>
   </tr>
   <tr>
     <td><img src="resources/screenshots/neoremote-ios-01-onboarding.png" alt="Onboarding" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-02-manual-connect.png" alt="Manual Connect" width="260"></td>
     <td><img src="resources/screenshots/neoremote-ios-03-remote-connected.png" alt="Screen Control" width="260"></td>
-    <td><img src="resources/screenshots/neoremote-ios-06-short-video-mode.png" alt="Short Video Mode" width="260"></td>
   </tr>
   <tr>
+    <th>Short Video Mode</th>
     <th>Devices</th>
     <th>Settings</th>
   </tr>
   <tr>
+    <td><img src="resources/screenshots/neoremote-ios-06-short-video-mode.png" alt="Short Video Mode" width="260"></td>
     <td><img src="resources/screenshots/neoremote-ios-05-devices.png" alt="Devices" width="260"></td>
     <td><img src="resources/screenshots/neoremote-ios-04-settings.png" alt="Settings" width="260"></td>
   </tr>
@@ -330,10 +332,10 @@ The controlled device implementation includes:
 │   ├── src/NeoRemote.Windows/       #   Win32 layer (TCP, UDP, Tray)
 │   ├── tests/                       #   Unit tests
 │   └── scripts/                     #   Build script
-├── resources/                       # Brand assets and README screenshots
-│   ├── brand/                       #   Icon Composer source, exports, artwork, icons
-│   └── screenshots/                 #   README demo screenshots
-├── scripts/                         # Cross-platform resource sync scripts
+├── resources/                       # Brand assets, README screenshots, and resource tooling
+│   ├── icons/                       #   Icon Composer source and exported icons
+│   ├── screenshots/                 #   README demo screenshots
+│   └── scripts/                     #   Cross-platform resource sync scripts
 ├── docs/                            # Project documentation
 └── .github/workflows/               # Four-platform build and beta release
 ```
@@ -368,10 +370,10 @@ gh workflow run beta-release.yml --ref main -f version=vbeta-10
 
 ### Icon sync
 
-NeoRemote uses `resources/brand/icons/NeoRemote.icon` as the single icon design source. After adjusting the Icon Composer file, run:
+NeoRemote uses `resources/icons/NeoRemote.icon` as the single icon design source. After adjusting the Icon Composer file, run:
 
 ```bash
-./scripts/sync_icons.sh
+./resources/scripts/sync_icons.sh
 ```
 
 This syncs to iOS (Xcode assets), macOS (`AppIcon.icns`), Android (`mipmap-*`), and Windows (`NeoRemote.ico`).

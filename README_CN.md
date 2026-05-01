@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/brand/icons/NeoRemote%20Exports/NeoRemote-iOS-Default-1024x1024@1x.png" alt="NeoRemote icon" width="120">
+  <img src="resources/icons/NeoRemote%20Exports/NeoRemote-iOS-Default-1024x1024@1x.png" alt="NeoRemote icon" width="120">
 </p>
 
 <h1 align="center">NeoRemote</h1>
@@ -82,7 +82,7 @@ NeoRemote 当前已经形成两条可用链路：
 - **Android 无障碍精准操作**：Android 被控端支持基于 AccessibilityService 的精准 UI 元素操作（如抖音点赞、收藏按钮），实现超越坐标手势的精确自动化。
 - **桌面端原生注入**：macOS 使用 CoreGraphics，Windows 使用 SendInput，不做远程桌面画面回传。
 - **统一 CI / Beta 发布**：GitHub Actions 可构建 iOS IPA、Android APK、macOS app zip 和 Windows receiver zip，并创建 beta prerelease。
-- **同源品牌资源**：`resources/brand/icons/NeoRemote.icon` 是主图标源，仓库同时保留 iOS / watchOS 导出图标和视觉资产。
+- **同源品牌资源**：`resources/icons/NeoRemote.icon` 是主图标源，仓库同时保留 iOS / watchOS 导出图标和视觉资产。
 
 ## 演示截图
 
@@ -91,19 +91,21 @@ NeoRemote 当前已经形成两条可用链路：
 <table>
   <tr>
     <th>连接引导</th>
+    <th>手动连接</th>
     <th>屏幕控制</th>
-    <th>短视频模式</th>
   </tr>
   <tr>
     <td><img src="resources/screenshots/neoremote-ios-01-onboarding.png" alt="连接引导" width="260"></td>
+    <td><img src="resources/screenshots/neoremote-ios-02-manual-connect.png" alt="手动连接" width="260"></td>
     <td><img src="resources/screenshots/neoremote-ios-03-remote-connected.png" alt="屏幕控制" width="260"></td>
-    <td><img src="resources/screenshots/neoremote-ios-06-short-video-mode.png" alt="短视频模式" width="260"></td>
   </tr>
   <tr>
+    <th>短视频模式</th>
     <th>设备页</th>
     <th>设置页</th>
   </tr>
   <tr>
+    <td><img src="resources/screenshots/neoremote-ios-06-short-video-mode.png" alt="短视频模式" width="260"></td>
     <td><img src="resources/screenshots/neoremote-ios-05-devices.png" alt="设备页" width="260"></td>
     <td><img src="resources/screenshots/neoremote-ios-04-settings.png" alt="设置页" width="260"></td>
   </tr>
@@ -330,10 +332,10 @@ Android 被控端依赖系统辅助功能：
 │   ├── src/NeoRemote.Windows/       #   Win32 层（TCP、UDP、Tray）
 │   ├── tests/                       #   单元测试
 │   └── scripts/                     #   构建脚本
-├── resources/                       # 品牌资产与 README 截图
-│   ├── brand/                       #   Icon Composer 源文件、导出图、品牌图与图标
-│   └── screenshots/                 #   README 演示截图
-├── scripts/                         # 全端资源同步脚本
+├── resources/                       # 品牌资产、README 截图与资源工具
+│   ├── icons/                       #   Icon Composer 源文件与导出图标
+│   ├── screenshots/                 #   README 演示截图
+│   └── scripts/                     #   全端资源同步脚本
 ├── docs/                            # 项目文档
 └── .github/workflows/               # 四端构建与 beta 发布
 ```
@@ -368,10 +370,10 @@ gh workflow run beta-release.yml --ref main -f version=vbeta-10
 
 ### 图标同步
 
-NeoRemote 的应用图标以 `resources/brand/icons/NeoRemote.icon` 为唯一设计源。调整 Icon Composer 文件后，运行：
+NeoRemote 的应用图标以 `resources/icons/NeoRemote.icon` 为唯一设计源。调整 Icon Composer 文件后，运行：
 
 ```bash
-./scripts/sync_icons.sh
+./resources/scripts/sync_icons.sh
 ```
 
 脚本会同步到 iOS（Xcode 资源）、macOS（`AppIcon.icns`）、Android（`mipmap-*`）、Windows（`NeoRemote.ico`）。

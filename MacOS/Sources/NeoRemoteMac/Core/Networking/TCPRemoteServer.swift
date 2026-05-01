@@ -48,7 +48,10 @@ final class TCPRemoteServer: RemoteServering, @unchecked Sendable {
         parameters.allowLocalEndpointReuse = true
         parameters.includePeerToPeer = true
 
-        let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: port)!)
+        guard let listenerPort = NWEndpoint.Port(rawValue: port) else {
+            throw NWError.posix(.EINVAL)
+        }
+        let listener = try NWListener(using: parameters, on: listenerPort)
         listener.service = NWListener.Service(
             name: Host.current().localizedName ?? "NeoRemote Mac",
             type: "_neoremote._tcp."
@@ -190,10 +193,16 @@ private final class ClientConnection: @unchecked Sendable {
             guard let self else { return }
             self.queue.async {
                 if let data, !data.isEmpty {
-                    self.decoder.append(data).forEach { payload in
-                        if let command = try? self.codec.decodeCommand(payload) {
-                            self.onCommand?(self.id, command)
+                    do {
+                        try self.decoder.append(data).forEach { payload in
+                            if let command = try? self.codec.decodeCommand(payload) {
+                                self.onCommand?(self.id, command)
+                            }
                         }
+                    } catch {
+                        self.disconnect(with: error.localizedDescription)
+                        self.close()
+                        return
                     }
                 }
 

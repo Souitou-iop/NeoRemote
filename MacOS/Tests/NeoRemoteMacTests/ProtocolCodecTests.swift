@@ -68,8 +68,17 @@ final class ProtocolCodecTests: XCTestCase {
         var decoder = JSONMessageStreamDecoder()
         let data = #"{"type":"heartbeat"}{"type":"tap","button":"primary"}"#.data(using: .utf8)!
 
-        let payloads = decoder.append(data)
+        let payloads = try! decoder.append(data)
 
         XCTAssertEqual(payloads.count, 2)
+    }
+
+    func testStreamDecoderRejectsOversizedPartialPayload() {
+        var decoder = JSONMessageStreamDecoder()
+        let oversizedPayload = Data(repeating: UInt8(ascii: "{"), count: JSONMessageStreamDecoder.maxBufferSize + 1)
+
+        XCTAssertThrowsError(try decoder.append(oversizedPayload)) { error in
+            XCTAssertEqual(error as? JSONMessageStreamDecoderError, .bufferLimitExceeded)
+        }
     }
 }

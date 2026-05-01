@@ -18,6 +18,7 @@ import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.neoremote.android.BuildConfig
 import com.neoremote.android.core.model.DragState
 import com.neoremote.android.core.model.RemoteCommand
 import com.neoremote.android.core.model.SystemAction
@@ -93,7 +94,7 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         handleSemanticVideoCommand(command)?.let { return it }
         val activePlanner = planner ?: return MobileCommandHandleResult(handled = false)
         val actions = activePlanner.apply(command)
-        Log.d(TAG, "Received command=$command actions=${actions.size}")
+        debugLog { "Received command=$command actions=${actions.size}" }
         if (actions.isNotEmpty()) {
             mainHandler.post {
                 val queueableActions = actions.flatMap { action ->
@@ -134,7 +135,7 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
     private fun clickDouyinToggle(kind: DouyinToggleKind): MobileCommandHandleResult {
         val startedAt = SystemClock.elapsedRealtime()
         if (clickCachedDouyinToggle(kind)) {
-            Log.d(TAG, "Douyin ${kind.logName} clicked path=cache elapsed=${SystemClock.elapsedRealtime() - startedAt}ms")
+            debugLog { "Douyin ${kind.logName} clicked path=cache elapsed=${SystemClock.elapsedRealtime() - startedAt}ms" }
             return MobileCommandHandleResult(handled = true)
         }
 
@@ -150,7 +151,7 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         }
         target.recycle()
         return if (clicked) {
-            Log.d(TAG, "Douyin ${kind.logName} clicked path=scan elapsed=${SystemClock.elapsedRealtime() - startedAt}ms")
+            debugLog { "Douyin ${kind.logName} clicked path=scan elapsed=${SystemClock.elapsedRealtime() - startedAt}ms" }
             MobileCommandHandleResult(handled = true)
         } else {
             MobileCommandHandleResult(
@@ -424,12 +425,16 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         private val onFinished: () -> Unit,
     ) : GestureResultCallback() {
         override fun onCompleted(gestureDescription: GestureDescription?) {
-            Log.d(TAG, "$kind gesture completed from=$from to=$to")
+            debugLog { "$kind gesture completed from=$from to=$to" }
             onFinished()
         }
 
         override fun onCancelled(gestureDescription: GestureDescription?) {
-            Log.w(TAG, "$kind gesture cancelled from=$from to=$to")
+            if (BuildConfig.DEBUG) {
+                Log.w(TAG, "$kind gesture cancelled from=$from to=$to")
+            } else {
+                Log.w(TAG, "$kind gesture cancelled")
+            }
             onFinished()
         }
     }
@@ -589,6 +594,12 @@ private fun AccessibilityNodeInfo.closestClickableNode(): AccessibilityNodeInfo?
         ownsCurrent = parent != null
     }
     return null
+}
+
+private inline fun debugLog(message: () -> String) {
+    if (BuildConfig.DEBUG) {
+        Log.d("NeoRemoteReceiver", message())
+    }
 }
 
 fun shouldAcknowledgeMobileCommand(

@@ -32,6 +32,11 @@ Android/vendor/AndroidLiquidGlass/gradlew.bat
 *.jks
 *.keystore
 *.idsig
+.env
+*.p12
+*.pem
+*.key
+credentials*
 
 # Windows / MSVC
 Windows/**/x64/

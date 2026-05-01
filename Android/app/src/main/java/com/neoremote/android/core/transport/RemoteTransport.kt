@@ -101,15 +101,24 @@ class SocketRemoteTransport(
                     }
                     if (bytesRead == 0) continue
 
-                    decoder.append(buffer.copyOf(bytesRead)).forEach { payload ->
-                        runCatching { codec.decodeMessage(payload) }
-                            .onSuccess { message -> onMessage?.invoke(message) }
-                            .onFailure { error ->
-                                onStateChange?.invoke(
-                                    TransportConnectionState.Failed(error.message ?: "协议解析失败"),
-                                )
+                    runCatching { decoder.append(buffer.copyOf(bytesRead)) }
+                        .onSuccess { payloads ->
+                            payloads.forEach { payload ->
+                                runCatching { codec.decodeMessage(payload) }
+                                    .onSuccess { message -> onMessage?.invoke(message) }
+                                    .onFailure { error ->
+                                        onStateChange?.invoke(
+                                            TransportConnectionState.Failed(error.message ?: "协议解析失败"),
+                                        )
+                                    }
                             }
-                    }
+                        }.onFailure { error ->
+                            closeActiveSocket()
+                            onStateChange?.invoke(
+                                TransportConnectionState.Failed(error.message ?: "协议消息过大"),
+                            )
+                            return@launch
+                        }
                 }
             } catch (error: IOException) {
                 if (manualDisconnect) {

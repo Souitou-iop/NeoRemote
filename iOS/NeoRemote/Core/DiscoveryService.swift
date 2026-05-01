@@ -326,9 +326,7 @@ extension BonjourDiscoveryService: NetServiceDelegate {
     }
 
     func netService(_ sender: NetService, didNotResolve errorDict: [String: NSNumber]) {
-        if let code = errorDict[NetService.errorCode] {
-            print("NeoRemote discovery resolve failed for \(sender.name): \(code)")
-        }
+        _ = errorDict
     }
 }
 

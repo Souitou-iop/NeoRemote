@@ -2,201 +2,124 @@
 
 > Review date: 2026-05-01
 > Scope: iOS, Android, macOS, Windows, CI/CD
+> Status: Updated after source verification and first-pass fixes.
 
 ---
 
 ## Summary
 
-| Severity | Count |
-| -------- | ----- |
-| Critical | 2     |
-| High     | 5     |
-| Medium   | 8     |
-| Low      | 6     |
+| Status | Count |
+| ------ | ----- |
+| Open Critical | 2 |
+| Open High | 3 |
+| Open Medium | 4 |
+| Open Low | 3 |
+| Fixed in this pass | 8 |
+| False positive / overstated | 2 |
 
-The most urgent finding is the **systemic absence of transport-layer security across all four platforms**. Every TCP connection transmits remote-control commands in plaintext, and the UDP discovery protocol is unauthenticated. Together these allow any LAN attacker to intercept, replay, or inject input commands.
-
----
-
-## Cross-Platform Systemic Issues
-
-These issues affect all four platforms and must be resolved at the protocol level.
-
-### Critical #1: Plaintext TCP, No Encryption
-
-| Platform | Location | Evidence |
-| -------- | -------- | -------- |
-| iOS      | `iOS/NeoRemote/Core/RemoteTransport.swift:34` | `NWParameters(tls: nil, tcp: tcpOptions)` |
-| Android  | `Android/app/src/main/java/.../transport/RemoteTransport.kt:49` | `Socket()` bare connection |
-| macOS    | `MacOS/Sources/.../Networking/TCPRemoteServer.swift:47` | `NWParameters(tls: nil, tcp: tcpOptions)` |
-| Windows  | `Windows/src/NeoRemote.Windows/src/TcpRemoteServer.cpp:121` | `socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)` |
-
-**Impact**: Any device on the same LAN can sniff, replay, or inject mouse/keyboard/gesture commands. An attacker can remotely control the victim's computer.
-
-**Recommendation**:
-
-- **Short-term** — Add PSK (pre-shared key) handshake authentication with HMAC command signing.
-- **Medium-term** — Optional TLS transport (iOS/macOS: `NWParameters.tls`, Android: `SSLSocket`, Windows: SChannel).
-
-### Critical #2: Unauthenticated UDP Discovery
-
-All platforms respond to a fixed string `"NEOREMOTE_DISCOVER_V1"` with their TCP port. Any device can spoof discovery responses to perform MITM attacks.
-
-**Recommendation**: Add challenge-response — client sends a random nonce, server signs the nonce with PSK and returns the signature.
+The core risk is real: NeoRemote is a LAN-only remote input tool, but it currently lacks an authenticated control channel. Plain TCP plus unauthenticated UDP discovery allows LAN spoofing, replay, and impersonation unless the desktop-side approval flow catches the attacker. The macOS approval flow reduces some direct-control impact, but it is not a cryptographic trust boundary.
 
 ---
 
-## High Severity
+## Fixed in This Pass
 
-### High #3: Android AccessibilityService Unrestricted Gesture Injection
-
-**File**: `Android/app/src/main/java/.../receiver/MobileControlAccessibilityService.kt:329-361`
-
-`dispatchGesture` executes coordinates received from the network with no bounds checking, rate limiting, or confirmation prompt. An attacker can tap any screen location, including system dialogs or banking apps.
-
-**Recommendation**:
-
-- Coordinate whitelist / safe-zone restriction
-- Confirmation dialog on connection establishment
-- Gesture rate limiting (e.g., max 10 gestures per 500ms)
-
-### High #4: No Protocol-Level Authentication
-
-**File**: `Android/app/src/main/java/.../protocol/ProtocolCodec.kt:123` (and equivalent on all platforms)
-
-`decodeCommand` accepts any JSON over TCP without a shared secret, token, or challenge-response. Combined with plaintext transport, any LAN device can impersonate a controller.
-
-**Recommendation**: Implement a unified handshake protocol — `clientHello` -> `challenge` -> `response` -> `ack` — where authentication must succeed before commands are accepted.
-
-### High #5: Windows Predictable Client ID
-
-**File**: `Windows/src/NeoRemote.Windows/src/TcpRemoteServer.cpp:273-278`
-
-`MakeClientId()` uses `steady_clock::now().count()`, which is a deterministic, guessable sequence.
-
-**Recommendation**: Use a cryptographically random UUID (e.g., `BCryptGenRandom` on Windows).
-
-### High #6: macOS Release Build Contains `get-task-allow` Entitlement
-
-**File**: `MacOS/.build/arm64-apple-macosx/debug/NeoRemoteMac-entitlement.plist`
-
-`com.apple.security.get-task-allow` is `true`. This disables SIP protections and allows debugger attachment. Acceptable in debug but must not ship in release.
-
-**Recommendation**: Set to `false` in the release entitlements plist.
-
-### High #7: Windows No Connection Rate Limiting
-
-**File**: `Windows/src/NeoRemote.Windows/src/TcpRemoteServer.cpp:160-185`
-
-`AcceptLoop` has no connection rate limit or max-client cap. An attacker can exhaust resources by opening many connections.
-
-**Recommendation**: Add a max concurrent client limit (e.g., 5) and connection rate limiter.
+| ID | Issue | Evidence |
+| -- | ----- | -------- |
+| F1 | iOS JSON stream buffer now has a 1MB cap and disconnects on overflow | `iOS/NeoRemote/Core/RemoteTransport.swift` |
+| F2 | Android JSON stream buffer now has a 1MB cap and fails the connection on overflow | `Android/app/src/main/java/com/neoremote/android/core/protocol/JsonMessageStreamDecoder.kt` |
+| F3 | macOS JSON stream buffer now has a 1MB cap and disconnects on overflow | `MacOS/Sources/NeoRemoteMac/Core/Protocol/JSONMessageStreamDecoder.swift` |
+| F4 | Windows JSON stream buffer now has a 1MB cap and rejects oversized partial payloads | `Windows/src/NeoRemote.Core/src/JsonMessageStreamDecoder.cpp` |
+| F5 | `build-all.yml` now declares least-privilege `permissions: contents: read` | `.github/workflows/build-all.yml` |
+| F6 | `.gitignore` now blocks `.env`, `*.p12`, `*.pem`, `*.key`, and `credentials*` | `.gitignore` |
+| F7 | Removed iOS production `print()`, gated Android debug logs behind debug builds, removed unused iOS settings slider code, and removed macOS listener port force unwrap | iOS/Android/macOS source |
+| F8 | Android app backup is disabled so future paired-device secrets are not copied by platform backup | `Android/app/src/main/AndroidManifest.xml` |
 
 ---
 
-## Medium Severity
+## False Positive / Overstated Findings
 
-### Medium #8: iOS JSON Stream Parser Unbounded Buffer
+### FP-1: macOS release build contains `get-task-allow`
 
-**File**: `iOS/NeoRemote/Core/RemoteTransport.swift:135-192`
+The original report cited `MacOS/.build/arm64-apple-macosx/debug/NeoRemoteMac-entitlement.plist`. That file is a SwiftPM debug build artifact and is not tracked by git. Current release packaging uses explicit signing steps and does not reference that debug entitlement file. This should not be treated as a High release-blocking finding unless a shipped artifact is shown to contain the entitlement.
 
-`JsonMessageStreamDecoder` appends all incoming bytes to `buffer` with no size cap. A malicious peer sending partial JSON (no closing `}`) causes unbounded memory growth.
+### FP-2: Android gesture injection has no bounds checking
 
-**Recommendation**: Add a maximum buffer size (e.g., 1MB) and drop the connection if exceeded.
-
-### Medium #9: Android JSON Stream Parser Unbounded Buffer
-
-**File**: `Android/app/src/main/java/.../protocol/JsonMessageStreamDecoder.kt:8`
-
-Same issue as iOS — `buffer += data` concatenates without limit.
-
-**Recommendation**: Same as iOS — add buffer size cap.
-
-### Medium #10: iOS Silent Decode Failure
-
-**File**: `iOS/NeoRemote/Core/RemoteTransport.swift:93`
-
-`try? self.codec.decode(payload)` silently discards decode errors. Malformed or tampered messages are ignored with no logging, making protocol-level attacks invisible.
-
-**Recommendation**: Log decode failures and consider disconnecting after repeated malformed messages.
-
-### Medium #11: macOS `@unchecked Sendable` Bypasses Swift Concurrency Safety
-
-**File**: `MacOS/Sources/.../Networking/TCPRemoteServer.swift:22, 131` and `CGEventInputInjector.swift:17`
-
-Mutable state is protected only by a single `DispatchQueue` with `@unchecked Sendable`. Any missed dispatch barrier creates data races.
-
-**Recommendation**: Use `actor` or `Mutex` (Swift 6) instead of manual DispatchQueue management.
-
-### Medium #12: Windows Unbounded Thread Creation
-
-**File**: `Windows/src/NeoRemote.Windows/src/TcpRemoteServer.cpp:183`
-
-`std::thread([this, clientId] { ReceiveLoop(clientId); }).detach()` — each client spawns a detached thread with no pool or limit.
-
-**Recommendation**: Use a thread pool or IOCP-based async model.
-
-### Medium #13: Windows Hand-Rolled JSON Parser is Fragile
-
-**File**: `Windows/src/NeoRemote.Core/src/Protocol.cpp:12-83`
-
-`FindString`/`FindNumber` do naive string scanning. No Unicode handling, no null-byte handling, no escape sequence support.
-
-**Recommendation**: Replace with [nlohmann/json](https://github.com/nlohmann/json) or [simdjson](https://github.com/simdjson/simdjson).
-
-### Medium #14: CI Missing `permissions` Declaration
-
-**File**: `.github/workflows/build-all.yml`
-
-No top-level `permissions:` block. All jobs inherit the default token scope, which may be broader than needed.
-
-**Recommendation**: Add `permissions: contents: read` at the top level.
-
-### Medium #15: `.gitignore` Missing Sensitive File Patterns
-
-**File**: `.gitignore`
-
-Blocks `*.jks`, `*.keystore`, `*.idsig` (good), but has no rules for `.env`, `*.p12`, `*.pem`, `*.key`, or `credentials*`.
-
-**Recommendation**: Add the following entries:
-
-```gitignore
-.env
-*.p12
-*.pem
-*.key
-credentials*
-```
+The original statement was too broad. `MobileControlAccessibilityService` dispatches gestures, but upstream `MobileInputPlanner` clamps pointer movement to the viewport and clamps normalized screen gestures to `0.0...1.0`. The remaining risk is still High because there is no cryptographic peer authentication, no per-connection user confirmation for Android controlled-device mode, no gesture rate limit, and no safe-zone policy for sensitive UI.
 
 ---
 
-## Low Severity
+## Open Critical
 
-| # | Platform | Issue | File |
-| - | -------- | ----- | ---- |
-| 16 | iOS | Dead code `SensitivitySlider` / `NoHapticSlider` never used | `iOS/NeoRemote/Features/Settings/SettingsView.swift:65-142` |
-| 17 | iOS | `print()` in production code leaks diagnostic info | `iOS/NeoRemote/Core/DiscoveryService.swift:331` |
-| 18 | Android | `isMinifyEnabled = false` — release build not obfuscated | `Android/app/build.gradle.kts:31` |
-| 19 | Android | `android:allowBackup="true"` — app data extractable via `adb backup` | `Android/app/src/main/AndroidManifest.xml:11` |
-| 20 | macOS | Force-unwrap `NWEndpoint.Port(rawValue: port)!` can crash | `MacOS/Sources/.../Networking/TCPRemoteServer.swift:51` |
-| 21 | Windows | No `SO_EXCLUSIVEADDRUSE` — port can be hijacked by another process | `Windows/src/NeoRemote.Windows/src/TcpRemoteServer.cpp:127-128` |
+### Critical #1: No authenticated or encrypted control channel
+
+| Platform | Evidence |
+| -------- | -------- |
+| iOS | `NWParameters(tls: nil, tcp: tcpOptions)` in `iOS/NeoRemote/Core/RemoteTransport.swift` |
+| Android | bare `Socket()` in `Android/app/src/main/java/com/neoremote/android/core/transport/RemoteTransport.kt` |
+| macOS | `NWParameters(tls: nil, tcp: tcpOptions)` in `MacOS/Sources/NeoRemoteMac/Core/Networking/TCPRemoteServer.swift` |
+| Windows | `socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)` in `Windows/src/NeoRemote.Windows/src/TcpRemoteServer.cpp` |
+
+**Impact**: A LAN attacker can observe, replay, or inject remote-control traffic unless an application-level approval state blocks it.
+
+**Recommendation**: Add a cross-platform PSK pairing flow with challenge-response authentication and per-message HMAC. Add optional TLS after the protocol-level authentication is stable.
+
+### Critical #2: Unauthenticated UDP discovery
+
+The UDP fallback uses the fixed request `NEOREMOTE_DISCOVER_V1` and response prefix `NEOREMOTE_DESKTOP_V1`. Spoofed responses can steer clients toward an attacker-controlled endpoint.
+
+**Recommendation**: Include a random nonce in discovery requests and require responders to sign the nonce with the paired-device PSK.
 
 ---
 
-## Optimization Recommendations
+## Open High
 
-### Architecture
+### High #3: Android controlled-device mode can inject sensitive gestures after LAN command acceptance
 
-1. **Standardize protocol handshake**: Unify TCP accept/connect across all four platforms into a `clientHello` -> `challenge` -> `response` -> `ack` four-step handshake. Commands must not be accepted before authentication succeeds.
+Coordinates are clamped, but accepted commands can still trigger taps, swipes, global actions, and video actions through AccessibilityService.
 
-2. **Command whitelist**: Currently `dispatchGesture` (Android) and `SendInput` (Windows) execute raw network data directly. Add a validation layer — only allow known action types, coordinates must be within screen bounds.
+**Recommendation**: Require explicit connection approval on the Android controlled device, add gesture rate limiting, and consider safe-zone restrictions for high-risk actions.
 
-3. **Windows JSON parser**: The hand-written `FindString`/`FindNumber` is technical debt. Consider adopting [nlohmann/json](https://github.com/nlohmann/json) or [simdjson](https://github.com/simdjson/simdjson).
+### High #4: Windows TCP server has no connection cap or rate limiter
 
-### CI/CD
+`AcceptLoop` accepts clients continuously and spawns detached receive threads. A LAN attacker can create many connections to exhaust process resources.
 
-4. **`build-all.yml`**: Add `permissions: contents: read` at the top level.
-5. **`.gitignore`**: Supplement with sensitive file patterns (`.env`, `*.p12`, `*.pem`, `*.key`).
+**Recommendation**: Add a small max-client limit, reject excess clients, and rate-limit connection attempts per remote endpoint.
+
+### High #5: Protocol commands are accepted before cryptographic trust is established
+
+`clientHello` identifies the client, but it is not proof of possession of a shared secret. The macOS approval flow helps UX, not protocol authenticity.
+
+**Recommendation**: Commands other than the pairing/auth handshake must be ignored until authentication succeeds.
+
+---
+
+## Open Medium
+
+### Medium #7: iOS/macOS silently drop malformed decoded messages
+
+`try? codec.decode(...)` / `try? codec.decodeCommand(...)` discards malformed payloads. This hides malformed-input attacks and makes debugging protocol abuse harder.
+
+### Medium #8: macOS `@unchecked Sendable` relies on manual queue discipline
+
+`TCPRemoteServer`, `ClientConnection`, and `CGEventInputInjector` use `@unchecked Sendable`. Current queue usage is intentional, but this bypasses compiler enforcement and should be revisited with actors or locks.
+
+### Medium #9: Windows hand-rolled JSON parser is fragile
+
+`FindString` and `FindNumber` use local string scanning. Escapes are only partially handled, and this parser is easy to break as the protocol grows.
+
+### Medium #10: Windows server-side client IDs are predictable
+
+`MakeClientId()` uses `steady_clock::now().count()`. This is not currently used as an auth token, so the severity is Medium rather than High.
+
+---
+
+## Open Low
+
+| ID | Platform | Issue |
+| -- | -------- | ----- |
+| Low #12 | Android | `isMinifyEnabled = false`; release code is not obfuscated |
+| Low #13 | Windows | Uses `SO_REUSEADDR`; consider `SO_EXCLUSIVEADDRUSE` for receiver port ownership |
+| Low #14 | Documentation | Android signing preset documents local private keystore path; not a secret by itself, but keep it out of public-facing docs if publishing broadly |
 
 ---
 
@@ -204,22 +127,23 @@ credentials*
 
 | Priority | Issue | Effort |
 | -------- | ----- | ------ |
-| P0 | JSON buffer unbounded (iOS + Android, OOM risk) | 1h |
-| P0 | Android gesture injection no bounds check | 2h |
-| P1 | Protocol authentication layer (PSK + HMAC) | 2-3d |
-| P1 | UDP discovery challenge-response | 1d |
+| P0 | Cross-platform PSK pairing + command authentication | 2-3d |
+| P0 | UDP discovery nonce + signed response | 1d |
+| P1 | Android controlled-device approval + gesture rate limiting | 0.5-1d |
+| P1 | Windows max-client cap + connection rate limiting | 0.5d |
+| P2 | Decode-error telemetry and repeated-malformed disconnect policy | 0.5d |
 | P2 | Optional TLS transport | 3-5d |
-| P2 | Windows JSON parser replacement | 0.5d |
-| P3 | CI `permissions` + `.gitignore` supplement | 30min |
-| P3 | Dead code cleanup + `print()` removal | 30min |
+| P3 | Android release minify hardening | 0.5d |
 
 ---
 
 ## Positive Findings
 
-- All dependency versions are pinned (no floating ranges)
-- `Package.swift` has zero external dependencies (minimal attack surface)
-- `sync_icons.sh` uses `mktemp` with cleanup trap — no command injection vectors
-- Windows build script references local code-signing cert without hardcoded passwords
-- Android self-connection check prevents connecting to self (though bypassable via IP spoofing)
-- macOS has an approval flow for incoming connections (application-layer, not transport-layer)
+- All dependency versions are pinned.
+- macOS Swift Package has zero external dependencies.
+- Android, iOS, macOS, and Windows now cap JSON stream buffers at 1MB.
+- `build-all.yml` now has least-privilege read-only token permissions.
+- `.gitignore` now covers common signing and credential file patterns.
+- Android backup is disabled.
+- Detailed Android discovery, command, and gesture logs are now debug-build-only.
+- macOS has an application-level incoming connection approval flow.

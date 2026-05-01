@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ICON_FILE="$ROOT_DIR/resources/brand/icons/NeoRemote.icon"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ICON_FILE="$ROOT_DIR/resources/icons/NeoRemote.icon"
 ICON_SVG="$ICON_FILE/Assets/remote_control_signal_icon_no_bg.svg"
-ICON_EXPORT="$ROOT_DIR/resources/brand/icons/NeoRemote Exports/NeoRemote-iOS-Default-1024x1024@1x.png"
+ICON_EXPORT="$ROOT_DIR/resources/icons/NeoRemote Exports/NeoRemote-iOS-Default-1024x1024@1x.png"
 IOS_ICON_COPY="$ROOT_DIR/iOS/NeoRemote/Resources/NeoRemote.icon"
 MAC_RESOURCES="$ROOT_DIR/MacOS/Resources"
 ANDROID_RES="$ROOT_DIR/Android/app/src/main/res"

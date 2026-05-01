@@ -6,6 +6,7 @@ import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.util.Log
+import com.neoremote.android.BuildConfig
 import com.neoremote.android.core.model.DesktopEndpoint
 import com.neoremote.android.core.model.DesktopPlatform
 import com.neoremote.android.core.model.EndpointSource
@@ -62,7 +63,7 @@ class AndroidNsdDiscoveryService(
         runCatching {
             if (multicastLock?.isHeld == true) {
                 multicastLock.release()
-                Log.d(TAG, "Released Wi-Fi multicast lock")
+                debugLog { "Released Wi-Fi multicast lock" }
             }
         }.onFailure { Log.w(TAG, "Failed to release Wi-Fi multicast lock", it) }
         synchronized(lock) {
@@ -81,7 +82,7 @@ class AndroidNsdDiscoveryService(
         }
         runCatching {
             multicastLock?.acquire()
-            Log.d(TAG, "Acquired Wi-Fi multicast lock: ${multicastLock?.isHeld == true}")
+            debugLog { "Acquired Wi-Fi multicast lock: ${multicastLock?.isHeld == true}" }
         }.onFailure { Log.w(TAG, "Failed to acquire Wi-Fi multicast lock", it) }
         val listener = object : NsdManager.DiscoveryListener {
             override fun onStartDiscoveryFailed(serviceType: String?, errorCode: Int) {
@@ -95,15 +96,15 @@ class AndroidNsdDiscoveryService(
             }
 
             override fun onDiscoveryStarted(serviceType: String?) {
-                Log.d(TAG, "NSD discovery started: type=$serviceType")
+                debugLog { "NSD discovery started: type=$serviceType" }
             }
 
             override fun onDiscoveryStopped(serviceType: String?) {
-                Log.d(TAG, "NSD discovery stopped: type=$serviceType")
+                debugLog { "NSD discovery stopped: type=$serviceType" }
             }
 
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                Log.d(TAG, "NSD service found: name=${serviceInfo.serviceName} type=${serviceInfo.serviceType}")
+                debugLog { "NSD service found: name=${serviceInfo.serviceName} type=${serviceInfo.serviceType}" }
                 if (!serviceInfo.serviceType.isNeoRemoteServiceType()) {
                     return
                 }
@@ -111,7 +112,7 @@ class AndroidNsdDiscoveryService(
             }
 
             override fun onServiceLost(serviceInfo: NsdServiceInfo) {
-                Log.d(TAG, "NSD service lost: name=${serviceInfo.serviceName} type=${serviceInfo.serviceType}")
+                debugLog { "NSD service lost: name=${serviceInfo.serviceName} type=${serviceInfo.serviceType}" }
                 synchronized(lock) {
                     discovered.entries.removeAll { (_, endpoint) -> endpoint.displayName == serviceInfo.serviceName }
                 }
@@ -119,7 +120,7 @@ class AndroidNsdDiscoveryService(
             }
         }
         discoveryListener = listener
-        Log.d(TAG, "Starting NSD discovery for $SERVICE_TYPE")
+        debugLog { "Starting NSD discovery for $SERVICE_TYPE" }
         runCatching {
             nsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, listener)
         }.onFailure {
@@ -138,10 +139,7 @@ class AndroidNsdDiscoveryService(
 
             override fun onServiceResolved(resolvedServiceInfo: NsdServiceInfo) {
                 val host = resolvedServiceInfo.host?.hostAddress ?: resolvedServiceInfo.host?.hostName ?: return
-                Log.d(
-                    TAG,
-                    "NSD service resolved: name=${resolvedServiceInfo.serviceName} host=$host port=${resolvedServiceInfo.port}",
-                )
+                debugLog { "NSD service resolved: name=${resolvedServiceInfo.serviceName} host=$host port=${resolvedServiceInfo.port}" }
                 val endpoint = DesktopEndpoint(
                     id = "${resolvedServiceInfo.serviceName}-$host-${resolvedServiceInfo.port}",
                     displayName = resolvedServiceInfo.serviceName.ifBlank { "Desktop" },
@@ -152,7 +150,7 @@ class AndroidNsdDiscoveryService(
                     source = EndpointSource.DISCOVERED,
                 )
                 if (endpoint.isLocalAndroidReceiver()) {
-                    Log.d(TAG, "Ignoring local Android receiver service: ${endpoint.displayName}@$host")
+                    debugLog { "Ignoring local Android receiver service: ${endpoint.displayName}@$host" }
                     return
                 }
                 remember(endpoint)
@@ -177,7 +175,7 @@ class AndroidNsdDiscoveryService(
                     targets.forEach { target ->
                         runCatching {
                             socket.send(DatagramPacket(request, request.size, target, UDP_DISCOVERY_PORT))
-                            Log.d(TAG, "Sent UDP fallback discovery to ${target.hostAddress}:$UDP_DISCOVERY_PORT")
+                            debugLog { "Sent UDP fallback discovery to ${target.hostAddress}:$UDP_DISCOVERY_PORT" }
                         }.onFailure { Log.w(TAG, "Failed to send UDP fallback discovery", it) }
                     }
 
@@ -223,7 +221,7 @@ class AndroidNsdDiscoveryService(
         val name = fields["name"].orEmpty().ifBlank { "NeoRemote Windows" }
         val platform = fields["platform"].toDesktopPlatform() ?: name.inferPlatform()
         val host = packet.address.hostAddress ?: return
-        Log.d(TAG, "UDP fallback resolved: name=$name host=$host port=$port platform=$platform")
+        debugLog { "UDP fallback resolved: name=$name host=$host port=$port platform=$platform" }
         val endpoint = DesktopEndpoint(
             id = "$name-$host-$port-udp",
             displayName = name,
@@ -234,7 +232,7 @@ class AndroidNsdDiscoveryService(
             source = EndpointSource.DISCOVERED,
         )
         if (endpoint.isLocalAndroidReceiver()) {
-            Log.d(TAG, "Ignoring local Android receiver UDP response: $name@$host")
+            debugLog { "Ignoring local Android receiver UDP response: $name@$host" }
             return
         }
         remember(endpoint)
@@ -318,6 +316,12 @@ private fun String.normalizeHost(): String =
         .trimEnd('.')
         .substringBefore('%')
         .lowercase()
+
+private inline fun debugLog(message: () -> String) {
+    if (BuildConfig.DEBUG) {
+        Log.d("NeoRemoteDiscovery", message())
+    }
+}
 
 class FakeDiscoveryService(
     var cannedResults: List<DesktopEndpoint> = emptyList(),

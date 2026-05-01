@@ -171,6 +171,21 @@ void TestStreamDecoderSplitsMultipleJsonObjects()
     Require(payloads[1] == R"({"type":"tap","button":"primary"})", "second payload mismatch");
 }
 
+void TestStreamDecoderRejectsOversizedPartialPayload()
+{
+    JsonMessageStreamDecoder decoder;
+    const std::string payload(JsonMessageStreamDecoder::MaxBufferSize + 1, '{');
+
+    bool rejected = false;
+    try {
+        (void)decoder.Append(payload);
+    } catch (const JsonMessageStreamDecoderError&) {
+        rejected = true;
+    }
+
+    Require(rejected, "stream decoder did not reject oversized partial payload");
+}
+
 void TestMoveCommandMapsToMovedCursorPosition()
 {
     MouseEventPlanner planner;
@@ -362,6 +377,7 @@ int main()
         TestDecodeSecondaryDragCommandKeepsButton,
         TestEncodeStatusMessage,
         TestStreamDecoderSplitsMultipleJsonObjects,
+        TestStreamDecoderRejectsOversizedPartialPayload,
         TestMoveCommandMapsToMovedCursorPosition,
         TestTapCommandMapsToMouseDownAndMouseUp,
         TestMiddleTapCommandMapsToMouseDownAndMouseUp,

@@ -88,10 +88,16 @@ final class TCPRemoteTransport: RemoteTransporting {
         connection?.receive(minimumIncompleteLength: 1, maximumLength: 1024) { [weak self] data, _, isComplete, error in
             DispatchQueue.main.async {
                 if let data, !data.isEmpty, let self {
-                    let payloads = self.decoder.append(data)
-                    payloads.forEach { payload in
-                        guard let message = try? self.codec.decode(payload) else { return }
-                        self.onMessage?(message)
+                    do {
+                        let payloads = try self.decoder.append(data)
+                        payloads.forEach { payload in
+                            guard let message = try? self.codec.decode(payload) else { return }
+                            self.onMessage?(message)
+                        }
+                    } catch {
+                        self.connection?.cancel()
+                        self.onStateChange?(.failed(errorDescription: error.localizedDescription))
+                        return
                     }
                 }
 
@@ -131,11 +137,25 @@ final class MockRemoteTransport: RemoteTransporting {
     }
 }
 
+enum JsonMessageStreamDecoderError: Error, LocalizedError, Equatable {
+    case bufferLimitExceeded
+
+    var errorDescription: String? {
+        "JSON 消息超过 1MB 上限，已断开连接。"
+    }
+}
+
 struct JsonMessageStreamDecoder {
+    static let maxBufferSize = 1_048_576
+
     private var buffer: [UInt8] = []
 
-    mutating func append(_ data: Data) -> [Data] {
+    mutating func append(_ data: Data) throws -> [Data] {
         buffer.append(contentsOf: data)
+        guard buffer.count <= Self.maxBufferSize else {
+            buffer.removeAll(keepingCapacity: false)
+            throw JsonMessageStreamDecoderError.bufferLimitExceeded
+        }
 
         var payloads: [Data] = []
         var inString = false
