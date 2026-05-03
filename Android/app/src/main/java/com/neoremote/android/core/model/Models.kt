@@ -229,6 +229,9 @@ data class SessionUiState(
 
     val discoveredMobileDevices: List<DesktopEndpoint>
         get() = discoveredDevices.filter { it.platform == DesktopPlatform.ANDROID }
+
+    val isAndroidReceiverTarget: Boolean
+        get() = activeEndpoint?.platform == DesktopPlatform.ANDROID
 }
 
 val SessionStatus.displayText: String

@@ -78,7 +78,7 @@ NeoRemote 当前已经形成两条可用链路：
 - **屏幕控制模式**：移动端用大面积镜像触控区发送点按和全面屏方向手势，让 Android 被控端按屏幕比例执行操作；桌面端仍兼容基础输入命令。
 - **短视频模式**：连接后可在 Remote 页右上角快速切换到专用视频控制面板，支持上一条、下一条、左滑、右滑、点赞、收藏、播放/暂停、返回。
 - **默认模式独立设置**：Settings 中的默认控制模式只影响下次进入连接页，Remote 右上角切换只改变当前会话。
-- **Android 被控端**：Android 通过辅助功能接收 TCP 指令并执行点击、滑动、短视频动作和系统导航；内置动作队列，避免高频指令互相取消，并限制 Android 设备连接自身。
+- **Android 被控端**：Android 通过辅助功能接收 TCP 指令并执行点击、滑动、短视频动作和系统导航；内置有界 FIFO 动作队列，让连续短视频指令按顺序执行而不是被静默替换，返回/系统动作仍可清空过期手势，并限制 Android 设备连接自身。
 - **Android 无障碍精准操作**：Android 被控端支持基于 AccessibilityService 的精准 UI 元素操作（如抖音点赞、收藏按钮），实现超越坐标手势的精确自动化。
 - **桌面端原生注入**：macOS 使用 CoreGraphics，Windows 使用 SendInput，不做远程桌面画面回传。
 - **统一 CI / Beta 发布**：GitHub Actions 可构建 iOS IPA、Android APK、macOS app zip 和 Windows receiver zip，并创建 beta prerelease。
@@ -310,7 +310,7 @@ Android 被控端依赖系统辅助功能：
 | Android NSD / UDP responder | 让控制端发现 Android 被控端 |
 | Accessibility gesture injection | 执行点击、滑动和系统导航 |
 | Screen gesture planner | 按被控端屏幕尺寸规划点按和上下左右滑动，控制端不依赖光标位置 |
-| Action queue | 连续视频动作按完成回调串行执行，减少 Accessibility 手势互相取消 |
+| Action queue | 快速 ACK 已接受指令，再通过有界 backlog 和完成回调串行执行连续视频动作，减少 Accessibility 手势互相取消且不静默丢弃正常连点 |
 
 ## 仓库结构
 

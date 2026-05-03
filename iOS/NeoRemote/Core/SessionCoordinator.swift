@@ -41,6 +41,10 @@ final class SessionCoordinator: ObservableObject {
         discoveredDevices.filter { $0.platform == .android }
     }
 
+    var isAndroidReceiverTarget: Bool {
+        activeEndpoint?.platform == .android
+    }
+
     init(
         registry: DeviceRegistry = DeviceRegistry(),
         discoveryService: DiscoveryServing = BonjourDiscoveryService(),

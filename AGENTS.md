@@ -149,9 +149,16 @@ See `resources/docs/security-review.md` for the full audit. Key rules:
 ## Build & Test
 
 Local installable artifacts and ad-hoc packaging intermediates must stay under
-`resources/build/`. Do not create APK, IPA, app ZIP, EXE ZIP, archives,
-DerivedData, or other handoff outputs in the repository root or a top-level
-`release/` directory.
+platform-specific folders in `resources/build/`:
+
+- `resources/build/android/` for APK/AAB outputs and Android signing byproducts.
+- `resources/build/ios/` for IPA outputs, `.xcarchive`, and iOS DerivedData.
+- `resources/build/macos/` for `.app` ZIP/DMG outputs and macOS packaging intermediates.
+- `resources/build/windows/` for EXE/MSIX/ZIP outputs and Windows packaging intermediates.
+
+Do not create APK, IPA, app ZIP, EXE ZIP, archives, DerivedData, or other handoff
+outputs in the repository root, directly under `resources/build/`, or in a
+top-level `release/` directory.
 
 ### iOS
 

@@ -78,7 +78,7 @@ The project is built with **four native platform implementations** — no Flutte
 - **Screen Control Mode**: A large mirrored touch surface sends taps and full-screen directional gestures, letting the Android controlled device execute them proportionally; desktop receivers still accept basic input commands.
 - **Short Video Mode**: Switch to a dedicated video control panel from the top-right corner of the Remote page. Supports next, previous, swipe left/right, like, favorite, play/pause, and back.
 - **Independent Default Mode**: The default control mode in Settings only affects the next connection session; the toggle in the Remote top-right corner only changes the current session.
-- **Android Controlled Device**: Android receives TCP commands via AccessibilityService and executes taps, swipes, video actions, and system navigation. A built-in action queue prevents rapid-fire commands from canceling each other, and self-connection is blocked.
+- **Android Controlled Device**: Android receives TCP commands via AccessibilityService and executes taps, swipes, video actions, and system navigation. A bounded FIFO action queue keeps rapid short-video commands ordered instead of silently replacing them, while emergency back/system actions can still clear stale pending gestures. Self-connection is blocked.
 - **Android Accessibility Actions**: The Android controlled device supports accessibility-based tap actions for specific app UI elements (e.g., Douyin/TikTok like and favorite buttons), enabling precise automation beyond coordinate-based gestures.
 - **Native Desktop Injection**: macOS uses CoreGraphics, Windows uses SendInput. No remote screen mirroring.
 - **Unified CI / Beta Release**: GitHub Actions builds iOS IPA, Android APK, macOS app zip, and Windows receiver zip, and can create beta prereleases.
@@ -310,7 +310,7 @@ The controlled device implementation includes:
 | Android NSD / UDP responder | Makes the Android controlled device discoverable by controllers |
 | Accessibility gesture injection | Executes taps, swipes, and system navigation |
 | Screen gesture planner | Plans taps and directional swipes based on the controlled device screen size; the controller does not depend on cursor position |
-| Action queue | Executes consecutive video actions serially via completion callbacks, reducing Accessibility gesture conflicts |
+| Action queue | ACKs accepted commands quickly, then executes consecutive video actions serially via completion callbacks with a bounded backlog, reducing Accessibility gesture conflicts without silently dropping normal bursts |
 
 ## Repository Structure
 

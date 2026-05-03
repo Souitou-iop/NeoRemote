@@ -79,6 +79,7 @@ import com.neoremote.android.ui.components.LiquidGlassBottomBar
 import com.neoremote.android.ui.components.LiquidGlassTabItem
 import com.neoremote.android.ui.components.SectionCard
 import com.neoremote.android.ui.components.StatusChip
+import com.neoremote.android.ui.components.TouchSurfaceHost
 
 private enum class ConnectedTab(
     val label: String,
@@ -124,19 +125,23 @@ fun ConnectedShell(
                 title = { Text("NeoRemote") },
                 actions = {
                     when (selectedTab) {
-                        ConnectedTab.REMOTE -> RemoteModeChip(
-                            mode = state.controlMode,
-                            onToggle = {
-                                onControlModeChange(
-                                    if (state.controlMode == ControlMode.SHORT_VIDEO) {
-                                        ControlMode.SCREEN_CONTROL
-                                    } else {
-                                        ControlMode.SHORT_VIDEO
+                        ConnectedTab.REMOTE -> {
+                            if (state.isAndroidReceiverTarget) {
+                                RemoteModeChip(
+                                    mode = state.controlMode,
+                                    onToggle = {
+                                        onControlModeChange(
+                                            if (state.controlMode == ControlMode.SHORT_VIDEO) {
+                                                ControlMode.SCREEN_CONTROL
+                                            } else {
+                                                ControlMode.SHORT_VIDEO
+                                            },
+                                        )
                                     },
+                                    modifier = Modifier.padding(end = 12.dp),
                                 )
-                            },
-                            modifier = Modifier.padding(end = 12.dp),
-                        )
+                            }
+                        }
 
                         ConnectedTab.DEVICES -> IconButton(onClick = onRefreshDiscovery) {
                             Icon(Icons.Outlined.Sync, contentDescription = "刷新")
@@ -162,6 +167,7 @@ fun ConnectedShell(
                 when (selectedTab) {
                     ConnectedTab.REMOTE -> RemoteScreen(
                         state = state,
+                        onTouchOutput = onTouchOutput,
                         onScreenGesture = onScreenGesture,
                         onVideoAction = onVideoAction,
                         bottomPadding = bottomInsetPadding,
@@ -221,6 +227,7 @@ fun ConnectedShell(
 @Composable
 private fun RemoteScreen(
     state: SessionUiState,
+    onTouchOutput: (TouchSurfaceOutput) -> Unit,
     onScreenGesture: (ScreenGestureKind, Double, Double, Double, Double, Long) -> Unit,
     onVideoAction: (VideoActionKind) -> Unit,
     bottomPadding: PaddingValues,
@@ -232,19 +239,63 @@ private fun RemoteScreen(
             .padding(bottomPadding),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        when (state.controlMode) {
-            ControlMode.SCREEN_CONTROL -> ScreenControlPanel(
+        if (!state.isAndroidReceiverTarget) {
+            DesktopTouchPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                onScreenGesture = onScreenGesture,
+                settings = state.touchSensitivitySettings,
+                onTouchOutput = onTouchOutput,
             )
+        } else {
+            when (state.controlMode) {
+                ControlMode.SCREEN_CONTROL -> ScreenControlPanel(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    onScreenGesture = onScreenGesture,
+                )
 
-            ControlMode.SHORT_VIDEO -> ShortVideoControlPanel(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                onVideoAction = onVideoAction,
+                ControlMode.SHORT_VIDEO -> ShortVideoControlPanel(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    onVideoAction = onVideoAction,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DesktopTouchPanel(
+    settings: TouchSensitivitySettings,
+    onTouchOutput: (TouchSurfaceOutput) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier) {
+        TouchSurfaceHost(
+            settings = settings,
+            onOutput = onTouchOutput,
+            modifier = Modifier.fillMaxSize(),
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = "桌面触控板",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "单指移动、轻点点击，双指滚动",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

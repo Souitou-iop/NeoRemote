@@ -16,16 +16,24 @@ struct RemoteView: View {
                 .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    switch coordinator.controlMode {
-                    case .screenControl:
-                        ScreenControlSurface(
+                    if coordinator.isAndroidReceiverTarget {
+                        switch coordinator.controlMode {
+                        case .screenControl:
+                            ScreenControlSurface(
+                                theme: theme,
+                                onGesture: coordinator.sendScreenGesture
+                            )
+                        case .shortVideo:
+                            ShortVideoControlPanel(
+                                theme: theme,
+                                onAction: coordinator.sendVideoAction
+                            )
+                        }
+                    } else {
+                        DesktopTouchSurface(
                             theme: theme,
-                            onGesture: coordinator.sendScreenGesture
-                        )
-                    case .shortVideo:
-                        ShortVideoControlPanel(
-                            theme: theme,
-                            onAction: coordinator.sendVideoAction
+                            settings: coordinator.touchSensitivitySettings,
+                            onOutput: coordinator.handleTouchOutput
                         )
                     }
                 }
@@ -39,11 +47,13 @@ struct RemoteView: View {
             }
             .navigationTitle("Remote")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(coordinator.controlMode.displayName) {
-                        coordinator.setControlMode(
-                            coordinator.controlMode == .shortVideo ? .screenControl : .shortVideo
-                        )
+                if coordinator.isAndroidReceiverTarget {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(coordinator.controlMode.displayName) {
+                            coordinator.setControlMode(
+                                coordinator.controlMode == .shortVideo ? .screenControl : .shortVideo
+                            )
+                        }
                     }
                 }
             }
@@ -54,6 +64,38 @@ struct RemoteView: View {
 
     private var theme: RemoteTheme {
         colorScheme == .dark ? .dark : .light
+    }
+}
+
+private struct DesktopTouchSurface: View {
+    let theme: RemoteTheme
+    let settings: TouchSensitivitySettings
+    let onOutput: (TouchSurfaceOutput) -> Void
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(theme.surfaceBackground)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 30, style: .continuous)
+                        .strokeBorder(theme.secondaryForeground.opacity(0.22), lineWidth: 1)
+                )
+
+            VStack(spacing: 8) {
+                Text("桌面触控板")
+                    .font(.title3.weight(.bold))
+                Text("单指移动、轻点点击，双指滚动")
+                    .font(.footnote.weight(.medium))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(theme.secondaryForeground)
+            }
+            .foregroundStyle(theme.primaryForeground)
+            .padding(.horizontal, 28)
+            .allowsHitTesting(false)
+
+            TouchSurfaceRepresentable(settings: settings, onOutput: onOutput)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

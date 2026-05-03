@@ -198,6 +198,47 @@ final class SessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(registry.loadControlMode(), .screenControl)
     }
 
+    func testAndroidReceiverTargetFlagOnlyEnablesAndroidSpecificControls() async {
+        var transports: [ControlledRemoteTransport] = []
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: MockDiscoveryService(),
+            transportFactory: {
+                let transport = ControlledRemoteTransport()
+                transports.append(transport)
+                return transport
+            }
+        )
+
+        coordinator.connect(
+            to: DesktopEndpoint(
+                displayName: "Mac Studio",
+                host: "10.0.0.10",
+                port: 50505,
+                platform: .macOS,
+                source: .manual
+            )
+        )
+        transports.last?.emitState(.connected)
+        await settleAsyncUpdates()
+
+        XCTAssertFalse(coordinator.isAndroidReceiverTarget)
+
+        coordinator.connect(
+            to: DesktopEndpoint(
+                displayName: "Android Phone",
+                host: "10.0.0.20",
+                port: 51101,
+                platform: .android,
+                source: .manual
+            )
+        )
+        transports.last?.emitState(.connected)
+        await settleAsyncUpdates()
+
+        XCTAssertTrue(coordinator.isAndroidReceiverTarget)
+    }
+
     func testSwitchingToShortVideoOnAndroidReceiverDoesNotRequestVideoState() async throws {
         var transports: [ControlledRemoteTransport] = []
         let coordinator = SessionCoordinator(

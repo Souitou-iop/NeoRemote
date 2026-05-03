@@ -4,7 +4,7 @@ import com.neoremote.android.core.model.RemoteCommand
 
 class MobileReceiverCommandGate(
     private val clock: () -> Long = { System.currentTimeMillis() },
-    private val maxCommandsPerWindow: Int = 40,
+    private val maxCommandsPerWindow: Int = 80,
     private val windowMs: Long = 1_000L,
 ) {
     private var hasClientHello = false

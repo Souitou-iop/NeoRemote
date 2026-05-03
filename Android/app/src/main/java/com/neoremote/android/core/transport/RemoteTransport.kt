@@ -10,10 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -34,9 +33,10 @@ class SocketRemoteTransport(
     override var onStateChange: ((TransportConnectionState) -> Unit)? = null
     override var onMessage: ((ProtocolMessage) -> Unit)? = null
 
-    private val writeMutex = Mutex()
     private var socket: Socket? = null
     private var readJob: Job? = null
+    private var writeJob: Job? = null
+    private var writeChannel: Channel<ByteArray>? = null
     @Volatile
     private var manualDisconnect = false
 
@@ -50,6 +50,7 @@ class SocketRemoteTransport(
                 nextSocket.tcpNoDelay = true
                 nextSocket.connect(InetSocketAddress(endpoint.host, endpoint.port), CONNECT_TIMEOUT_MS)
                 socket = nextSocket
+                startWriteLoop(nextSocket)
                 onStateChange?.invoke(TransportConnectionState.Connected)
                 startReadLoop(nextSocket)
             }.onFailure { error ->
@@ -66,17 +67,28 @@ class SocketRemoteTransport(
     }
 
     override fun send(data: ByteArray) {
-        val activeSocket = socket ?: return
-        scope.launch {
+        val result = writeChannel?.trySend(data)
+        if (result == null || result.isFailure) {
+            onStateChange?.invoke(TransportConnectionState.Failed("发送队列不可用"))
+        }
+    }
+
+    private fun startWriteLoop(activeSocket: Socket) {
+        val channel = Channel<ByteArray>(SEND_BUFFER_CAPACITY)
+        writeChannel = channel
+        writeJob = scope.launch {
             runCatching {
-                writeMutex.withLock {
-                    activeSocket.getOutputStream().write(data)
-                    activeSocket.getOutputStream().flush()
+                val output = activeSocket.getOutputStream()
+                for (payload in channel) {
+                    output.write(payload)
+                    output.flush()
                 }
             }.onFailure { error ->
-                onStateChange?.invoke(
-                    TransportConnectionState.Failed(error.message ?: "发送失败"),
-                )
+                if (!activeSocket.isClosed) {
+                    onStateChange?.invoke(
+                        TransportConnectionState.Failed(error.message ?: "发送失败"),
+                    )
+                }
             }
         }
     }
@@ -139,12 +151,17 @@ class SocketRemoteTransport(
     private fun closeActiveSocket() {
         readJob?.cancel()
         readJob = null
+        writeChannel?.close()
+        writeChannel = null
+        writeJob?.cancel()
+        writeJob = null
         runCatching { socket?.close() }
         socket = null
     }
 
     private companion object {
         const val CONNECT_TIMEOUT_MS = 5_000
+        const val SEND_BUFFER_CAPACITY = 512
     }
 }
 

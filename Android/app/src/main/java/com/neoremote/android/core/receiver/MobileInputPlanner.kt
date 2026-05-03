@@ -41,7 +41,13 @@ sealed interface MobileInputAction {
         val durationMs: Long,
         val showTrail: Boolean = true,
     ) : MobileInputAction
+    data class VideoToggle(val kind: VideoToggleKind) : MobileInputAction
     data class Global(val action: SystemAction) : MobileInputAction
+}
+
+enum class VideoToggleKind {
+    LIKE,
+    FAVORITE,
 }
 
 class MobileMoveGestureAccumulator(
@@ -81,6 +87,43 @@ class MobileMoveGestureAccumulator(
                 durationMs = durationMs,
             ),
         )
+    }
+
+    fun reset() {
+        pendingFrom = null
+        pendingTo = null
+    }
+}
+
+enum class MobileActionQueuePolicy {
+    APPEND,
+    REPLACE_PENDING,
+}
+
+class MobileActionQueue(
+    private val maxPendingActions: Int = 3,
+) {
+    private val pendingActions = ArrayDeque<MobileInputAction>()
+
+    val size: Int
+        get() = pendingActions.size
+
+    fun enqueue(actions: List<MobileInputAction>, policy: MobileActionQueuePolicy) {
+        if (policy == MobileActionQueuePolicy.REPLACE_PENDING) {
+            pendingActions.clear()
+        }
+        actions.forEach { action ->
+            pendingActions.addLast(action)
+            while (pendingActions.size > maxPendingActions) {
+                pendingActions.removeFirst()
+            }
+        }
+    }
+
+    fun removeFirstOrNull(): MobileInputAction? = pendingActions.removeFirstOrNull()
+
+    fun clear() {
+        pendingActions.clear()
     }
 }
 
@@ -203,8 +246,8 @@ class MobileInputPlanner(
                 ),
             )
 
-            VideoActionKind.DOUBLE_TAP_LIKE -> emptyList()
-            VideoActionKind.FAVORITE -> emptyList()
+            VideoActionKind.DOUBLE_TAP_LIKE -> listOf(MobileInputAction.VideoToggle(VideoToggleKind.LIKE))
+            VideoActionKind.FAVORITE -> listOf(MobileInputAction.VideoToggle(VideoToggleKind.FAVORITE))
             VideoActionKind.PLAY_PAUSE -> listOf(MobileInputAction.TapAt(center, showTrail = false))
             VideoActionKind.BACK -> listOf(MobileInputAction.Global(SystemAction.BACK))
             VideoActionKind.UNKNOWN -> emptyList()
@@ -250,7 +293,7 @@ class MobileInputPlanner(
     companion object {
         const val SCROLL_DURATION_MS = 140L
         const val DRAG_DURATION_MS = 220L
-        const val VIDEO_SWIPE_DURATION_MS = 220L
+        const val VIDEO_SWIPE_DURATION_MS = 120L
 
         fun fromPhysicalViewport(
             widthPixels: Int,

@@ -10,6 +10,7 @@ import com.neoremote.android.core.model.VideoActionKind
 import com.neoremote.android.core.receiver.MobileInputAction
 import com.neoremote.android.core.receiver.MobileInputPlanner
 import com.neoremote.android.core.receiver.PointerPosition
+import com.neoremote.android.core.receiver.VideoToggleKind
 import com.neoremote.android.core.receiver.shouldAcknowledgeMobileCommand
 import com.neoremote.android.core.receiver.toPhysicalPixels
 import org.junit.Test
@@ -125,28 +126,28 @@ class MobileInputPlannerTest {
             MobileInputAction.Swipe(
                 from = PointerPosition(200f, 600f),
                 to = PointerPosition(200f, 200f),
-                durationMs = 220L,
+                durationMs = 120L,
                 showTrail = false,
             ),
         )
     }
 
     @Test
-    fun `video double tap like does not use coordinate fallback`() {
+    fun `video double tap like uses accessibility toggle action instead of coordinate fallback`() {
         val planner = MobileInputPlanner(400, 800)
 
         val actions = planner.apply(RemoteCommand.VideoAction(VideoActionKind.DOUBLE_TAP_LIKE))
 
-        assertThat(actions).isEmpty()
+        assertThat(actions).containsExactly(MobileInputAction.VideoToggle(VideoToggleKind.LIKE))
     }
 
     @Test
-    fun `video favorite does not use coordinate fallback`() {
+    fun `video favorite uses accessibility toggle action instead of coordinate fallback`() {
         val planner = MobileInputPlanner(400, 800)
 
         val actions = planner.apply(RemoteCommand.VideoAction(VideoActionKind.FAVORITE))
 
-        assertThat(actions).isEmpty()
+        assertThat(actions).containsExactly(MobileInputAction.VideoToggle(VideoToggleKind.FAVORITE))
     }
 
     @Test
