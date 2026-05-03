@@ -11,6 +11,7 @@
 
 namespace NeoRemote::Windows {
 namespace {
+constexpr size_t MaxClients = 4;
 
 class WsaRuntime {
 public:
@@ -172,13 +173,22 @@ void TcpRemoteServer::AcceptLoop(unsigned short port)
 
         const auto endpoint = EndpointFromSocket(clientSocket);
         std::string clientId;
+        bool shouldReject = false;
         {
             std::scoped_lock lock(mutex_);
-            auto connection = std::make_unique<ClientConnection>();
-            connection->socket = clientSocket;
-            connection->endpoint = endpoint;
-            clientId = MakeClientId();
-            clients_[clientId] = std::move(connection);
+            if (clients_.size() >= MaxClients) {
+                shouldReject = true;
+            } else {
+                auto connection = std::make_unique<ClientConnection>();
+                connection->socket = clientSocket;
+                connection->endpoint = endpoint;
+                clientId = MakeClientId();
+                clients_[clientId] = std::move(connection);
+            }
+        }
+        if (shouldReject) {
+            Reject(clientSocket, endpoint, "Too many active NeoRemote clients");
+            continue;
         }
 
         std::thread([this, clientId] { ReceiveLoop(clientId); }).detach();

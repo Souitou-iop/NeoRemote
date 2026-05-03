@@ -145,6 +145,30 @@ void TestDecodeLegacyScrollDefaultsHorizontalAxisToZero()
         "legacy scroll command decode failed");
 }
 
+void TestDecodeRejectsInvalidMoveNumber()
+{
+    ProtocolCodec codec;
+    bool rejected = false;
+    try {
+        (void)codec.DecodeCommand(R"({"type":"move","dx":1e999,"dy":0})");
+    } catch (const ProtocolCodecError& error) {
+        rejected = std::string(error.what()).find("dx must be") != std::string::npos;
+    }
+    Require(rejected, "invalid move number was not rejected");
+}
+
+void TestDecodeRejectsOutOfRangeScroll()
+{
+    ProtocolCodec codec;
+    bool rejected = false;
+    try {
+        (void)codec.DecodeCommand(R"({"type":"scroll","deltaX":0,"deltaY":9999})");
+    } catch (const ProtocolCodecError& error) {
+        rejected = std::string(error.what()).find("deltaY exceeds") != std::string::npos;
+    }
+    Require(rejected, "out-of-range scroll was not rejected");
+}
+
 void TestDecodeSecondaryDragCommandKeepsButton()
 {
     ProtocolCodec codec;
@@ -374,6 +398,8 @@ int main()
         TestDecodeClientHelloCommand,
         TestDecodeScrollCommandSupportsBothAxes,
         TestDecodeLegacyScrollDefaultsHorizontalAxisToZero,
+        TestDecodeRejectsInvalidMoveNumber,
+        TestDecodeRejectsOutOfRangeScroll,
         TestDecodeSecondaryDragCommandKeepsButton,
         TestEncodeStatusMessage,
         TestStreamDecoderSplitsMultipleJsonObjects,

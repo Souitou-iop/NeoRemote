@@ -169,12 +169,12 @@ jobs:
           cp "$BUILD_DIR/$APP_NAME" "$APP_MACOS/$APP_NAME"
           chmod +x "$APP_MACOS/$APP_NAME"
 
-          if [ ! -d resources/brand/icons/NeoRemote.icon ]; then
-            echo "resources/brand/icons/NeoRemote.icon is required for the macOS dynamic app icon build." >&2
+          if [ ! -d resources/icons/NeoRemote.icon ]; then
+            echo "resources/icons/NeoRemote.icon is required for the macOS dynamic app icon build." >&2
             exit 1
           fi
 
-          "$ACTOOL" resources/brand/icons/NeoRemote.icon \
+          "$ACTOOL" resources/icons/NeoRemote.icon \
             --compile "$ICON_BUILD_DIR" \
             --output-format human-readable-text \
             --notices \

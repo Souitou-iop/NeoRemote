@@ -16,6 +16,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
+import kotlin.math.abs
 
 class ProtocolCodec {
     fun encode(command: RemoteCommand): ByteArray {
@@ -124,14 +125,14 @@ class ProtocolCodec {
         val payload = Json.parseToJsonElement(data.decodeToString()).jsonObject
         return when (payload.string("type")) {
             "clientHello" -> RemoteCommand.ClientHello(
-                clientId = payload.string("clientId"),
-                displayName = payload.string("displayName"),
-                platform = payload.string("platform"),
+                clientId = payload.string("clientId").validatedText("clientId"),
+                displayName = payload.string("displayName").validatedText("displayName"),
+                platform = payload.string("platform").validatedText("platform"),
             )
 
             "move" -> RemoteCommand.Move(
-                dx = payload.double("dx"),
-                dy = payload.double("dy"),
+                dx = payload.double("dx").validatedFinite("dx", MAX_POINTER_DELTA),
+                dy = payload.double("dy").validatedFinite("dy", MAX_POINTER_DELTA),
             )
 
             "tap" -> RemoteCommand.Tap(
@@ -141,13 +142,13 @@ class ProtocolCodec {
             )
 
             "scroll" -> RemoteCommand.Scroll(
-                deltaX = payload.double("deltaX"),
-                deltaY = payload.double("deltaY"),
+                deltaX = payload.double("deltaX").validatedFinite("deltaX", MAX_SCROLL_DELTA),
+                deltaY = payload.double("deltaY").validatedFinite("deltaY", MAX_SCROLL_DELTA),
             )
             "drag" -> RemoteCommand.Drag(
                 state = payload.string("state").toDragState() ?: DragState.CHANGED,
-                dx = payload.double("dx"),
-                dy = payload.double("dy"),
+                dx = payload.double("dx").validatedFinite("dx", MAX_POINTER_DELTA),
+                dy = payload.double("dy").validatedFinite("dy", MAX_POINTER_DELTA),
                 button = payload.string("button").toMouseButtonKind() ?: MouseButtonKind.PRIMARY,
             )
 
@@ -261,3 +262,18 @@ private fun kotlinx.serialization.json.JsonObject.double(key: String): Double =
 
 private fun kotlinx.serialization.json.JsonObject.long(key: String): Long =
     this[key]?.jsonPrimitive?.longOrNull ?: 0L
+
+private fun String.validatedText(field: String): String {
+    require(length <= MAX_TEXT_LENGTH) { "$field exceeds $MAX_TEXT_LENGTH characters" }
+    return this
+}
+
+private fun Double.validatedFinite(field: String, limit: Double): Double {
+    require(isFinite()) { "$field must be finite" }
+    require(abs(this) <= limit) { "$field exceeds allowed range" }
+    return this
+}
+
+private const val MAX_TEXT_LENGTH = 128
+private const val MAX_POINTER_DELTA = 4_096.0
+private const val MAX_SCROLL_DELTA = 240.0

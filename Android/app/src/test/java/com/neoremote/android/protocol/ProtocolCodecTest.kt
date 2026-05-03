@@ -12,6 +12,7 @@ import com.neoremote.android.core.model.VideoInteractionState
 import com.neoremote.android.core.model.VideoActionKind
 import com.neoremote.android.core.protocol.ProtocolCodec
 import org.junit.Test
+import org.junit.Assert.assertThrows
 
 class ProtocolCodecTest {
     private val codec = ProtocolCodec()
@@ -105,6 +106,24 @@ class ProtocolCodecTest {
         val command = codec.decodeCommand("""{"type":"scroll","deltaY":15.0}""".encodeToByteArray())
 
         assertThat(command).isEqualTo(RemoteCommand.Scroll(deltaX = 0.0, deltaY = 15.0))
+    }
+
+    @Test
+    fun `decode command rejects non finite move`() {
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            codec.decodeCommand("""{"type":"move","dx":1e999,"dy":0.0}""".encodeToByteArray())
+        }
+
+        assertThat(error).hasMessageThat().contains("dx must be finite")
+    }
+
+    @Test
+    fun `decode command rejects out of range scroll`() {
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            codec.decodeCommand("""{"type":"scroll","deltaX":0.0,"deltaY":9999.0}""".encodeToByteArray())
+        }
+
+        assertThat(error).hasMessageThat().contains("deltaY exceeds allowed range")
     }
 
     @Test

@@ -1,6 +1,6 @@
 # NeoRemote Security Review
 
-> Review date: 2026-05-01
+> Review date: 2026-05-04
 > Scope: iOS, Android, macOS, Windows, CI/CD
 > Status: Updated after source verification and first-pass fixes.
 
@@ -11,10 +11,10 @@
 | Status | Count |
 | ------ | ----- |
 | Open Critical | 2 |
-| Open High | 3 |
+| Open High | 2 |
 | Open Medium | 4 |
 | Open Low | 3 |
-| Fixed in this pass | 8 |
+| Fixed in this pass | 12 |
 | False positive / overstated | 2 |
 
 The core risk is real: NeoRemote is a LAN-only remote input tool, but it currently lacks an authenticated control channel. Plain TCP plus unauthenticated UDP discovery allows LAN spoofing, replay, and impersonation unless the desktop-side approval flow catches the attacker. The macOS approval flow reduces some direct-control impact, but it is not a cryptographic trust boundary.
@@ -33,6 +33,10 @@ The core risk is real: NeoRemote is a LAN-only remote input tool, but it current
 | F6 | `.gitignore` now blocks `.env`, `*.p12`, `*.pem`, `*.key`, and `credentials*` | `.gitignore` |
 | F7 | Removed iOS production `print()`, gated Android debug logs behind debug builds, removed unused iOS settings slider code, and removed macOS listener port force unwrap | iOS/Android/macOS source |
 | F8 | Android app backup is disabled so future paired-device secrets are not copied by platform backup | `Android/app/src/main/AndroidManifest.xml` |
+| F9 | macOS and Windows TCP receivers now cap active clients at 4 to reduce LAN connection flooding | `TCPRemoteServer.swift`, `TcpRemoteServer.cpp` |
+| F10 | macOS, Android, and Windows protocol decoders now reject non-finite or out-of-range movement/scroll values before input injection | `ProtocolCodec.swift`, `ProtocolCodec.kt`, `Protocol.cpp` |
+| F11 | Android controlled-device mode now requires `clientHello` before executing commands and rate-limits accepted commands | `MobileReceiverCommandGate.kt`, `MobileReceiverServer.kt` |
+| F12 | CI macOS Icon Composer path now matches the actual `resources/icons/NeoRemote.icon` source | `.github/workflows/build-all.yml`, `.github/workflows/beta-release.yml` |
 
 ---
 
@@ -73,19 +77,13 @@ The UDP fallback uses the fixed request `NEOREMOTE_DISCOVER_V1` and response pre
 
 ## Open High
 
-### High #3: Android controlled-device mode can inject sensitive gestures after LAN command acceptance
+### High #3: Android controlled-device mode still needs real per-device approval and pairing
 
-Coordinates are clamped, but accepted commands can still trigger taps, swipes, global actions, and video actions through AccessibilityService.
+Coordinates are clamped, commands now require `clientHello`, and burst traffic is rate-limited. The remaining High risk is that `clientHello` is still not cryptographic proof of a paired device, and there is not yet a user-visible per-connection approval prompt on the Android controlled device.
 
-**Recommendation**: Require explicit connection approval on the Android controlled device, add gesture rate limiting, and consider safe-zone restrictions for high-risk actions.
+**Recommendation**: Add real paired-device authentication, explicit Android-side approval, and safe-zone restrictions for high-risk global actions.
 
-### High #4: Windows TCP server has no connection cap or rate limiter
-
-`AcceptLoop` accepts clients continuously and spawns detached receive threads. A LAN attacker can create many connections to exhaust process resources.
-
-**Recommendation**: Add a small max-client limit, reject excess clients, and rate-limit connection attempts per remote endpoint.
-
-### High #5: Protocol commands are accepted before cryptographic trust is established
+### High #4: Protocol commands are accepted before cryptographic trust is established
 
 `clientHello` identifies the client, but it is not proof of possession of a shared secret. The macOS approval flow helps UX, not protocol authenticity.
 
@@ -103,9 +101,9 @@ Coordinates are clamped, but accepted commands can still trigger taps, swipes, g
 
 `TCPRemoteServer`, `ClientConnection`, and `CGEventInputInjector` use `@unchecked Sendable`. Current queue usage is intentional, but this bypasses compiler enforcement and should be revisited with actors or locks.
 
-### Medium #9: Windows hand-rolled JSON parser is fragile
+### Medium #9: Windows hand-rolled JSON parser is still fragile
 
-`FindString` and `FindNumber` use local string scanning. Escapes are only partially handled, and this parser is easy to break as the protocol grows.
+`FindString` and `FindNumber` use local string scanning. Numeric parsing now rejects malformed, non-finite, and out-of-range values, but escaping and duplicate-key behavior are still easy to break as the protocol grows.
 
 ### Medium #10: Windows server-side client IDs are predictable
 
@@ -129,8 +127,8 @@ Coordinates are clamped, but accepted commands can still trigger taps, swipes, g
 | -------- | ----- | ------ |
 | P0 | Cross-platform PSK pairing + command authentication | 2-3d |
 | P0 | UDP discovery nonce + signed response | 1d |
-| P1 | Android controlled-device approval + gesture rate limiting | 0.5-1d |
-| P1 | Windows max-client cap + connection rate limiting | 0.5d |
+| P1 | Android controlled-device approval + paired-device trust UI | 0.5-1d |
+| P2 | Windows per-IP connection rate limiting beyond the active-client cap | 0.5d |
 | P2 | Decode-error telemetry and repeated-malformed disconnect policy | 0.5d |
 | P2 | Optional TLS transport | 3-5d |
 | P3 | Android release minify hardening | 0.5d |
@@ -147,3 +145,6 @@ Coordinates are clamped, but accepted commands can still trigger taps, swipes, g
 - Android backup is disabled.
 - Detailed Android discovery, command, and gesture logs are now debug-build-only.
 - macOS has an application-level incoming connection approval flow.
+- macOS and Windows now reject excess active TCP clients.
+- Android controlled-device mode now has a command gate and rate limiter.
+- macOS, Android, and Windows now reject dangerous numeric protocol values before injection.

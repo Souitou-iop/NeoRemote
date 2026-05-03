@@ -32,6 +32,7 @@ class MobileReceiverServer(
     private val port: Int = DEFAULT_PORT,
     private val codec: ProtocolCodec = ProtocolCodec(),
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val gateFactory: () -> MobileReceiverCommandGate = { MobileReceiverCommandGate() },
 ) {
     private var serverSocket: ServerSocket? = null
     private var activeClient: Socket? = null
@@ -86,6 +87,7 @@ class MobileReceiverServer(
 
     private fun handleClient(client: Socket) {
         val decoder = JsonMessageStreamDecoder()
+        val gate = gateFactory()
         val buffer = ByteArray(4096)
         runCatching {
             client.getOutputStream().write(status("Android 被控端已连接"))
@@ -97,6 +99,12 @@ class MobileReceiverServer(
                 decoder.append(buffer.copyOf(bytesRead)).forEach { payload ->
                     val command = codec.decodeCommand(payload)
                     debugLog { "Android mobile receiver decoded command=$command" }
+                    val gateResult = gate.evaluate(command)
+                    if (gateResult is MobileReceiverGateResult.Rejected) {
+                        client.getOutputStream().write(codec.encode(ProtocolMessage.Status(gateResult.message)))
+                        client.getOutputStream().flush()
+                        return@forEach
+                    }
                     val result = commandHandler.handle(command)
                     val response = when {
                         result.response != null -> codec.encode(result.response)

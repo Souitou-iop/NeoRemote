@@ -147,7 +147,7 @@ Release 页面：https://github.com/Souitou-iop/NeoRemote/releases/tag/vbeta-10
 | 产物 | 说明 |
 | --- | --- |
 | `NeoRemote-ios-unsigned.ipa` | unsigned IPA，需要按开发/测试环境自行签名或安装 |
-| `NeoRemote-android-release-unsigned.apk` | unsigned APK；`Build all artifacts` workflow 在配置签名 secrets 时会产出 signed APK |
+| `NeoRemote-android-release-signed.apk` | beta release workflow 产出的已签名 APK；`Build all artifacts` 仅在签名 secrets 不可用时回退为 unsigned APK |
 | `NeoRemote-macos.zip` | 本地测试用构建，未做 notarization |
 | `NeoRemote-windows-receiver.zip` | Windows 桌面接收端 |
 
@@ -384,7 +384,7 @@ NeoRemote 是局域网输入控制工具，当前的安全边界如下：
 
 - **传输层**：当前使用明文 JSON over TCP，无 TLS 加密。建议仅在受信任的家庭或办公局域网内使用。
 - **发现协议**：UDP 发现和 Bonjour 均为明文，恶意设备可以伪造发现响应。请确保局域网环境可信。
-- **连接授权**：macOS 端支持连接审批（approve/reject）；Windows 端和 Android 被控端的授权机制正在完善中。
+- **连接授权**：macOS / Windows 端支持连接审批；Android 被控端已要求先发送 `clientHello` 并对命令限流，但完整的配对设备审批仍在计划中。
 - **Android 辅助功能**：授予辅助功能权限意味着 app 可以执行任何屏幕操作，请仅在明确了解风险后启用。
 
 后续计划：

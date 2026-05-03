@@ -147,7 +147,7 @@ Included artifacts:
 | Artifact | Description |
 | --- | --- |
 | `NeoRemote-ios-unsigned.ipa` | Unsigned IPA; requires signing or installation per your dev/test environment |
-| `NeoRemote-android-release-unsigned.apk` | Unsigned APK; signed APK is produced when signing secrets are configured in the `Build all artifacts` workflow |
+| `NeoRemote-android-release-signed.apk` | Signed APK produced by the beta release workflow; `Build all artifacts` may fall back to an unsigned APK only when signing secrets are unavailable |
 | `NeoRemote-macos.zip` | Local testing build, not notarized |
 | `NeoRemote-windows-receiver.zip` | Windows desktop receiver |
 
@@ -384,7 +384,7 @@ NeoRemote is a LAN-based input control tool. The current security boundaries are
 
 - **Transport layer**: Uses plaintext JSON over TCP, with no TLS encryption. Use only on trusted home or office LANs.
 - **Discovery protocol**: UDP discovery and Bonjour are both plaintext; malicious devices can spoof discovery responses. Ensure the LAN environment is trusted.
-- **Connection authorization**: macOS supports connection approval (approve/reject); Windows and Android controlled device authorization is being improved.
+- **Connection authorization**: macOS and Windows support connection approval. Android controlled-device mode requires `clientHello` and rate-limits commands, but full paired-device approval is still planned.
 - **Android Accessibility**: Granting Accessibility permission means the app can perform any screen operation. Enable only after understanding the risks.
 
 Future plans:

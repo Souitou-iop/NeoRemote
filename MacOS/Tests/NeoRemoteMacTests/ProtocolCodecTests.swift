@@ -55,6 +55,22 @@ final class ProtocolCodecTests: XCTestCase {
         XCTAssertEqual(try codec.decodeCommand(data), .drag(state: .started, button: .primary, dx: 4, dy: -2))
     }
 
+    func testDecodeRejectsNonFiniteMoveCommand() {
+        let codec = ProtocolCodec()
+        let data = #"{"type":"move","dx":1e999,"dy":0}"#.data(using: .utf8)!
+
+        XCTAssertThrowsError(try codec.decodeCommand(data))
+    }
+
+    func testDecodeRejectsOutOfRangeScrollCommand() {
+        let codec = ProtocolCodec()
+        let data = #"{"type":"scroll","deltaX":0,"deltaY":9999}"#.data(using: .utf8)!
+
+        XCTAssertThrowsError(try codec.decodeCommand(data)) { error in
+            XCTAssertEqual(error as? ProtocolCodecError, .invalidCommandValue("deltaY 超过允许范围"))
+        }
+    }
+
     func testEncodeStatusMessage() throws {
         let codec = ProtocolCodec()
         let payload = try codec.encode(.status("ok"))

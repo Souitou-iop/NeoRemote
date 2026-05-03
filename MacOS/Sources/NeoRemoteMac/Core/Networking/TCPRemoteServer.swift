@@ -28,6 +28,7 @@ final class TCPRemoteServer: RemoteServering, @unchecked Sendable {
     private var listener: NWListener?
     private var clients: [UUID: ClientConnection] = [:]
     private var currentPort: UInt16 = 50505
+    private let maxClients = 4
 
     init(
         codec: ProtocolCodec = ProtocolCodec(),
@@ -106,6 +107,13 @@ final class TCPRemoteServer: RemoteServering, @unchecked Sendable {
     }
 
     private func handleNewConnection(_ connection: NWConnection) {
+        let endpoint = RemoteClientEndpoint(endpoint: connection.endpoint)
+        guard clients.count < maxClients else {
+            connection.cancel()
+            onEvent?(.clientRejected(endpoint, reason: "连接数超过上限"))
+            return
+        }
+
         let id = UUID()
 
         let client = ClientConnection(id: id, connection: connection, codec: codec, queue: queue)

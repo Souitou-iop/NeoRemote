@@ -33,6 +33,7 @@ NeoRemote is a **cross-device input control tool** — not a remote desktop. It 
 │   ├── src/NeoRemote.Windows/ #   TCP, UDP, Tray, Win32 specifics
 │   └── tests/                 #   Unit tests
 ├── resources/                 # Brand assets, screenshots, docs, resource tooling
+│   └── build/                 # Local installable build outputs (ignored)
 └── .github/workflows/         # CI: build-all.yml, beta-release.yml
 ```
 
@@ -146,6 +147,11 @@ See `resources/docs/security-review.md` for the full audit. Key rules:
 ---
 
 ## Build & Test
+
+Local installable artifacts and ad-hoc packaging intermediates must stay under
+`resources/build/`. Do not create APK, IPA, app ZIP, EXE ZIP, archives,
+DerivedData, or other handoff outputs in the repository root or a top-level
+`release/` directory.
 
 ### iOS
 

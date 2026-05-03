@@ -82,6 +82,38 @@ std::optional<double> FindNumber(std::string_view json, std::string_view key)
     return value;
 }
 
+bool HasKey(std::string_view json, std::string_view key)
+{
+    const std::string needle = "\"" + std::string(key) + "\"";
+    return json.find(needle) != std::string_view::npos;
+}
+
+void ValidateText(std::string_view value, std::string_view key)
+{
+    constexpr size_t MaxTextLength = 128;
+    if (value.size() > MaxTextLength) {
+        throw ProtocolCodecError(std::string(key) + " exceeds 128 characters");
+    }
+}
+
+double ReadNumber(std::string_view json, std::string_view key, double fallback, double limit)
+{
+    const auto value = FindNumber(json, key);
+    if (!value) {
+        if (HasKey(json, key)) {
+            throw ProtocolCodecError(std::string(key) + " must be a finite number");
+        }
+        return fallback;
+    }
+    if (!std::isfinite(*value)) {
+        throw ProtocolCodecError(std::string(key) + " must be finite");
+    }
+    if (std::abs(*value) > limit) {
+        throw ProtocolCodecError(std::string(key) + " exceeds allowed range");
+    }
+    return *value;
+}
+
 MouseButtonKind ParseButton(const std::optional<std::string>& value)
 {
     if (value == "secondary") {
@@ -204,27 +236,35 @@ RemoteCommand ProtocolCodec::DecodeCommand(std::string_view json) const
     }
 
     if (*type == "move") {
-        return RemoteCommand::Move(FindNumber(json, "dx").value_or(0), FindNumber(json, "dy").value_or(0));
+        return RemoteCommand::Move(
+            ReadNumber(json, "dx", 0, 4096),
+            ReadNumber(json, "dy", 0, 4096));
     }
     if (*type == "clientHello") {
+        const auto clientId = FindString(json, "clientId").value_or("");
+        const auto displayName = FindString(json, "displayName").value_or("");
+        const auto platform = FindString(json, "platform").value_or("");
+        ValidateText(clientId, "clientId");
+        ValidateText(displayName, "displayName");
+        ValidateText(platform, "platform");
         return RemoteCommand::ClientHello(
-            FindString(json, "clientId").value_or(""),
-            FindString(json, "displayName").value_or(""),
-            FindString(json, "platform").value_or(""));
+            clientId,
+            displayName,
+            platform);
     }
     if (*type == "tap") {
         return RemoteCommand::Tap(ParseButton(FindString(json, "button")));
     }
     if (*type == "scroll") {
         return RemoteCommand::Scroll(
-            FindNumber(json, "deltaX").value_or(0),
-            FindNumber(json, "deltaY").value_or(0));
+            ReadNumber(json, "deltaX", 0, 240),
+            ReadNumber(json, "deltaY", 0, 240));
     }
     if (*type == "drag") {
         return RemoteCommand::Drag(
             ParseDragState(FindString(json, "state")),
-            FindNumber(json, "dx").value_or(0),
-            FindNumber(json, "dy").value_or(0),
+            ReadNumber(json, "dx", 0, 4096),
+            ReadNumber(json, "dy", 0, 4096),
             ParseButton(FindString(json, "button")));
     }
     if (*type == "heartbeat") {
