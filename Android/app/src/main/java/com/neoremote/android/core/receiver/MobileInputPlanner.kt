@@ -29,6 +29,7 @@ sealed interface MobileInputAction {
     data class TapAt(
         val position: PointerPosition,
         val showTrail: Boolean = true,
+        val replacementKey: String? = null,
     ) : MobileInputAction
     data class LongPressAt(
         val position: PointerPosition,
@@ -100,6 +101,7 @@ enum class MobileActionQueuePolicy {
     APPEND,
     REPLACE_PENDING,
     REPLACE_PENDING_VIDEO_NAVIGATION,
+    REPLACE_PENDING_MATCHING_ACTIONS,
 }
 
 class MobileActionQueue(
@@ -115,6 +117,12 @@ class MobileActionQueue(
             MobileActionQueuePolicy.REPLACE_PENDING -> pendingActions.clear()
             MobileActionQueuePolicy.REPLACE_PENDING_VIDEO_NAVIGATION ->
                 pendingActions.removeAll { it.isVideoNavigationAction }
+            MobileActionQueuePolicy.REPLACE_PENDING_MATCHING_ACTIONS -> {
+                val replacementKeys = actions.mapNotNull { it.realtimeReplacementKey }.toSet()
+                if (replacementKeys.isNotEmpty()) {
+                    pendingActions.removeAll { it.realtimeReplacementKey in replacementKeys }
+                }
+            }
             MobileActionQueuePolicy.APPEND -> Unit
         }
         actions.forEach { action ->
@@ -134,6 +142,22 @@ class MobileActionQueue(
 
 private val MobileInputAction.isVideoNavigationAction: Boolean
     get() = this is MobileInputAction.Swipe && clearsVideoToggleCache
+
+internal val MobileInputAction.realtimeReplacementKey: String?
+    get() = when (this) {
+        is MobileInputAction.Swipe -> if (clearsVideoToggleCache) "video-navigation" else null
+        is MobileInputAction.VideoToggle -> "video-toggle-$kind"
+        is MobileInputAction.TapAt -> replacementKey
+        else -> null
+    }
+
+internal val MobileInputAction.realtimeMinIntervalMs: Long
+    get() = when (this) {
+        is MobileInputAction.Swipe -> if (clearsVideoToggleCache) 140L else 0L
+        is MobileInputAction.VideoToggle -> 90L
+        is MobileInputAction.TapAt -> if (replacementKey != null) 90L else 0L
+        else -> 0L
+    }
 
 class MobileInputPlanner(
     viewportWidth: Int,
@@ -260,7 +284,13 @@ class MobileInputPlanner(
 
             VideoActionKind.DOUBLE_TAP_LIKE -> listOf(MobileInputAction.VideoToggle(VideoToggleKind.LIKE))
             VideoActionKind.FAVORITE -> listOf(MobileInputAction.VideoToggle(VideoToggleKind.FAVORITE))
-            VideoActionKind.PLAY_PAUSE -> listOf(MobileInputAction.TapAt(center, showTrail = false))
+            VideoActionKind.PLAY_PAUSE -> listOf(
+                MobileInputAction.TapAt(
+                    center,
+                    showTrail = false,
+                    replacementKey = "video-play-pause",
+                ),
+            )
             VideoActionKind.BACK -> listOf(MobileInputAction.Global(SystemAction.BACK))
             VideoActionKind.UNKNOWN -> emptyList()
         }

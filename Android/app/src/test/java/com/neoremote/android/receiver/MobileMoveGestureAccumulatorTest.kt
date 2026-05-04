@@ -15,7 +15,6 @@ import com.neoremote.android.core.receiver.ToggleBounds
 import com.neoremote.android.core.receiver.VideoToggleKind
 import com.neoremote.android.core.receiver.isToggleBoundsOnCurrentViewport
 import com.neoremote.android.core.receiver.mobileQueuePolicyFor
-import com.neoremote.android.core.receiver.remainingVideoToggleSettleDelayMs
 import com.neoremote.android.core.receiver.shouldRefreshToggleCache
 import org.junit.Test
 
@@ -138,7 +137,7 @@ class MobileMoveGestureAccumulatorTest {
         assertThat(mobileQueuePolicyFor(RemoteCommand.VideoAction(VideoActionKind.SWIPE_UP)))
             .isEqualTo(MobileActionQueuePolicy.REPLACE_PENDING_VIDEO_NAVIGATION)
         assertThat(mobileQueuePolicyFor(RemoteCommand.VideoAction(VideoActionKind.DOUBLE_TAP_LIKE)))
-            .isEqualTo(MobileActionQueuePolicy.APPEND)
+            .isEqualTo(MobileActionQueuePolicy.REPLACE_PENDING_MATCHING_ACTIONS)
         assertThat(mobileQueuePolicyFor(RemoteCommand.ScreenGesture(ScreenGestureKind.TAP, 0.5, 0.5)))
             .isEqualTo(MobileActionQueuePolicy.APPEND)
     }
@@ -170,6 +169,30 @@ class MobileMoveGestureAccumulatorTest {
         assertThat(queue.removeFirstOrNull()).isEqualTo(like)
         assertThat(queue.removeFirstOrNull()).isEqualTo(favorite)
         assertThat(queue.removeFirstOrNull()).isEqualTo(latestNext)
+        assertThat(queue.removeFirstOrNull()).isNull()
+    }
+
+    @Test
+    fun `matching short video actions replace only their stale pending twin`() {
+        val queue = MobileActionQueue(maxPendingActions = 6)
+        val staleLike = MobileInputAction.VideoToggle(VideoToggleKind.LIKE)
+        val favorite = MobileInputAction.VideoToggle(VideoToggleKind.FAVORITE)
+        val pause = MobileInputAction.TapAt(
+            PointerPosition(100f, 100f),
+            showTrail = false,
+            replacementKey = "video-play-pause",
+        )
+        val latestLike = MobileInputAction.VideoToggle(VideoToggleKind.LIKE)
+
+        queue.enqueue(listOf(staleLike, favorite, pause), MobileActionQueuePolicy.APPEND)
+        queue.enqueue(
+            listOf(latestLike),
+            MobileActionQueuePolicy.REPLACE_PENDING_MATCHING_ACTIONS,
+        )
+
+        assertThat(queue.removeFirstOrNull()).isEqualTo(favorite)
+        assertThat(queue.removeFirstOrNull()).isEqualTo(pause)
+        assertThat(queue.removeFirstOrNull()).isEqualTo(latestLike)
         assertThat(queue.removeFirstOrNull()).isNull()
     }
 
@@ -221,30 +244,6 @@ class MobileMoveGestureAccumulatorTest {
                 lastRefreshAtMs = 1_000L,
             ),
         ).isTrue()
-    }
-
-    @Test
-    fun `video toggle waits briefly after video navigation`() {
-        assertThat(
-            remainingVideoToggleSettleDelayMs(
-                nowMs = 1_100L,
-                lastVideoNavigationAtMs = 1_000L,
-            ),
-        ).isEqualTo(320L)
-
-        assertThat(
-            remainingVideoToggleSettleDelayMs(
-                nowMs = 1_500L,
-                lastVideoNavigationAtMs = 1_000L,
-            ),
-        ).isEqualTo(0L)
-
-        assertThat(
-            remainingVideoToggleSettleDelayMs(
-                nowMs = 1_100L,
-                lastVideoNavigationAtMs = 0L,
-            ),
-        ).isEqualTo(0L)
     }
 
     @Test

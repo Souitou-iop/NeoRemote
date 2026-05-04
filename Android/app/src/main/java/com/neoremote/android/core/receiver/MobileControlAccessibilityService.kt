@@ -50,7 +50,8 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
     private var cachedLikeToggleNode: AccessibilityNodeInfo? = null
     private var cachedFavoriteToggleNode: AccessibilityNodeInfo? = null
     private var lastToggleCacheRefreshAt = 0L
-    private var lastVideoNavigationAt = 0L
+    private val realtimeActionLock = Any()
+    private val lastRealtimeActionAcceptedAt = mutableMapOf<String, Long>()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -107,8 +108,18 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
     override fun handle(command: RemoteCommand): MobileCommandHandleResult {
         val activePlanner = planner ?: return MobileCommandHandleResult(handled = false)
         val actions = activePlanner.apply(command)
+        val commandReceivedAt = SystemClock.elapsedRealtime()
         debugLog { "Received command=$command actions=${actions.size}" }
         if (actions.isNotEmpty()) {
+            if (actions.all { it.realtimeReplacementKey != null }) {
+                actions
+                    .filter { action -> acceptRealtimeActionIfReady(action, commandReceivedAt) }
+                    .forEach { action -> performAction(action) }
+                return MobileCommandHandleResult(
+                    handled = shouldAcknowledgeMobileCommand(command, actions),
+                )
+            }
+
             mainHandler.post {
                 val queuePolicy = mobileQueuePolicyFor(command)
                 val queueableActions = actions.flatMap { action ->
@@ -128,8 +139,11 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
                 if (actions.any { it is MobileInputAction.MovePointer }) {
                     mainHandler.postDelayed(flushMoveGestureRunnable, MOVE_FLUSH_DELAY_MS)
                 }
-                if (queueableActions.isNotEmpty()) {
-                    actionQueue.enqueue(queueableActions, queuePolicy)
+                val acceptedActions = queueableActions.filter { action ->
+                    acceptRealtimeActionIfReady(action, commandReceivedAt)
+                }
+                if (acceptedActions.isNotEmpty()) {
+                    actionQueue.enqueue(acceptedActions, queuePolicy)
                     drainActionQueue()
                 }
             }
@@ -165,6 +179,12 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
                 handled = false,
                 statusMessage = kind.clickFailedMessage,
             )
+        }
+    }
+
+    private fun performAction(action: MobileInputAction) {
+        performAction(action) {
+            // Realtime short-video actions intentionally bypass the queued main-thread drain.
         }
     }
 
@@ -306,6 +326,33 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         }
     }
 
+    private fun acceptRealtimeActionIfReady(
+        action: MobileInputAction,
+        commandReceivedAt: Long,
+    ): Boolean {
+        val key = action.realtimeReplacementKey ?: return true
+        val minIntervalMs = action.realtimeMinIntervalMs
+        if (minIntervalMs <= 0L) return true
+
+        val now = SystemClock.elapsedRealtime()
+        val commandAgeMs = now - commandReceivedAt
+        if (commandAgeMs > STALE_REALTIME_ACTION_MAX_AGE_MS) {
+            debugLog { "Dropped stale realtime action key=$key age=${commandAgeMs}ms" }
+            return false
+        }
+
+        synchronized(realtimeActionLock) {
+            val lastAcceptedAt = lastRealtimeActionAcceptedAt[key] ?: 0L
+            if (now - lastAcceptedAt < minIntervalMs) {
+                debugLog { "Dropped realtime action key=$key age=${now - lastAcceptedAt}ms" }
+                return false
+            }
+
+            lastRealtimeActionAcceptedAt[key] = now
+        }
+        return true
+    }
+
     private fun performAction(action: MobileInputAction, onFinished: () -> Unit) {
         when (action) {
             is MobileInputAction.MovePointer -> dispatchMove(action.from, action.to, onFinished)
@@ -329,39 +376,19 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
                     if (action.clearsVideoToggleCache) {
                         clearCachedDouyinToggles()
                         lastToggleCacheRefreshAt = 0L
-                        lastVideoNavigationAt = SystemClock.elapsedRealtime()
                     }
                     onFinished()
                 },
             )
             is MobileInputAction.VideoToggle -> {
-                performVideoToggle(action.kind, onFinished)
+                clickDouyinToggle(action.kind)
+                onFinished()
             }
             is MobileInputAction.Global -> {
                 performGlobal(action.action)
                 onFinished()
             }
         }
-    }
-
-    private fun performVideoToggle(kind: VideoToggleKind, onFinished: () -> Unit) {
-        val delayMs = remainingVideoToggleSettleDelayMs(
-            nowMs = SystemClock.elapsedRealtime(),
-            lastVideoNavigationAtMs = lastVideoNavigationAt,
-        )
-        if (delayMs > 0L) {
-            mainHandler.postDelayed(
-                {
-                    clickDouyinToggle(kind)
-                    onFinished()
-                },
-                delayMs,
-            )
-            return
-        }
-
-        clickDouyinToggle(kind)
-        onFinished()
     }
 
     private fun dispatchMove(from: PointerPosition, to: PointerPosition, onFinished: () -> Unit) {
@@ -476,6 +503,7 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         private const val MOVE_FLUSH_DELAY_MS = 70L
         private const val TAP_DURATION_MS = 35L
         private const val ACTION_SEQUENCE_DELAY_MS = 16L
+        private const val STALE_REALTIME_ACTION_MAX_AGE_MS = 220L
         private const val MAX_PENDING_ACTIONS = 24
         private const val TAG = "NeoRemoteReceiver"
         private const val DOUYIN_PACKAGE_PREFIX = "com.ss.android.ugc.aweme"
@@ -516,7 +544,6 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
 }
 
 private const val TOGGLE_CACHE_REFRESH_INTERVAL_MS = 300L
-private const val VIDEO_TOGGLE_AFTER_NAVIGATION_SETTLE_MS = 420L
 private const val MAX_ACCESSIBILITY_SCAN_NODES = 160
 
 private class TouchTrailOverlayView(context: Context) : View(context) {
@@ -682,15 +709,6 @@ internal fun shouldRefreshToggleCache(
     return isRelevantEvent && nowMs - lastRefreshAtMs >= TOGGLE_CACHE_REFRESH_INTERVAL_MS
 }
 
-internal fun remainingVideoToggleSettleDelayMs(
-    nowMs: Long,
-    lastVideoNavigationAtMs: Long,
-): Long {
-    if (lastVideoNavigationAtMs <= 0L) return 0L
-    val elapsedMs = nowMs - lastVideoNavigationAtMs
-    return (VIDEO_TOGGLE_AFTER_NAVIGATION_SETTLE_MS - elapsedMs).coerceAtLeast(0L)
-}
-
 internal data class ToggleBounds(
     val left: Int,
     val top: Int,
@@ -763,6 +781,11 @@ internal fun mobileQueuePolicyFor(command: RemoteCommand): MobileActionQueuePoli
             VideoActionKind.SWIPE_LEFT,
             VideoActionKind.SWIPE_RIGHT,
             -> MobileActionQueuePolicy.REPLACE_PENDING_VIDEO_NAVIGATION
+
+            VideoActionKind.DOUBLE_TAP_LIKE,
+            VideoActionKind.FAVORITE,
+            VideoActionKind.PLAY_PAUSE,
+            -> MobileActionQueuePolicy.REPLACE_PENDING_MATCHING_ACTIONS
 
             else -> MobileActionQueuePolicy.APPEND
         }
