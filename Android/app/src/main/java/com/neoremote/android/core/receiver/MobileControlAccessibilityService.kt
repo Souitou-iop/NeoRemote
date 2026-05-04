@@ -8,6 +8,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -30,6 +31,8 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
     private var discoveryPublisher: MobileReceiverDiscoveryPublisher? = null
     private var trailOverlayView: TouchTrailOverlayView? = null
     private var density: Float = 1f
+    private var viewportWidthPixels: Int = 1
+    private var viewportHeightPixels: Int = 1
     private val mainHandler = Handler(Looper.getMainLooper())
     private val actionQueue = MobileActionQueue(maxPendingActions = MAX_PENDING_ACTIONS)
     private val moveGestureAccumulator = MobileMoveGestureAccumulator()
@@ -47,11 +50,17 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
     private var cachedLikeToggleNode: AccessibilityNodeInfo? = null
     private var cachedFavoriteToggleNode: AccessibilityNodeInfo? = null
     private var lastToggleCacheRefreshAt = 0L
+    private var lastVideoNavigationAt = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        receiverServer?.closeScope()
+        discoveryPublisher?.closeScope()
+
         val metrics = resources.displayMetrics
         density = metrics.density.takeIf { it > 0f } ?: 1f
+        viewportWidthPixels = metrics.widthPixels.coerceAtLeast(1)
+        viewportHeightPixels = metrics.heightPixels.coerceAtLeast(1)
         planner = MobileInputPlanner.fromPhysicalViewport(
             widthPixels = metrics.widthPixels,
             heightPixels = metrics.heightPixels,
@@ -108,7 +117,7 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
                         moveGestureAccumulator.accept(action)
                     } else {
                         mainHandler.removeCallbacks(flushMoveGestureRunnable)
-                        if (queuePolicy == MobileActionQueuePolicy.REPLACE_PENDING) {
+                        if (queuePolicy != MobileActionQueuePolicy.APPEND) {
                             moveGestureAccumulator.reset()
                             listOf(action)
                         } else {
@@ -170,7 +179,12 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
 
                 val description = node.contentDescription?.toString().orEmpty()
                 if (description.matchesDouyinToggle(kind)) {
-                    match = node.closestClickableNode()
+                    val candidate = node.closestClickableNode()
+                    if (candidate?.isCurrentViewportToggleTarget() == true) {
+                        match = candidate
+                    } else {
+                        candidate?.recycle()
+                    }
                 }
                 match != null
             }
@@ -191,15 +205,23 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
             val description = node.contentDescription?.toString().orEmpty()
             when {
                 description.matchesDouyinToggle(VideoToggleKind.LIKE) ->
-                    node.closestClickableNode()?.let {
-                        replaceCachedToggleNode(VideoToggleKind.LIKE, it)
-                        foundLike = true
+                    node.closestClickableNode()?.let { candidate ->
+                        if (candidate.isCurrentViewportToggleTarget()) {
+                            replaceCachedToggleNode(VideoToggleKind.LIKE, candidate)
+                            foundLike = true
+                        } else {
+                            candidate.recycle()
+                        }
                     }
 
                 description.matchesDouyinToggle(VideoToggleKind.FAVORITE) ->
-                    node.closestClickableNode()?.let {
-                        replaceCachedToggleNode(VideoToggleKind.FAVORITE, it)
-                        foundFavorite = true
+                    node.closestClickableNode()?.let { candidate ->
+                        if (candidate.isCurrentViewportToggleTarget()) {
+                            replaceCachedToggleNode(VideoToggleKind.FAVORITE, candidate)
+                            foundFavorite = true
+                        } else {
+                            candidate.recycle()
+                        }
                     }
             }
             foundLike && foundFavorite
@@ -210,6 +232,10 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         val node = cachedToggleNode(kind) ?: return false
         val isFresh = node.refresh()
         if (!isFresh || !node.isEnabled || !node.isClickable) {
+            clearCachedToggleNode(kind)
+            return false
+        }
+        if (!node.isCurrentViewportToggleTarget()) {
             clearCachedToggleNode(kind)
             return false
         }
@@ -254,6 +280,17 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
         clearCachedToggleNode(VideoToggleKind.FAVORITE)
     }
 
+    private fun AccessibilityNodeInfo.isCurrentViewportToggleTarget(): Boolean {
+        if (!isVisibleToUser || !isEnabled || !isClickable) return false
+        val bounds = Rect()
+        getBoundsInScreen(bounds)
+        return isToggleBoundsOnCurrentViewport(
+            bounds = bounds.toToggleBounds(),
+            viewportWidth = viewportWidthPixels,
+            viewportHeight = viewportHeightPixels,
+        )
+    }
+
     private fun drainActionQueue() {
         if (actionInFlight) return
         val nextAction = actionQueue.removeFirstOrNull() ?: return
@@ -288,17 +325,43 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
                 to = action.to,
                 durationMs = action.durationMs,
                 showTrail = action.showTrail,
-                onFinished = onFinished,
+                onFinished = {
+                    if (action.clearsVideoToggleCache) {
+                        clearCachedDouyinToggles()
+                        lastToggleCacheRefreshAt = 0L
+                        lastVideoNavigationAt = SystemClock.elapsedRealtime()
+                    }
+                    onFinished()
+                },
             )
             is MobileInputAction.VideoToggle -> {
-                clickDouyinToggle(action.kind)
-                onFinished()
+                performVideoToggle(action.kind, onFinished)
             }
             is MobileInputAction.Global -> {
                 performGlobal(action.action)
                 onFinished()
             }
         }
+    }
+
+    private fun performVideoToggle(kind: VideoToggleKind, onFinished: () -> Unit) {
+        val delayMs = remainingVideoToggleSettleDelayMs(
+            nowMs = SystemClock.elapsedRealtime(),
+            lastVideoNavigationAtMs = lastVideoNavigationAt,
+        )
+        if (delayMs > 0L) {
+            mainHandler.postDelayed(
+                {
+                    clickDouyinToggle(kind)
+                    onFinished()
+                },
+                delayMs,
+            )
+            return
+        }
+
+        clickDouyinToggle(kind)
+        onFinished()
     }
 
     private fun dispatchMove(from: PointerPosition, to: PointerPosition, onFinished: () -> Unit) {
@@ -453,6 +516,7 @@ class MobileControlAccessibilityService : AccessibilityService(), MobileCommandH
 }
 
 private const val TOGGLE_CACHE_REFRESH_INTERVAL_MS = 300L
+private const val VIDEO_TOGGLE_AFTER_NAVIGATION_SETTLE_MS = 420L
 private const val MAX_ACCESSIBILITY_SCAN_NODES = 160
 
 private class TouchTrailOverlayView(context: Context) : View(context) {
@@ -618,6 +682,45 @@ internal fun shouldRefreshToggleCache(
     return isRelevantEvent && nowMs - lastRefreshAtMs >= TOGGLE_CACHE_REFRESH_INTERVAL_MS
 }
 
+internal fun remainingVideoToggleSettleDelayMs(
+    nowMs: Long,
+    lastVideoNavigationAtMs: Long,
+): Long {
+    if (lastVideoNavigationAtMs <= 0L) return 0L
+    val elapsedMs = nowMs - lastVideoNavigationAtMs
+    return (VIDEO_TOGGLE_AFTER_NAVIGATION_SETTLE_MS - elapsedMs).coerceAtLeast(0L)
+}
+
+internal data class ToggleBounds(
+    val left: Int,
+    val top: Int,
+    val right: Int,
+    val bottom: Int,
+) {
+    val isEmpty: Boolean
+        get() = left >= right || top >= bottom
+
+    val centerX: Int
+        get() = (left + right) / 2
+
+    val centerY: Int
+        get() = (top + bottom) / 2
+}
+
+internal fun isToggleBoundsOnCurrentViewport(
+    bounds: ToggleBounds,
+    viewportWidth: Int,
+    viewportHeight: Int,
+): Boolean {
+    if (bounds.isEmpty) return false
+    val width = viewportWidth.coerceAtLeast(1)
+    val height = viewportHeight.coerceAtLeast(1)
+    return bounds.centerX in 0..width && bounds.centerY in 0..height
+}
+
+private fun Rect.toToggleBounds(): ToggleBounds =
+    ToggleBounds(left = left, top = top, right = right, bottom = bottom)
+
 private fun AccessibilityNodeInfo.closestClickableNode(): AccessibilityNodeInfo? {
     var current: AccessibilityNodeInfo? = this
     var ownsCurrent = false
@@ -655,6 +758,12 @@ internal fun mobileQueuePolicyFor(command: RemoteCommand): MobileActionQueuePoli
         is RemoteCommand.SystemActionCommand -> MobileActionQueuePolicy.REPLACE_PENDING
         is RemoteCommand.VideoAction -> when (command.action) {
             VideoActionKind.BACK -> MobileActionQueuePolicy.REPLACE_PENDING
+            VideoActionKind.SWIPE_UP,
+            VideoActionKind.SWIPE_DOWN,
+            VideoActionKind.SWIPE_LEFT,
+            VideoActionKind.SWIPE_RIGHT,
+            -> MobileActionQueuePolicy.REPLACE_PENDING_VIDEO_NAVIGATION
+
             else -> MobileActionQueuePolicy.APPEND
         }
         else -> MobileActionQueuePolicy.APPEND

@@ -40,6 +40,7 @@ sealed interface MobileInputAction {
         val to: PointerPosition,
         val durationMs: Long,
         val showTrail: Boolean = true,
+        val clearsVideoToggleCache: Boolean = false,
     ) : MobileInputAction
     data class VideoToggle(val kind: VideoToggleKind) : MobileInputAction
     data class Global(val action: SystemAction) : MobileInputAction
@@ -98,6 +99,7 @@ class MobileMoveGestureAccumulator(
 enum class MobileActionQueuePolicy {
     APPEND,
     REPLACE_PENDING,
+    REPLACE_PENDING_VIDEO_NAVIGATION,
 }
 
 class MobileActionQueue(
@@ -109,8 +111,11 @@ class MobileActionQueue(
         get() = pendingActions.size
 
     fun enqueue(actions: List<MobileInputAction>, policy: MobileActionQueuePolicy) {
-        if (policy == MobileActionQueuePolicy.REPLACE_PENDING) {
-            pendingActions.clear()
+        when (policy) {
+            MobileActionQueuePolicy.REPLACE_PENDING -> pendingActions.clear()
+            MobileActionQueuePolicy.REPLACE_PENDING_VIDEO_NAVIGATION ->
+                pendingActions.removeAll { it.isVideoNavigationAction }
+            MobileActionQueuePolicy.APPEND -> Unit
         }
         actions.forEach { action ->
             pendingActions.addLast(action)
@@ -126,6 +131,9 @@ class MobileActionQueue(
         pendingActions.clear()
     }
 }
+
+private val MobileInputAction.isVideoNavigationAction: Boolean
+    get() = this is MobileInputAction.Swipe && clearsVideoToggleCache
 
 class MobileInputPlanner(
     viewportWidth: Int,
@@ -216,6 +224,7 @@ class MobileInputPlanner(
                     to = PointerPosition(center.x, height * 0.25f),
                     durationMs = VIDEO_SWIPE_DURATION_MS,
                     showTrail = false,
+                    clearsVideoToggleCache = true,
                 ),
             )
 
@@ -225,6 +234,7 @@ class MobileInputPlanner(
                     to = PointerPosition(center.x, height * 0.75f),
                     durationMs = VIDEO_SWIPE_DURATION_MS,
                     showTrail = false,
+                    clearsVideoToggleCache = true,
                 ),
             )
 
@@ -234,6 +244,7 @@ class MobileInputPlanner(
                     to = PointerPosition(width * 0.25f, center.y),
                     durationMs = VIDEO_SWIPE_DURATION_MS,
                     showTrail = false,
+                    clearsVideoToggleCache = true,
                 ),
             )
 
@@ -243,6 +254,7 @@ class MobileInputPlanner(
                     to = PointerPosition(width * 0.75f, center.y),
                     durationMs = VIDEO_SWIPE_DURATION_MS,
                     showTrail = false,
+                    clearsVideoToggleCache = true,
                 ),
             )
 

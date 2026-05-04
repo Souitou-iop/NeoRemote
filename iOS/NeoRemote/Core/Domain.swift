@@ -245,9 +245,44 @@ struct TouchSensitivitySettings: Equatable {
     }
 }
 
+enum ManualConnectTarget: String, CaseIterable, Identifiable, Equatable {
+    case desktop
+    case android
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .desktop:
+            return "Desktop"
+        case .android:
+            return "Android"
+        }
+    }
+
+    var defaultPort: String {
+        switch self {
+        case .desktop:
+            return "50505"
+        case .android:
+            return "51101"
+        }
+    }
+
+    var platform: DesktopPlatform? {
+        switch self {
+        case .desktop:
+            return nil
+        case .android:
+            return .android
+        }
+    }
+}
+
 struct ManualConnectDraft: Equatable {
     var host: String = ""
     var port: String = "50505"
+    var target: ManualConnectTarget = .desktop
 }
 
 enum SessionRoute: Equatable {

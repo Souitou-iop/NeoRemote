@@ -116,7 +116,11 @@ final class DeviceRegistry {
         defaults.removeObject(forKey: Keys.lastConnected)
     }
 
-    func validate(host: String, portText: String) throws -> DesktopEndpoint {
+    func validate(
+        host: String,
+        portText: String,
+        target: ManualConnectTarget = .desktop
+    ) throws -> DesktopEndpoint {
         let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedHost.isEmpty else {
             throw ConnectionFailure.invalidHost
@@ -127,10 +131,10 @@ final class DeviceRegistry {
         }
 
         return DesktopEndpoint(
-            displayName: "Desktop",
+            displayName: target.displayName,
             host: trimmedHost,
             port: port,
-            platform: nil,
+            platform: target.platform,
             lastSeenAt: Date(),
             source: .manual
         )

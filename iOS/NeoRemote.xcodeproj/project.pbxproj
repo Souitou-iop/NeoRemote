@@ -18,6 +18,7 @@
 		A1B2C3D4E5F6000000000109 /* HapticsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000009 /* HapticsController.swift */; };
 		A1B2C3D4E5F6000000000110 /* TouchSurfaceInputAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000010 /* TouchSurfaceInputAdapter.swift */; };
 		A1B2C3D4E5F6000000000111 /* SessionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000011 /* SessionCoordinator.swift */; };
+		A1B2C3D4E5F6000000000125 /* ConnectionDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000025 /* ConnectionDiagnostics.swift */; };
 		A1B2C3D4E5F6000000000112 /* OnboardingShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000012 /* OnboardingShellView.swift */; };
 		A1B2C3D4E5F6000000000113 /* RemoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000013 /* RemoteView.swift */; };
 		A1B2C3D4E5F6000000000114 /* DevicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6000000000014 /* DevicesView.swift */; };
@@ -52,6 +53,7 @@
 		A1B2C3D4E5F6000000000009 /* HapticsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000010 /* TouchSurfaceInputAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchSurfaceInputAdapter.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000011 /* SessionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionCoordinator.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6000000000025 /* ConnectionDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionDiagnostics.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000012 /* OnboardingShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingShellView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000013 /* RemoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6000000000014 /* DevicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevicesView.swift; sourceTree = "<group>"; };
@@ -126,6 +128,7 @@
 				A1B2C3D4E5F6000000000009 /* HapticsController.swift */,
 				A1B2C3D4E5F6000000000010 /* TouchSurfaceInputAdapter.swift */,
 				A1B2C3D4E5F6000000000011 /* SessionCoordinator.swift */,
+				A1B2C3D4E5F6000000000025 /* ConnectionDiagnostics.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -314,6 +317,7 @@
 				A1B2C3D4E5F6000000000109 /* HapticsController.swift in Sources */,
 				A1B2C3D4E5F6000000000110 /* TouchSurfaceInputAdapter.swift in Sources */,
 				A1B2C3D4E5F6000000000111 /* SessionCoordinator.swift in Sources */,
+				A1B2C3D4E5F6000000000125 /* ConnectionDiagnostics.swift in Sources */,
 				A1B2C3D4E5F6000000000112 /* OnboardingShellView.swift in Sources */,
 				A1B2C3D4E5F6000000000113 /* RemoteView.swift in Sources */,
 				A1B2C3D4E5F6000000000114 /* DevicesView.swift in Sources */,

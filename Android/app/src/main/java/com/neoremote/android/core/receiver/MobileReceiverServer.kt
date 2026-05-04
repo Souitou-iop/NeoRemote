@@ -94,8 +94,12 @@ class MobileReceiverServer(
             client.getOutputStream().flush()
             while (scope.isActive && !client.isClosed) {
                 val bytesRead = client.getInputStream().read(buffer)
-                if (bytesRead < 0) break
+                if (bytesRead < 0) {
+                    debugLog { "Android mobile receiver client closed ${client.remoteSocketAddress}" }
+                    break
+                }
                 if (bytesRead == 0) continue
+                debugLog { "Android mobile receiver read bytes=$bytesRead from ${client.remoteSocketAddress}" }
                 decoder.append(buffer.copyOf(bytesRead)).forEach { payload ->
                     val command = codec.decodeCommand(payload)
                     debugLog { "Android mobile receiver decoded command=$command" }

@@ -122,7 +122,7 @@ struct OnboardingShellView: View {
             Text("手动连接")
                 .font(.headline)
 
-            Text("如果当前网络环境无法自动发现 Desktop，可以直接输入地址和端口。")
+            Text("如果当前网络环境无法自动发现设备，可以直接输入地址和端口。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
@@ -217,22 +217,32 @@ private struct ManualConnectSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var host: String = ""
     @State private var port: String = ""
+    @State private var target: ManualConnectTarget = .desktop
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Desktop 地址") {
+                Section("目标设备") {
+                    Picker("类型", selection: $target) {
+                        ForEach(ManualConnectTarget.allCases) { target in
+                            Text(target.displayName).tag(target)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                Section("\(target.displayName) 地址") {
                     TextField("192.168.1.11", text: $host)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
-                    TextField("50505", text: $port)
+                    TextField(target.defaultPort, text: $port)
                         .keyboardType(.numberPad)
                 }
 
                 Section {
-                    Button("连接 Desktop") {
-                        coordinator.manualConnectDraft = ManualConnectDraft(host: host, port: port)
+                    Button("连接 \(target.displayName)") {
+                        coordinator.manualConnectDraft = ManualConnectDraft(host: host, port: port, target: target)
                         coordinator.connectUsingManualDraft()
                         dismiss()
                     }
@@ -243,6 +253,12 @@ private struct ManualConnectSheet: View {
             .onAppear {
                 host = coordinator.manualConnectDraft.host
                 port = coordinator.manualConnectDraft.port
+                target = coordinator.manualConnectDraft.target
+            }
+            .onChange(of: target) { oldTarget, newTarget in
+                if port.isEmpty || port == oldTarget.defaultPort {
+                    port = newTarget.defaultPort
+                }
             }
         }
     }

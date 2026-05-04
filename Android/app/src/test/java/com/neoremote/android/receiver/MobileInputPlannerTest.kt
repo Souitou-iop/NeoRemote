@@ -128,6 +128,7 @@ class MobileInputPlannerTest {
                 to = PointerPosition(200f, 200f),
                 durationMs = 120L,
                 showTrail = false,
+                clearsVideoToggleCache = true,
             ),
         )
     }

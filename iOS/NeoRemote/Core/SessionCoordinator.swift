@@ -92,6 +92,7 @@ final class SessionCoordinator: ObservableObject {
 
     func refreshDiscovery() {
         guard !isInBackground else { return }
+        errorMessage = nil
         status = activeEndpoint == nil ? .discovering : status
         statusMessage = "重新扫描局域网设备"
         discoveryService.refresh()
@@ -123,7 +124,11 @@ final class SessionCoordinator: ObservableObject {
 
     func connectUsingManualDraft() {
         do {
-            let endpoint = try registry.validate(host: manualConnectDraft.host, portText: manualConnectDraft.port)
+            let endpoint = try registry.validate(
+                host: manualConnectDraft.host,
+                portText: manualConnectDraft.port,
+                target: manualConnectDraft.target
+            )
             connect(to: endpoint, isRecovery: false)
         } catch {
             errorMessage = error.localizedDescription
@@ -133,11 +138,14 @@ final class SessionCoordinator: ObservableObject {
     }
 
     func connectUsingWiredMacAddress(host: String) {
-        manualConnectDraft = ManualConnectDraft(host: host, port: "50505")
+        manualConnectDraft = ManualConnectDraft(host: host, port: "50505", target: .desktop)
         connectUsingManualDraft()
     }
 
     func connect(to endpoint: DesktopEndpoint, isRecovery: Bool = false) {
+        ConnectionDiagnostics.log(
+            "coordinator-connect display=\(endpoint.displayName) host=\(endpoint.host) port=\(endpoint.port) platform=\(endpoint.platform?.rawValue ?? "nil") recovery=\(isRecovery)"
+        )
         errorMessage = nil
         activeEndpoint = endpoint
         status = isRecovery ? .reconnecting : .connecting
@@ -241,14 +249,22 @@ final class SessionCoordinator: ObservableObject {
     }
 
     func send(_ command: RemoteCommand) {
-        guard status == .connected else { return }
-        guard let transport else { return }
+        guard status == .connected else {
+            ConnectionDiagnostics.log("coordinator-send-dropped status=\(status.rawValue) command=\(command.diagnosticType)")
+            return
+        }
+        guard let transport else {
+            ConnectionDiagnostics.log("coordinator-send-dropped missing-transport command=\(command.diagnosticType)")
+            return
+        }
 
         do {
             let payload = try codec.encode(command)
+            ConnectionDiagnostics.log("coordinator-send command=\(command.diagnosticType) bytes=\(payload.count)")
             transport.send(payload)
             handleSemanticUpdate(for: command)
         } catch {
+            ConnectionDiagnostics.log("coordinator-send encode-error=\(error.localizedDescription) command=\(command.diagnosticType)")
             errorMessage = "命令编码失败：\(error.localizedDescription)"
         }
     }
@@ -358,6 +374,7 @@ final class SessionCoordinator: ObservableObject {
             status = activeEndpoint == nil ? .connecting : status
         case .connected:
             guard let activeEndpoint else { return }
+            ConnectionDiagnostics.log("coordinator-state-connected endpoint=\(activeEndpoint.host):\(activeEndpoint.port)")
             status = .connected
             route = .connected
             statusMessage = "已连接 \(activeEndpoint.displayName)"
@@ -370,8 +387,13 @@ final class SessionCoordinator: ObservableObject {
             showHUD("连接成功")
             startHeartbeat()
         case let .disconnected(errorDescription):
+            ConnectionDiagnostics.log("coordinator-state-disconnected error=\(errorDescription ?? "nil")")
             heartbeatTask?.cancel()
             heartbeatTask = nil
+            transport = nil
+            activeTransportID = nil
+            activeEndpoint = nil
+            videoInteractionState = VideoInteractionState()
             if let errorDescription, !errorDescription.isEmpty {
                 errorMessage = errorDescription
             }
@@ -379,8 +401,13 @@ final class SessionCoordinator: ObservableObject {
             route = .onboarding
             statusMessage = "连接已断开"
         case let .failed(errorDescription):
+            ConnectionDiagnostics.log("coordinator-state-failed error=\(errorDescription)")
             heartbeatTask?.cancel()
             heartbeatTask = nil
+            transport = nil
+            activeTransportID = nil
+            activeEndpoint = nil
+            videoInteractionState = VideoInteractionState()
             errorMessage = errorDescription
             status = .failed
             route = .onboarding
@@ -390,6 +417,7 @@ final class SessionCoordinator: ObservableObject {
     }
 
     private func handleProtocolMessage(_ message: ProtocolMessage) {
+        ConnectionDiagnostics.log("coordinator-message \(message.diagnosticType)")
         switch message {
         case .ack:
             statusMessage = "桌面端已确认连接"
@@ -446,6 +474,7 @@ final class SessionCoordinator: ObservableObject {
     }
 
     private func sendClientHello() {
+        ConnectionDiagnostics.log("coordinator-send-client-hello")
         send(
             .clientHello(
                 ClientHelloPayload(
@@ -512,4 +541,48 @@ final class SessionCoordinator: ObservableObject {
         }
     }
 
+}
+
+private extension RemoteCommand {
+    var diagnosticType: String {
+        switch self {
+        case .clientHello:
+            return "clientHello"
+        case .tap:
+            return "tap"
+        case .scroll:
+            return "scroll"
+        case .move:
+            return "move"
+        case .drag:
+            return "drag"
+        case .videoAction:
+            return "videoAction"
+        case .videoStateRequest:
+            return "videoStateRequest"
+        case .systemAction:
+            return "systemAction"
+        case .screenGesture:
+            return "screenGesture"
+        case .heartbeat:
+            return "heartbeat"
+        }
+    }
+}
+
+private extension ProtocolMessage {
+    var diagnosticType: String {
+        switch self {
+        case .ack:
+            return "ack"
+        case .status:
+            return "status"
+        case .videoState:
+            return "videoState"
+        case .heartbeat:
+            return "heartbeat"
+        case .unknown(let type):
+            return "unknown:\(type)"
+        }
+    }
 }

@@ -72,6 +72,26 @@ final class SessionCoordinatorTests: XCTestCase {
         XCTAssertNotNil(coordinator.errorMessage)
     }
 
+    func testManualAndroidConnectUsesAndroidPortAndPlatform() {
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: MockDiscoveryService(),
+            transportFactory: { MockRemoteTransport() }
+        )
+        coordinator.manualConnectDraft = ManualConnectDraft(
+            host: "192.168.1.88",
+            port: "51101",
+            target: .android
+        )
+
+        coordinator.connectUsingManualDraft()
+
+        XCTAssertEqual(coordinator.activeEndpoint?.displayName, "Android")
+        XCTAssertEqual(coordinator.activeEndpoint?.port, 51101)
+        XCTAssertEqual(coordinator.activeEndpoint?.platform, .android)
+        XCTAssertTrue(coordinator.isAndroidReceiverTarget)
+    }
+
     func testWiredMacConnectUsesDefaultTcpPort() async {
         var transports: [ControlledRemoteTransport] = []
         let coordinator = SessionCoordinator(
@@ -126,6 +146,51 @@ final class SessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.status, .connected)
         XCTAssertEqual(coordinator.activeEndpoint?.host, currentEndpoint.host)
         XCTAssertEqual(coordinator.statusMessage, "已连接 \(currentEndpoint.displayName)")
+    }
+
+    func testRefreshAfterConnectionFailureClearsStaleErrorAndScansAgain() async {
+        var transports: [ControlledRemoteTransport] = []
+        let coordinator = SessionCoordinator(
+            registry: registry,
+            discoveryService: MockDiscoveryService(),
+            transportFactory: {
+                let transport = ControlledRemoteTransport()
+                transports.append(transport)
+                return transport
+            }
+        )
+
+        coordinator.connect(to: DesktopEndpoint(displayName: "Offline Mac", host: "10.0.0.99", port: 50505, source: .manual))
+        transports.first?.emitState(.failed(errorDescription: "Network.NWError error 53"))
+        await settleAsyncUpdates()
+
+        coordinator.refreshDiscovery()
+        await settleAsyncUpdates()
+
+        XCTAssertNil(coordinator.errorMessage)
+        XCTAssertNil(coordinator.activeEndpoint)
+        XCTAssertEqual(coordinator.status, .discovering)
+        XCTAssertEqual(coordinator.statusMessage, "暂未发现设备，可手动输入地址")
+    }
+
+    func testTcpTransportConnectDoesNotEmitSyntheticDisconnectBeforeConnecting() {
+        let transport = TCPRemoteTransport()
+        defer { transport.disconnect() }
+        var states: [TransportConnectionState] = []
+        transport.onStateChange = { states.append($0) }
+
+        transport.connect(
+            to: DesktopEndpoint(
+                displayName: "Android",
+                host: "192.0.2.1",
+                port: 51101,
+                platform: .android,
+                source: .manual
+            )
+        )
+
+        XCTAssertEqual(states.first, .connecting)
+        XCTAssertFalse(states.contains(.disconnected(errorDescription: nil)))
     }
 
     func testBackgroundStopsDiscoveryWithoutPublishingEmptyState() async {

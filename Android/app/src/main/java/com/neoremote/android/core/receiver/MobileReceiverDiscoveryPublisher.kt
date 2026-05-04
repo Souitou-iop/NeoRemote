@@ -15,6 +15,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.InetSocketAddress
 
 class MobileReceiverDiscoveryPublisher(
     context: Context,
@@ -28,10 +29,12 @@ class MobileReceiverDiscoveryPublisher(
         ?.apply { setReferenceCounted(false) }
     private var registrationListener: NsdManager.RegistrationListener? = null
     private var udpJob: Job? = null
+    private var udpSocket: DatagramSocket? = null
     private val serviceName: String
         get() = "NeoRemote Android ${Build.MODEL.orEmpty()}".trim()
 
     fun start() {
+        stop()
         registerBonjour()
         startUdpResponder()
     }
@@ -43,6 +46,8 @@ class MobileReceiverDiscoveryPublisher(
         registrationListener = null
         udpJob?.cancel()
         udpJob = null
+        runCatching { udpSocket?.close() }
+        udpSocket = null
         runCatching {
             if (multicastLock?.isHeld == true) multicastLock.release()
         }
@@ -88,8 +93,11 @@ class MobileReceiverDiscoveryPublisher(
         udpJob = scope.launch {
             runCatching {
                 multicastLock?.acquire()
-                DatagramSocket(UDP_DISCOVERY_PORT).use { socket ->
+                DatagramSocket(null).use { socket ->
+                    udpSocket = socket
+                    socket.reuseAddress = true
                     socket.broadcast = true
+                    socket.bind(InetSocketAddress(UDP_DISCOVERY_PORT))
                     val buffer = ByteArray(512)
                     while (isActive) {
                         val packet = DatagramPacket(buffer, buffer.size)
@@ -103,6 +111,10 @@ class MobileReceiverDiscoveryPublisher(
             }.onFailure { error ->
                 if (isActive) {
                     Log.w(TAG, "Android receiver UDP responder failed", error)
+                }
+            }.also {
+                if (udpSocket?.isClosed == true) {
+                    udpSocket = null
                 }
             }
         }

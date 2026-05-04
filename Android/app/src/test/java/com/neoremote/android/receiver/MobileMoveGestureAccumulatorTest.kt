@@ -11,8 +11,11 @@ import com.neoremote.android.core.receiver.MobileActionQueuePolicy
 import com.neoremote.android.core.receiver.MobileInputAction
 import com.neoremote.android.core.receiver.MobileMoveGestureAccumulator
 import com.neoremote.android.core.receiver.PointerPosition
+import com.neoremote.android.core.receiver.ToggleBounds
 import com.neoremote.android.core.receiver.VideoToggleKind
+import com.neoremote.android.core.receiver.isToggleBoundsOnCurrentViewport
 import com.neoremote.android.core.receiver.mobileQueuePolicyFor
+import com.neoremote.android.core.receiver.remainingVideoToggleSettleDelayMs
 import com.neoremote.android.core.receiver.shouldRefreshToggleCache
 import org.junit.Test
 
@@ -131,13 +134,43 @@ class MobileMoveGestureAccumulatorTest {
     }
 
     @Test
-    fun `video actions append instead of replacing pending actions`() {
+    fun `video navigation replaces stale pending navigation actions`() {
         assertThat(mobileQueuePolicyFor(RemoteCommand.VideoAction(VideoActionKind.SWIPE_UP)))
-            .isEqualTo(MobileActionQueuePolicy.APPEND)
+            .isEqualTo(MobileActionQueuePolicy.REPLACE_PENDING_VIDEO_NAVIGATION)
         assertThat(mobileQueuePolicyFor(RemoteCommand.VideoAction(VideoActionKind.DOUBLE_TAP_LIKE)))
             .isEqualTo(MobileActionQueuePolicy.APPEND)
         assertThat(mobileQueuePolicyFor(RemoteCommand.ScreenGesture(ScreenGestureKind.TAP, 0.5, 0.5)))
             .isEqualTo(MobileActionQueuePolicy.APPEND)
+    }
+
+    @Test
+    fun `video navigation replacement keeps non navigation short video actions`() {
+        val queue = MobileActionQueue(maxPendingActions = 6)
+        val staleNext = MobileInputAction.Swipe(
+            PointerPosition(0f, 400f),
+            PointerPosition(0f, 100f),
+            durationMs = 120L,
+            clearsVideoToggleCache = true,
+        )
+        val like = MobileInputAction.VideoToggle(VideoToggleKind.LIKE)
+        val favorite = MobileInputAction.VideoToggle(VideoToggleKind.FAVORITE)
+        val latestNext = MobileInputAction.Swipe(
+            PointerPosition(0f, 420f),
+            PointerPosition(0f, 120f),
+            durationMs = 120L,
+            clearsVideoToggleCache = true,
+        )
+
+        queue.enqueue(listOf(staleNext, like, favorite), MobileActionQueuePolicy.APPEND)
+        queue.enqueue(
+            listOf(latestNext),
+            MobileActionQueuePolicy.REPLACE_PENDING_VIDEO_NAVIGATION,
+        )
+
+        assertThat(queue.removeFirstOrNull()).isEqualTo(like)
+        assertThat(queue.removeFirstOrNull()).isEqualTo(favorite)
+        assertThat(queue.removeFirstOrNull()).isEqualTo(latestNext)
+        assertThat(queue.removeFirstOrNull()).isNull()
     }
 
     @Test
@@ -188,5 +221,56 @@ class MobileMoveGestureAccumulatorTest {
                 lastRefreshAtMs = 1_000L,
             ),
         ).isTrue()
+    }
+
+    @Test
+    fun `video toggle waits briefly after video navigation`() {
+        assertThat(
+            remainingVideoToggleSettleDelayMs(
+                nowMs = 1_100L,
+                lastVideoNavigationAtMs = 1_000L,
+            ),
+        ).isEqualTo(320L)
+
+        assertThat(
+            remainingVideoToggleSettleDelayMs(
+                nowMs = 1_500L,
+                lastVideoNavigationAtMs = 1_000L,
+            ),
+        ).isEqualTo(0L)
+
+        assertThat(
+            remainingVideoToggleSettleDelayMs(
+                nowMs = 1_100L,
+                lastVideoNavigationAtMs = 0L,
+            ),
+        ).isEqualTo(0L)
+    }
+
+    @Test
+    fun `toggle candidate must be centered inside the current viewport`() {
+        assertThat(
+            isToggleBoundsOnCurrentViewport(
+                bounds = ToggleBounds(left = 900, top = 1_200, right = 1_020, bottom = 1_320),
+                viewportWidth = 1_080,
+                viewportHeight = 2_400,
+            ),
+        ).isTrue()
+
+        assertThat(
+            isToggleBoundsOnCurrentViewport(
+                bounds = ToggleBounds(left = 900, top = -400, right = 1_020, bottom = -280),
+                viewportWidth = 1_080,
+                viewportHeight = 2_400,
+            ),
+        ).isFalse()
+
+        assertThat(
+            isToggleBoundsOnCurrentViewport(
+                bounds = ToggleBounds(left = 900, top = 2_520, right = 1_020, bottom = 2_640),
+                viewportWidth = 1_080,
+                viewportHeight = 2_400,
+            ),
+        ).isFalse()
     }
 }

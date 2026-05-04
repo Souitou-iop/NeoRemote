@@ -24,7 +24,8 @@ final class TCPRemoteTransport: RemoteTransporting {
     }
 
     func connect(to endpoint: DesktopEndpoint) {
-        disconnect()
+        ConnectionDiagnostics.log("transport-connect-request host=\(endpoint.host) port=\(endpoint.port)")
+        cancelConnection(notify: false)
         manualDisconnect = false
         decoder = JsonMessageStreamDecoder()
 
@@ -40,6 +41,7 @@ final class TCPRemoteTransport: RemoteTransporting {
         self.connection = connection
 
         onStateChange?(.connecting)
+        ConnectionDiagnostics.log("transport-start host=\(endpoint.host) port=\(endpoint.port)")
 
         connection.stateUpdateHandler = { [weak self] state in
             DispatchQueue.main.async {
@@ -51,22 +53,35 @@ final class TCPRemoteTransport: RemoteTransporting {
     }
 
     func disconnect() {
+        cancelConnection(notify: true)
+    }
+
+    private func cancelConnection(notify: Bool) {
         manualDisconnect = true
         connection?.cancel()
         connection = nil
-        onStateChange?(.disconnected(errorDescription: nil))
+        ConnectionDiagnostics.log("transport-disconnect manual=true")
+        if notify {
+            onStateChange?(.disconnected(errorDescription: nil))
+        }
     }
 
     func send(_ data: Data) {
+        ConnectionDiagnostics.log("transport-send bytes=\(data.count) type=\(data.protocolTypeDescription)")
         connection?.send(content: data, completion: .contentProcessed { [weak self] error in
-            guard let error else { return }
+            guard let error else {
+                ConnectionDiagnostics.log("transport-send-complete ok")
+                return
+            }
             DispatchQueue.main.async {
+                ConnectionDiagnostics.log("transport-send-complete error=\(error.localizedDescription)")
                 self?.onStateChange?(.failed(errorDescription: error.localizedDescription))
             }
         })
     }
 
     private func handle(state: NWConnection.State) {
+        ConnectionDiagnostics.log("transport-state \(state.diagnosticDescription)")
         switch state {
         case .ready:
             onStateChange?(.connected)
@@ -88,6 +103,7 @@ final class TCPRemoteTransport: RemoteTransporting {
         connection?.receive(minimumIncompleteLength: 1, maximumLength: 1024) { [weak self] data, _, isComplete, error in
             DispatchQueue.main.async {
                 if let data, !data.isEmpty, let self {
+                    ConnectionDiagnostics.log("transport-receive bytes=\(data.count) type=\(data.protocolTypeDescription)")
                     do {
                         let payloads = try self.decoder.append(data)
                         payloads.forEach { payload in
@@ -102,11 +118,13 @@ final class TCPRemoteTransport: RemoteTransporting {
                 }
 
                 if let error {
+                    ConnectionDiagnostics.log("transport-receive error=\(error.localizedDescription)")
                     self?.onStateChange?(.failed(errorDescription: error.localizedDescription))
                     return
                 }
 
                 if isComplete {
+                    ConnectionDiagnostics.log("transport-receive complete")
                     self?.onStateChange?(.disconnected(errorDescription: self?.manualDisconnect == true ? nil : "连接已关闭"))
                     return
                 }
@@ -114,6 +132,39 @@ final class TCPRemoteTransport: RemoteTransporting {
                 self?.receiveNextMessage()
             }
         }
+    }
+}
+
+private extension NWConnection.State {
+    var diagnosticDescription: String {
+        switch self {
+        case .setup:
+            return "setup"
+        case .waiting(let error):
+            return "waiting error=\(error.localizedDescription)"
+        case .preparing:
+            return "preparing"
+        case .ready:
+            return "ready"
+        case .failed(let error):
+            return "failed error=\(error.localizedDescription)"
+        case .cancelled:
+            return "cancelled"
+        @unknown default:
+            return "unknown"
+        }
+    }
+}
+
+private extension Data {
+    var protocolTypeDescription: String {
+        guard
+            let object = try? JSONSerialization.jsonObject(with: self) as? [String: Any],
+            let type = object["type"] as? String
+        else {
+            return "unknown"
+        }
+        return type
     }
 }
 
