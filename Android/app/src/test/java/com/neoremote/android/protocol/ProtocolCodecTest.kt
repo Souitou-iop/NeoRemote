@@ -208,4 +208,40 @@ class ProtocolCodecTest {
             ),
         )
     }
+
+    @Test
+    fun `decode screen gesture clamps coordinates exceeding 1`() {
+        val command = codec.decodeCommand(
+            """{"type":"screenGesture","kind":"swipe","startX":1.5,"startY":2.0,"endX":1.2,"endY":3.0,"durationMs":200}""".encodeToByteArray(),
+        )
+
+        assertThat(command).isEqualTo(
+            RemoteCommand.ScreenGesture(
+                kind = ScreenGestureKind.SWIPE,
+                startX = 1.0,
+                startY = 1.0,
+                endX = 1.0,
+                endY = 1.0,
+                durationMs = 200L,
+            ),
+        )
+    }
+
+    @Test
+    fun `decode screen gesture clamps negative coordinates to zero`() {
+        val command = codec.decodeCommand(
+            """{"type":"screenGesture","kind":"tap","startX":-0.5,"startY":-1.0,"endX":-0.3,"endY":-2.0,"durationMs":100}""".encodeToByteArray(),
+        )
+
+        assertThat(command).isEqualTo(
+            RemoteCommand.ScreenGesture(
+                kind = ScreenGestureKind.TAP,
+                startX = 0.0,
+                startY = 0.0,
+                endX = 0.0,
+                endY = 0.0,
+                durationMs = 100L,
+            ),
+        )
+    }
 }

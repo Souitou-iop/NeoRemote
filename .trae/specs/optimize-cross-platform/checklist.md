@@ -1,0 +1,20 @@
+- [x] Android Release 构建中 `isMinifyEnabled` 已设为 `true`
+- [x] ProGuard 规则文件包含 kotlinx.serialization 保留规则
+- [x] ProGuard 规则文件包含 AccessibilityService 相关类保留规则
+- [ ] `./gradlew assembleRelease` 构建成功
+- [x] Android ProtocolCodec 的 screenGesture 坐标被 clamp 到 [0.0, 1.0] 范围
+- [x] Android ProtocolCodecTest 包含坐标超范围的测试用例
+- [x] Windows Protocol.hpp 包含 SystemAction、VideoAction、ScreenGesture 枚举值
+- [x] Windows Protocol.hpp 的 RemoteCommand 包含对应字段和工厂方法
+- [x] Windows Protocol.cpp 能成功解码 systemAction 命令
+- [x] Windows Protocol.cpp 能成功解码 videoAction 命令
+- [x] Windows Protocol.cpp 能成功解码 screenGesture 命令
+- [x] Windows 未知命令类型抛出 ProtocolCodecError 而非崩溃
+- [x] Windows MakeClientId 使用 UUID 格式而非时间戳
+- [x] CI build-all.yml 中 iOS 构建步骤包含 DerivedData 缓存配置
+- [x] CI build-all.yml 中 macOS 构建步骤包含 SPM 缓存配置
+- [x] CI beta-release.yml 同步了相同的缓存配置
+- [x] Android gradle.properties 包含 `org.gradle.parallel=true`
+- [x] Android gradle.properties 包含 `org.gradle.caching=true`
+- [x] iOS SessionCoordinator.setCursorSensitivity 在值未变化时跳过更新
+- [x] iOS SessionCoordinator.setSwipeSensitivity 在值未变化时跳过更新

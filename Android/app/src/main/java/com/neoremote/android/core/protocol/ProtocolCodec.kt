@@ -162,10 +162,10 @@ class ProtocolCodec {
 
             "screenGesture" -> RemoteCommand.ScreenGesture(
                 kind = payload.string("kind").toScreenGestureKind(),
-                startX = payload.double("startX"),
-                startY = payload.double("startY"),
-                endX = payload.double("endX"),
-                endY = payload.double("endY"),
+                startX = payload.double("startX").coerceIn(0.0, 1.0),
+                startY = payload.double("startY").coerceIn(0.0, 1.0),
+                endX = payload.double("endX").coerceIn(0.0, 1.0),
+                endY = payload.double("endY").coerceIn(0.0, 1.0),
                 durationMs = payload.long("durationMs").takeIf { it > 0L } ?: 180L,
             )
 

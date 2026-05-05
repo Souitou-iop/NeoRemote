@@ -2,12 +2,14 @@
 
 #include <array>
 #include <chrono>
+#include <objbase.h>
 #include <sstream>
 #include <stdexcept>
 #include <thread>
 #include <vector>
 
 #pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "ole32.lib")
 
 namespace NeoRemote::Windows {
 namespace {
@@ -291,10 +293,19 @@ Core::RemoteClientEndpoint TcpRemoteServer::EndpointFromSocket(SOCKET socket)
 
 std::string TcpRemoteServer::MakeClientId()
 {
-    const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
-    std::ostringstream stream;
-    stream << "client-" << now;
-    return stream.str();
+    GUID guid;
+    if (CoCreateGuid(&guid) != S_OK) {
+        const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+        std::ostringstream stream;
+        stream << "client-" << now;
+        return stream.str();
+    }
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "client-%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+        guid.Data1, guid.Data2, guid.Data3,
+        guid.Data4[0], guid.Data4[1], guid.Data4[2], guid.Data4[3],
+        guid.Data4[4], guid.Data4[5], guid.Data4[6], guid.Data4[7]);
+    return buffer;
 }
 
 } // namespace NeoRemote::Windows

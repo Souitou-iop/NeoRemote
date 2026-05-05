@@ -26,6 +26,9 @@ enum class RemoteCommandType {
     Scroll,
     Drag,
     Heartbeat,
+    SystemAction,
+    VideoAction,
+    ScreenGesture,
 };
 
 struct RemoteCommand {
@@ -39,6 +42,14 @@ struct RemoteCommand {
     std::string clientId;
     std::string displayName;
     std::string platform;
+    std::string systemAction;
+    std::string videoAction;
+    std::string screenGestureKind;
+    double startX = 0;
+    double startY = 0;
+    double endX = 0;
+    double endY = 0;
+    long long durationMs = 0;
 
     static RemoteCommand ClientHello(std::string clientId, std::string displayName, std::string platform);
     static RemoteCommand Move(double dx, double dy);
@@ -47,6 +58,9 @@ struct RemoteCommand {
     static RemoteCommand Drag(DragState state, double dx, double dy);
     static RemoteCommand Drag(DragState state, double dx, double dy, MouseButtonKind button);
     static RemoteCommand Heartbeat();
+    static RemoteCommand SystemAction(std::string action);
+    static RemoteCommand VideoAction(std::string action);
+    static RemoteCommand ScreenGesture(std::string kind, double startX, double startY, double endX, double endY, long long durationMs);
 
     bool operator==(const RemoteCommand& other) const = default;
 };

@@ -1,5 +1,6 @@
 #include "NeoRemote/Core/Protocol.hpp"
 
+#include <algorithm>
 #include <charconv>
 #include <cctype>
 #include <cmath>
@@ -208,6 +209,35 @@ RemoteCommand RemoteCommand::Heartbeat()
     return RemoteCommand{};
 }
 
+RemoteCommand RemoteCommand::SystemAction(std::string actionValue)
+{
+    RemoteCommand command;
+    command.type = RemoteCommandType::SystemAction;
+    command.systemAction = std::move(actionValue);
+    return command;
+}
+
+RemoteCommand RemoteCommand::VideoAction(std::string actionValue)
+{
+    RemoteCommand command;
+    command.type = RemoteCommandType::VideoAction;
+    command.videoAction = std::move(actionValue);
+    return command;
+}
+
+RemoteCommand RemoteCommand::ScreenGesture(std::string kindValue, double startXValue, double startYValue, double endXValue, double endYValue, long long durationMsValue)
+{
+    RemoteCommand command;
+    command.type = RemoteCommandType::ScreenGesture;
+    command.screenGestureKind = std::move(kindValue);
+    command.startX = startXValue;
+    command.startY = startYValue;
+    command.endX = endXValue;
+    command.endY = endYValue;
+    command.durationMs = durationMsValue;
+    return command;
+}
+
 ProtocolMessage ProtocolMessage::Ack()
 {
     return ProtocolMessage{ProtocolMessageType::Ack, ""};
@@ -269,6 +299,30 @@ RemoteCommand ProtocolCodec::DecodeCommand(std::string_view json) const
     }
     if (*type == "heartbeat") {
         return RemoteCommand::Heartbeat();
+    }
+    if (*type == "systemAction") {
+        const auto action = FindString(json, "action").value_or("back");
+        ValidateText(action, "action");
+        return RemoteCommand::SystemAction(action);
+    }
+    if (*type == "videoAction") {
+        const auto action = FindString(json, "action").value_or("unknown");
+        ValidateText(action, "action");
+        return RemoteCommand::VideoAction(action);
+    }
+    if (*type == "screenGesture") {
+        const auto kind = FindString(json, "kind").value_or("unknown");
+        double sx = ReadNumber(json, "startX", 0, 1.0);
+        double sy = ReadNumber(json, "startY", 0, 1.0);
+        double ex = ReadNumber(json, "endX", 0, 1.0);
+        double ey = ReadNumber(json, "endY", 0, 1.0);
+        sx = std::clamp(sx, 0.0, 1.0);
+        sy = std::clamp(sy, 0.0, 1.0);
+        ex = std::clamp(ex, 0.0, 1.0);
+        ey = std::clamp(ey, 0.0, 1.0);
+        const auto durationMsVal = FindNumber(json, "durationMs");
+        const long long durationMs = durationMsVal ? static_cast<long long>(*durationMsVal) : 180LL;
+        return RemoteCommand::ScreenGesture(kind, sx, sy, ex, ey, durationMs);
     }
 
     throw ProtocolCodecError("Unknown command type: " + *type);

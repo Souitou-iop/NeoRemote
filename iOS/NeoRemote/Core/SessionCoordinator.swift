@@ -197,6 +197,7 @@ final class SessionCoordinator: ObservableObject {
     }
 
     func setCursorSensitivity(_ value: Double) {
+        guard value != touchSensitivitySettings.cursorSensitivity else { return }
         updateTouchSensitivity(
             TouchSensitivitySettings(
                 cursorSensitivity: value,
@@ -206,6 +207,7 @@ final class SessionCoordinator: ObservableObject {
     }
 
     func setSwipeSensitivity(_ value: Double) {
+        guard value != touchSensitivitySettings.swipeSensitivity else { return }
         updateTouchSensitivity(
             TouchSensitivitySettings(
                 cursorSensitivity: touchSensitivitySettings.cursorSensitivity,

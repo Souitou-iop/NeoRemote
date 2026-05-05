@@ -373,6 +373,64 @@ void TestClientHelloTrustedAutoAllow()
     Require(service.ConnectedClients().size() == 1, "trusted client was not connected");
 }
 
+void TestDecodeSystemActionCommand()
+{
+    ProtocolCodec codec;
+    const auto command = codec.DecodeCommand(R"({"type":"systemAction","action":"back"})");
+    Require(command.type == RemoteCommandType::SystemAction, "systemAction command type mismatch");
+    Require(command.systemAction == "back", "systemAction action mismatch");
+}
+
+void TestDecodeSystemActionDefaultsToBack()
+{
+    ProtocolCodec codec;
+    const auto command = codec.DecodeCommand(R"({"type":"systemAction"})");
+    Require(command.type == RemoteCommandType::SystemAction, "systemAction default type mismatch");
+    Require(command.systemAction == "back", "systemAction default action mismatch");
+}
+
+void TestDecodeVideoActionCommand()
+{
+    ProtocolCodec codec;
+    const auto command = codec.DecodeCommand(R"({"type":"videoAction","action":"play"})");
+    Require(command.type == RemoteCommandType::VideoAction, "videoAction command type mismatch");
+    Require(command.videoAction == "play", "videoAction action mismatch");
+}
+
+void TestDecodeVideoActionDefaultsToUnknown()
+{
+    ProtocolCodec codec;
+    const auto command = codec.DecodeCommand(R"({"type":"videoAction"})");
+    Require(command.type == RemoteCommandType::VideoAction, "videoAction default type mismatch");
+    Require(command.videoAction == "unknown", "videoAction default action mismatch");
+}
+
+void TestDecodeScreenGestureCommand()
+{
+    ProtocolCodec codec;
+    const auto command = codec.DecodeCommand(R"({"type":"screenGesture","kind":"swipe","startX":0.1,"startY":0.2,"endX":0.8,"endY":0.9,"durationMs":300})");
+    Require(command.type == RemoteCommandType::ScreenGesture, "screenGesture command type mismatch");
+    Require(command.screenGestureKind == "swipe", "screenGesture kind mismatch");
+    RequireEqual(command.startX, 0.1, "screenGesture startX mismatch");
+    RequireEqual(command.startY, 0.2, "screenGesture startY mismatch");
+    RequireEqual(command.endX, 0.8, "screenGesture endX mismatch");
+    RequireEqual(command.endY, 0.9, "screenGesture endY mismatch");
+    Require(command.durationMs == 300, "screenGesture durationMs mismatch");
+}
+
+void TestDecodeScreenGestureDefaults()
+{
+    ProtocolCodec codec;
+    const auto command = codec.DecodeCommand(R"({"type":"screenGesture","kind":"tap"})");
+    Require(command.type == RemoteCommandType::ScreenGesture, "screenGesture default type mismatch");
+    Require(command.screenGestureKind == "tap", "screenGesture default kind mismatch");
+    Require(command.startX == 0, "screenGesture default startX mismatch");
+    Require(command.startY == 0, "screenGesture default startY mismatch");
+    Require(command.endX == 0, "screenGesture default endX mismatch");
+    Require(command.endY == 0, "screenGesture default endY mismatch");
+    Require(command.durationMs == 180, "screenGesture default durationMs mismatch");
+}
+
 void TestDisconnectReturnsToIdleListening()
 {
     RecordingServer server;
@@ -418,6 +476,12 @@ int main()
         TestMultipleConnectionsCanBeApproved,
         TestClientHelloTrustedAutoAllow,
         TestDisconnectReturnsToIdleListening,
+        TestDecodeSystemActionCommand,
+        TestDecodeSystemActionDefaultsToBack,
+        TestDecodeVideoActionCommand,
+        TestDecodeVideoActionDefaultsToUnknown,
+        TestDecodeScreenGestureCommand,
+        TestDecodeScreenGestureDefaults,
     };
 
     try {
